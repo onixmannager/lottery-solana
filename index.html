@@ -923,8 +923,7 @@ function _inputCancel() {
   el("input-modal").classList.remove("flex");
   _inputResolve && _inputResolve(null);
 }
-// Enter key in input field
-el("input-field").addEventListener("keydown", e => { if (e.key === "Enter") _inputAccept(); if (e.key === "Escape") _inputCancel(); });
+// Enter key in input field — attached in the load handler below
 
 // ══════════════════════════════════════════════
 //  PDA FUNCTIONS
@@ -1087,7 +1086,9 @@ function txSuccess(sig) {
   el("tx-success").style.display = "block";
 }
 function txError(msg) {
-  el("tx-desc-error").textContent = msg.length > 120 ? msg.slice(0, 120) + "…" : msg;
+  console.error("TX ERROR FULL:", msg);
+  const display = msg.length > 200 ? msg.slice(0, 200) + "…" : msg;
+  el("tx-desc-error").textContent = display;
   el("tx-loading").style.display = "none";
   el("tx-error").style.display   = "block";
 }
@@ -1448,6 +1449,15 @@ function resetCountdown() {
 //  INIT
 // ══════════════════════════════════════════════
 window.addEventListener("load", () => {
+  // Attach input field keyboard shortcuts
+  const inputField = el("input-field");
+  if (inputField) {
+    inputField.addEventListener("keydown", e => {
+      if (e.key === "Enter") _inputAccept();
+      if (e.key === "Escape") _inputCancel();
+    });
+  }
+
   renderWinners(); // show HOF even before connecting
   if (window.solana?.isPhantom && window.solana.isConnected) {
     window.solana.connect({ onlyIfTrusted: true }).then(r => {

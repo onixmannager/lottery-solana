@@ -163,6 +163,32 @@
     ════════════════════════════ */
     #dashboard { display: none; padding-bottom: 80px; }
 
+    /* ── Lottery not initialized message ── */
+    #not-initialized {
+      display: none;
+      text-align: center;
+      padding: 60px 24px;
+      margin-top: 40px;
+    }
+    #not-initialized .ni-icon {
+      font-size: 4rem;
+      margin-bottom: 20px;
+      opacity: 0.5;
+    }
+    #not-initialized h2 {
+      font-size: 1.8rem;
+      margin-bottom: 12px;
+      color: var(--text);
+    }
+    #not-initialized p {
+      color: var(--muted-hi);
+      margin-bottom: 28px;
+      max-width: 500px;
+      margin-left: auto;
+      margin-right: auto;
+      line-height: 1.6;
+    }
+
     /* ── Hero prize ── */
     .prize-hero {
       text-align: center; padding: 56px 0 48px;
@@ -207,702 +233,599 @@
     .card-title { font-size: .7rem; font-weight: 700; letter-spacing: .2em; color: var(--muted); }
     .card-badge {
       font-size: .65rem; font-weight: 700; letter-spacing: .1em;
-      padding: 2px 8px; border-radius: 20px;
-      background: rgba(99,102,241,.12); color: var(--primary-hi);
-      border: 1px solid rgba(99,102,241,.2);
+      background: rgba(99,102,241,.1); color: var(--primary-hi);
+      border: 1px solid rgba(99,102,241,.25); border-radius: 14px;
+      padding: 2px 9px;
     }
 
-    /* Wallet card */
-    .addr-row {
-      display: flex; align-items: center; gap: 8px;
-      margin-bottom: 6px;
+    /* ── User card ── */
+    .user-panel {
+      display: flex; align-items: center; gap: 14px;
+      background: var(--surface); border-radius: 12px; padding: 16px;
+      margin-bottom: 20px;
     }
-    .addr-text { font-family: var(--mono); font-size: .75rem; color: var(--muted); }
-    .copy-btn {
-      background: none; border: none; cursor: pointer;
-      color: var(--muted); font-size: .75rem; padding: 2px 4px;
-      transition: color .2s; line-height: 1;
+    .user-avatar {
+      width: 48px; height: 48px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary), #a78bfa);
+      display: grid; place-items: center; font-size: 1.3rem;
+      flex-shrink: 0; box-shadow: 0 0 20px rgba(99,102,241,.3);
     }
-    .copy-btn:hover { color: var(--primary-hi); }
+    .user-info { flex: 1; }
+    .user-name { font-size: .9rem; font-weight: 600; margin-bottom: 4px; color: var(--text); }
+    .user-addr {
+      font-size: .7rem; font-family: var(--mono); color: var(--muted);
+      cursor: pointer; transition: color .2s;
+    }
+    .user-addr:hover { color: var(--primary-hi); }
 
-    .balance-num {
-      font-family: var(--mono); font-size: 2.2rem; font-weight: 700;
-      color: #fff; margin-bottom: 4px; letter-spacing: -.02em;
-    }
-    .balance-sol { font-size: .85rem; color: var(--muted); font-weight: 400; margin-left: 4px; }
-    .balance-sub { font-size: .78rem; color: var(--muted); margin-bottom: 28px; }
-
-    /* My tickets */
     .my-tickets {
-      background: rgba(99,102,241,.07); border: 1px solid rgba(99,102,241,.15);
-      border-radius: 10px; padding: 14px 16px; margin-bottom: 20px;
-      display: flex; align-items: center; justify-content: space-between;
-    }
-    .my-tickets-label { font-size: .72rem; color: var(--muted); letter-spacing: .1em; }
-    .my-tickets-count { font-family: var(--mono); font-size: 1.4rem; font-weight: 700; color: var(--primary-hi); }
-
-    /* Buy button */
-    .btn-buy {
-      width: 100%; padding: 16px; border-radius: 12px; border: none;
-      font-family: var(--font); font-size: .82rem; font-weight: 700;
-      letter-spacing: .12em; cursor: pointer; transition: all .2s;
-      background: linear-gradient(135deg, var(--primary) 0%, #7c3aed 100%);
-      color: #fff; position: relative; overflow: hidden;
-      box-shadow: 0 4px 24px rgba(99,102,241,.35);
-    }
-    .btn-buy::before {
-      content: ''; position: absolute; top: 0; left: -100%; width: 60%; height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,.1), transparent);
-      transform: skewX(-15deg); animation: shine 3s infinite;
-    }
-    @keyframes shine { 0%{left:-100%} 100%{left:160%} }
-    .btn-buy:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(99,102,241,.5); }
-    .btn-buy:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; box-shadow: none; }
-    .btn-buy:disabled::before { display: none; }
-
-    .inactive-notice {
-      text-align: center; padding: 20px;
-      background: rgba(239,68,68,.05); border: 1px solid rgba(239,68,68,.15);
-      border-radius: 10px; font-size: .83rem; color: var(--muted-hi); line-height: 1.6;
-    }
-
-    /* Stats card */
-    .stat-row {
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 13px 0; border-bottom: 1px solid var(--border);
-      font-size: .84rem;
-    }
-    .stat-row:last-child { border-bottom: none; padding-bottom: 0; }
-    .stat-row .sk { color: var(--muted); }
-    .stat-row .sv { font-weight: 600; font-family: var(--mono); font-size: .8rem; }
-    .stat-row .sv.gold { color: var(--gold-hi); }
-    .sv-addr { font-size: .72rem; color: var(--muted-hi); font-family: var(--mono); }
-
-    .status-pill {
-      display: inline-flex; align-items: center; gap: 5px;
-      padding: 3px 10px; border-radius: 20px;
-      font-size: .68rem; font-weight: 700; letter-spacing: .1em;
-    }
-    .status-pill.active { background: rgba(16,185,129,.1); color: var(--green-hi); border: 1px solid rgba(16,185,129,.25); }
-    .status-pill.closed { background: rgba(239,68,68,.1); color: var(--red-hi); border: 1px solid rgba(239,68,68,.25); }
-    .status-pill .sdot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
-
-    /* Winner banner */
-    .winner-banner {
-      margin-top: 20px; padding: 16px 18px;
-      background: linear-gradient(135deg, rgba(245,158,11,.1) 0%, rgba(251,191,36,.05) 100%);
-      border: 1px solid rgba(245,158,11,.25); border-radius: 12px;
-    }
-    .winner-banner-label { font-size: .65rem; font-weight: 700; letter-spacing: .2em; color: var(--gold); margin-bottom: 6px; }
-    .winner-banner-addr { font-family: var(--mono); font-size: .75rem; color: var(--text); word-break: break-all; }
-
-    /* Not initialized */
-    .not-init { text-align: center; padding: 28px 10px; }
-    .not-init p { font-size: .84rem; color: var(--muted); line-height: 1.7; margin-bottom: 22px; font-weight: 300; }
-
-    /* ── Init / Admin buttons ── */
-    .btn-init {
-      font-family: var(--font); font-size: .78rem; font-weight: 600;
-      letter-spacing: .1em; padding: 12px 26px;
-      border-radius: 10px; border: 1px solid var(--border-hi);
-      background: transparent; color: var(--text);
-      cursor: pointer; transition: all .2s;
-    }
-    .btn-init:hover:not(:disabled) { border-color: var(--primary); color: var(--primary-hi); background: rgba(99,102,241,.08); }
-    .btn-init:disabled { opacity: .35; cursor: not-allowed; }
-
-    /* ── Admin panel ── */
-    .admin-wrap { margin-top: 20px; }
-    .admin-card {
-      background: var(--card); border: 1px solid rgba(239,68,68,.2);
-      border-radius: 16px; padding: 24px 28px;
-    }
-    .admin-head { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
-    .admin-badge {
-      font-size: .62rem; font-weight: 700; letter-spacing: .2em;
-      background: rgba(239,68,68,.12); color: var(--red-hi);
-      border: 1px solid rgba(239,68,68,.25); border-radius: 4px; padding: 2px 8px;
-    }
-    .admin-desc { font-size: .82rem; color: var(--muted); line-height: 1.7; margin-bottom: 20px; font-weight: 300; }
-    .btn-pick {
-      font-family: var(--font); font-size: .8rem; font-weight: 600; letter-spacing: .1em;
-      padding: 13px 28px; border-radius: 10px; cursor: pointer; transition: all .2s;
-      background: transparent; border: 1px solid var(--red);
-      color: var(--red-hi);
-    }
-    .btn-pick:hover:not(:disabled) { background: rgba(239,68,68,.1); box-shadow: 0 0 24px rgba(239,68,68,.2); }
-    .btn-pick:disabled { opacity: .3; cursor: not-allowed; }
-
-    /* ── Refresh bar ── */
-    .refresh-row {
-      display: flex; align-items: center; gap: 8px;
-      margin-top: 20px; padding-top: 16px;
-      border-top: 1px solid var(--border);
-      font-size: .72rem; color: var(--muted);
-    }
-    .refresh-btn {
-      background: none; border: none; cursor: pointer;
-      color: var(--muted); font-size: .9rem; transition: color .2s; padding: 2px 4px;
-    }
-    .refresh-btn:hover { color: var(--primary-hi); }
-    .refresh-countdown { margin-left: auto; font-family: var(--mono); font-size: .68rem; }
-
-    /* ════════════════════════════
-       TRANSACTION MODAL
-    ════════════════════════════ */
-    #tx-modal {
-      display: none; position: fixed; inset: 0; z-index: 200;
-      background: rgba(4,6,12,.85); backdrop-filter: blur(8px);
-      align-items: center; justify-content: center;
-    }
-    #tx-modal.show { display: flex; }
-    .tx-box {
-      background: var(--card); border: 1px solid var(--border-hi);
-      border-radius: 20px; padding: 36px 40px; width: 100%; max-width: 380px;
+      background: var(--surface); border-radius: 12px; padding: 16px;
       text-align: center;
     }
-    .tx-icon { font-size: 2.4rem; margin-bottom: 16px; line-height: 1; }
-    .tx-title { font-size: 1rem; font-weight: 700; letter-spacing: .1em; margin-bottom: 6px; }
-    .tx-subtitle { font-size: .82rem; color: var(--muted); margin-bottom: 32px; font-weight: 300; }
-    .tx-steps { display: flex; flex-direction: column; gap: 10px; text-align: left; }
-    .tx-step {
-      display: flex; align-items: center; gap: 12px;
-      padding: 12px 14px; border-radius: 10px;
-      background: rgba(255,255,255,.03); border: 1px solid var(--border);
-      font-size: .82rem; transition: all .3s;
+    .my-tickets-label { font-size: .65rem; font-weight: 700; letter-spacing: .2em; color: var(--muted); margin-bottom: 10px; }
+    .my-tickets-val {
+      font-size: 2.2rem; font-weight: 700; font-family: var(--mono);
+      color: var(--primary-hi);
+      text-shadow: 0 0 30px rgba(99,102,241,.3);
     }
-    .tx-step.done   { background: rgba(16,185,129,.08); border-color: rgba(16,185,129,.25); color: var(--green-hi); }
-    .tx-step.active { background: rgba(99,102,241,.1); border-color: rgba(99,102,241,.3); color: var(--primary-hi); }
-    .tx-step.pending { color: var(--muted); }
-    .tx-step-icon { width: 20px; text-align: center; flex-shrink: 0; font-size: .85rem; }
-    .mini-spin {
-      display: inline-block; width: 14px; height: 14px;
-      border: 2px solid rgba(255,255,255,.15); border-top-color: currentColor;
-      border-radius: 50%; animation: spin .7s linear infinite;
+
+    /* ── Buy & Admin buttons ── */
+    .btn-buy, .btn-admin, .btn-initialize {
+      width: 100%; font-family: var(--font); font-size: .8rem; font-weight: 700;
+      letter-spacing: .12em; padding: 16px; border-radius: 12px;
+      border: none; cursor: pointer; transition: all .2s;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .btn-buy {
+      background: linear-gradient(135deg, var(--primary), #8b5cf6);
+      color: #fff; box-shadow: 0 0 30px rgba(99,102,241,.3);
+    }
+    .btn-buy:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 0 40px rgba(99,102,241,.5); }
+
+    .btn-initialize {
+      background: linear-gradient(135deg, var(--green), #059669);
+      color: #fff; box-shadow: 0 0 30px rgba(16,185,129,.3);
+    }
+    .btn-initialize:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 0 40px rgba(16,185,129,.5); }
+
+    .btn-admin {
+      background: var(--surface); color: var(--muted-hi);
+      border: 1px solid var(--border-hi);
+    }
+    .btn-admin:hover:not(:disabled) { background: var(--card); color: var(--text); }
+    .btn-buy:disabled, .btn-admin:disabled, .btn-initialize:disabled {
+      opacity: .5; cursor: not-allowed; transform: none !important;
+    }
+
+    .admin-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+
+    /* ── History ── */
+    .full-card { grid-column: 1 / -1; }
+    .history-list { display: flex; flex-direction: column; gap: 12px; }
+    .history-item {
+      background: var(--surface); border-radius: 10px; padding: 14px;
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      transition: background .2s;
+    }
+    .history-item:hover { background: rgba(255,255,255,.02); }
+    .history-ico {
+      width: 36px; height: 36px; border-radius: 50%;
+      display: grid; place-items: center; font-size: 1rem;
+      flex-shrink: 0;
+    }
+    .history-ico.w { background: rgba(245,158,11,.15); color: var(--gold); }
+    .history-ico.c { background: rgba(239,68,68,.15); color: var(--red); }
+    .history-info { flex: 1; }
+    .history-t { font-size: .82rem; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+    .history-d { font-size: .7rem; color: var(--muted); font-family: var(--mono); }
+    .history-amt {
+      font-size: .82rem; font-weight: 700; font-family: var(--mono);
+      color: var(--gold);
+    }
+
+    /* ══════════════════════════════════
+       TX MODAL
+    ══════════════════════════════════ */
+    #tx-modal {
+      display: none; position: fixed; inset: 0; z-index: 999;
+      background: rgba(6,9,16,.85); backdrop-filter: blur(10px);
+      animation: fadein .15s;
+    }
+    @keyframes fadein { from { opacity: 0 } to { opacity: 1 } }
+
+    .tx-content {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      background: var(--card); border: 1px solid var(--border-hi);
+      border-radius: 20px; padding: 40px; width: 90%; max-width: 480px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.5);
+      text-align: center;
+    }
+
+    /* Loader */
+    .tx-loader {
+      width: 80px; height: 80px; margin: 0 auto 24px;
+      border: 5px solid var(--surface);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    .tx-link { display: none; margin-top: 20px; }
-    .tx-link a {
-      font-family: var(--mono); font-size: .72rem; color: var(--primary-hi);
-      text-decoration: none; background: rgba(99,102,241,.1);
-      border: 1px solid rgba(99,102,241,.2); border-radius: 6px;
-      padding: 6px 12px; display: inline-block;
+    /* Success/Error icon */
+    .tx-icon {
+      width: 80px; height: 80px; border-radius: 50%;
+      margin: 0 auto 24px;
+      display: grid; place-items: center; font-size: 2.5rem;
     }
-    .tx-link a:hover { background: rgba(99,102,241,.2); }
-    .tx-close-btn {
-      display: none; margin-top: 16px; width: 100%;
-      font-family: var(--font); font-size: .8rem; font-weight: 600; letter-spacing: .1em;
-      padding: 12px; border-radius: 10px; border: 1px solid var(--border-hi);
-      background: transparent; color: var(--text); cursor: pointer; transition: all .2s;
-    }
-    .tx-close-btn:hover { border-color: var(--primary); color: var(--primary-hi); }
+    .tx-icon.success { background: rgba(16,185,129,.15); color: var(--green-hi); }
+    .tx-icon.error { background: rgba(239,68,68,.15); color: var(--red-hi); }
 
-    /* ════════════════════════════
+    .tx-title {
+      font-size: 1.3rem; font-weight: 700; margin-bottom: 10px;
+      color: var(--text);
+    }
+    .tx-desc {
+      font-size: .85rem; color: var(--muted-hi); margin-bottom: 24px;
+    }
+    .tx-link {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: .75rem; font-weight: 600; letter-spacing: .08em;
+      color: var(--primary-hi); text-decoration: none;
+      padding: 10px 18px; border-radius: 8px;
+      border: 1px solid rgba(99,102,241,.3);
+      background: rgba(99,102,241,.08);
+      transition: all .2s;
+    }
+    .tx-link:hover { background: rgba(99,102,241,.15); border-color: var(--primary); }
+    .tx-close {
+      font-family: var(--font); font-size: .8rem; font-weight: 600;
+      padding: 12px 24px; border-radius: 8px; border: 1px solid var(--border-hi);
+      background: var(--surface); color: var(--muted-hi);
+      cursor: pointer; transition: all .2s; margin-top: 16px;
+    }
+    .tx-close:hover { background: var(--card); color: var(--text); }
+
+    /* ══════════════════════════════════
        TOASTS
-    ════════════════════════════ */
+    ══════════════════════════════════ */
     #toasts {
-      position: fixed; top: 80px; right: 20px; z-index: 300;
-      display: flex; flex-direction: column; gap: 8px; max-width: 340px;
+      position: fixed; bottom: 24px; right: 24px; z-index: 1000;
+      display: flex; flex-direction: column; gap: 12px; align-items: flex-end;
     }
     .tst {
-      background: #111827; border-radius: 10px; padding: 12px 16px;
-      border-left: 3px solid transparent;
-      box-shadow: 0 8px 32px rgba(0,0,0,.6);
-      animation: tst-in .2s ease;
-      display: flex; flex-direction: column; gap: 3px;
+      background: var(--card); border: 1px solid var(--border-hi);
+      border-radius: 12px; padding: 14px 18px; min-width: 280px; max-width: 360px;
+      box-shadow: 0 10px 40px rgba(0,0,0,.3);
+      animation: slideIn .3s ease-out;
     }
-    @keyframes tst-in { from{opacity:0;transform:translateX(16px)} to{opacity:1;transform:none} }
-    .tst.s { border-color: var(--green); }
-    .tst.e { border-color: var(--red); }
-    .tst.i { border-color: var(--primary); }
-    .tst-lbl { font-size: .65rem; font-weight: 700; letter-spacing: .15em; }
+    @keyframes slideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+    .tst-lbl {
+      font-size: .7rem; font-weight: 700; letter-spacing: .15em;
+      margin-bottom: 6px;
+    }
+    .tst-msg { font-size: .8rem; color: var(--muted-hi); }
+
+    .tst.s { border-left: 4px solid var(--green); }
     .tst.s .tst-lbl { color: var(--green-hi); }
+
+    .tst.e { border-left: 4px solid var(--red); }
     .tst.e .tst-lbl { color: var(--red-hi); }
+
+    .tst.i { border-left: 4px solid var(--primary); }
     .tst.i .tst-lbl { color: var(--primary-hi); }
-    .tst-msg { font-size: .8rem; color: var(--muted-hi); line-height: 1.4; }
-    .tst-msg a { color: var(--primary-hi); text-decoration: underline; }
 
-    /* ════════════════════════════
-       SKELETONS
-    ════════════════════════════ */
-    .skel {
-      background: linear-gradient(90deg, var(--border) 25%, var(--border-hi) 50%, var(--border) 75%);
-      background-size: 200% 100%;
-      animation: skel-wave 1.5s infinite;
-      border-radius: 6px;
-    }
-    @keyframes skel-wave { from{background-position:200% 0} to{background-position:-200% 0} }
-
-    /* ════════════════════════════
+    /* ══════════════════════════════════
        RESPONSIVE
-    ════════════════════════════ */
-    @media (max-width: 640px) {
+    ══════════════════════════════════ */
+    @media (max-width: 768px) {
       .main-grid { grid-template-columns: 1fr; }
-      .prize-amount { font-size: 2.8rem; }
-      .prize-meta { gap: 16px; }
-      .tx-box { margin: 0 16px; padding: 28px 24px; }
-      .wrap { padding: 0 16px; }
-      .admin-card { padding: 20px; }
+      .full-card { grid-column: 1; }
+      .admin-actions { grid-template-columns: 1fr; }
+      #toasts { bottom: 16px; right: 16px; left: 16px; align-items: stretch; }
+      .tst { min-width: 0; max-width: none; }
     }
   </style>
 </head>
 <body>
-<div id="root">
 
-  <!-- ── Header ── -->
+<div id="root">
+  <!-- ═══════ HEADER ═══════ -->
   <header>
-    <div class="wrap header-inner">
-      <a class="logo" href="#">
-        <div class="logo-mark">🎲</div>
-        <span class="logo-name">SOL<em>LOTTO</em></span>
-        <span class="devnet-pill">DEVNET</span>
-      </a>
-      <div style="display:flex;align-items:center;gap:16px">
-        <div class="net-status" id="net-status" style="display:none">
-          <div class="net-dot"></div>
-          <span>Devnet</span>
+    <div class="wrap">
+      <div class="header-inner">
+        <a href="#" class="logo">
+          <div class="logo-mark">🎟</div>
+          <div class="logo-name">SOL<em>LOTTO</em><span class="devnet-pill">DEVNET</span></div>
+        </a>
+        <div style="display: flex; align-items: center; gap: 20px;">
+          <div class="net-status" id="net-status" style="display: none;">
+            <div class="net-dot"></div>
+            <span>Devnet</span>
+          </div>
+          <button id="btn-wallet" onclick="handleWalletBtn()">
+            <span class="wallet-dot" id="wallet-dot" style="display: none;"></span>
+            <span id="wallet-label">CONECTAR WALLET</span>
+          </button>
         </div>
-        <button id="btn-wallet" onclick="handleWalletBtn()">
-          <span class="wallet-dot" id="wallet-dot" style="display:none"></span>
-          <span id="wallet-label">CONECTAR WALLET</span>
-        </button>
       </div>
     </div>
   </header>
 
-  <!-- ── Welcome ── -->
+  <!-- ═══════ WELCOME ═══════ -->
   <div id="welcome">
-    <div class="wrap" style="display:flex;flex-direction:column;align-items:center">
-      <div class="w-badge">LOTERÍA DESCENTRALIZADA · SOLANA</div>
-      <h1 class="w-title">Gana el bote.<br/><span>On-chain.</span></h1>
-      <p class="w-desc">Compra tickets, acumula el pozo, y un ganador aleatorio elegido por el blockchain se lleva todo.</p>
-      <button class="btn-connect-main" onclick="handleWalletBtn()">CONECTAR PHANTOM</button>
+    <div class="wrap">
+      <div class="w-badge">ON-CHAIN · TRANSPARENTE · JUSTO</div>
+      <h1 class="w-title">Tu suerte empieza <br/><span>en la blockchain</span></h1>
+      <p class="w-desc">
+        Lotería descentralizada en Solana. Sin intermediarios, sin trucos.
+        Cada ticket vive on-chain. La suerte está escrita en el bloque.
+      </p>
+      <button class="btn-connect-main" onclick="handleWalletBtn()">CONECTAR WALLET</button>
       <div id="no-phantom-msg">
-        ⚠️ Phantom no detectada — instálala en <a href="https://phantom.app" target="_blank">phantom.app</a>
+        No se detectó Phantom Wallet.
+        <a href="https://phantom.app/" target="_blank">Instálala aquí</a>.
       </div>
       <div class="w-features">
-        <div class="w-feat"><span class="w-feat-icon">⚡</span> On-chain en Solana</div>
-        <div class="w-feat"><span class="w-feat-icon">🔒</span> Smart contract verificable</div>
-        <div class="w-feat"><span class="w-feat-icon">🎯</span> Sin intermediarios</div>
+        <div class="w-feat"><span class="w-feat-icon">⚡</span> Instantáneo</div>
+        <div class="w-feat"><span class="w-feat-icon">🔒</span> Seguro</div>
+        <div class="w-feat"><span class="w-feat-icon">🌐</span> Público</div>
       </div>
     </div>
   </div>
 
-  <!-- ── Dashboard ── -->
+  <!-- ═══════ DASHBOARD ═══════ -->
   <div id="dashboard">
-    <div class="wrap">
+    <!-- Not Initialized Message -->
+    <div id="not-initialized">
+      <div class="ni-icon">🎰</div>
+      <h2>Lotería no inicializada</h2>
+      <p>
+        La lotería aún no ha sido creada en la blockchain. 
+        Si eres el administrador, puedes inicializarla ahora con el botón de abajo.
+      </p>
+      <button class="btn-initialize" onclick="handleInitialize()">
+        🚀 INICIALIZAR LOTERÍA
+      </button>
+    </div>
 
-      <!-- Hero prize -->
+    <!-- Main Content (hidden when not initialized) -->
+    <div id="main-content" style="display: none;">
+      <!-- HERO PRIZE -->
       <div class="prize-hero">
-        <div class="prize-label">BOTE ACUMULADO</div>
-        <div class="prize-amount" id="hero-prize">—</div>
-        <div class="prize-usd" id="hero-sol-label">SOL en el pozo</div>
-        <div class="prize-meta">
-          <div class="prize-meta-item">🎟 <strong id="hero-tickets">—</strong> tickets vendidos</div>
-          <div class="prize-meta-item">💰 <strong id="hero-price">—</strong> por ticket</div>
-          <div class="prize-meta-item" id="hero-status-wrap"><span id="hero-status"></span></div>
+        <div class="wrap">
+          <div class="prize-label">BOTE ACTUAL</div>
+          <div class="prize-amount" id="prize-amount">0.00 ◎</div>
+          <div class="prize-usd" id="prize-usd">~$0.00 USD</div>
+          <div class="prize-meta">
+            <div class="prize-meta-item">
+              <span>Precio ticket:</span>
+              <strong id="ticket-price">0.0 ◎</strong>
+            </div>
+            <div class="prize-meta-item">
+              <span>Total tickets:</span>
+              <strong id="total-tickets">0</strong>
+            </div>
+            <div class="prize-meta-item">
+              <span class="prize-status active" id="lottery-status">
+                <span class="pdot"></span>
+                ACTIVA
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 
-      <!-- Main grid -->
-      <div class="main-grid" style="margin-top:28px">
-
-        <!-- LEFT: Wallet + Buy -->
-        <div class="card">
-          <div class="card-head">
-            <span class="card-title">TU CUENTA</span>
-            <span class="card-badge" id="user-network">DEVNET</span>
+      <!-- MAIN CONTENT -->
+      <div class="wrap">
+        <div class="main-grid">
+          <!-- USER CARD -->
+          <div class="card">
+            <div class="card-head">
+              <div class="card-title">TU CUENTA</div>
+            </div>
+            <div class="user-panel">
+              <div class="user-avatar">👤</div>
+              <div class="user-info">
+                <div class="user-name">ANON</div>
+                <div class="user-addr" id="user-addr-short" onclick="copyAddr()">...</div>
+              </div>
+            </div>
+            <div class="my-tickets">
+              <div class="my-tickets-label">MIS TICKETS</div>
+              <div class="my-tickets-val" id="my-tickets-count">0</div>
+            </div>
           </div>
 
-          <div class="addr-row">
-            <span class="addr-text" id="user-addr-short">—</span>
-            <button class="copy-btn" onclick="copyAddr()" title="Copiar dirección">⧉</button>
-          </div>
-          <div class="balance-num"><span id="user-bal">0.0000</span><span class="balance-sol">SOL</span></div>
-          <div class="balance-sub" id="user-bal-sub">Balance en Devnet</div>
-
-          <div class="my-tickets" id="my-tickets-box">
-            <span class="my-tickets-label">MIS TICKETS (sesión)</span>
-            <span class="my-tickets-count" id="my-tickets-count">0</span>
-          </div>
-
-          <div id="buy-wrap">
+          <!-- ACTION CARD -->
+          <div class="card">
+            <div class="card-head">
+              <div class="card-title">ACCIONES</div>
+              <div class="card-badge">DEVNET</div>
+            </div>
             <button class="btn-buy" id="btn-buy" onclick="handleBuy()">
-              COMPRAR TICKET · —
+              COMPRAR TICKET · 0.0 ◎
             </button>
-          </div>
-          <div id="inactive-wrap" style="display:none">
-            <div class="inactive-notice">La lotería está cerrada.<br/>El admin debe iniciar una nueva ronda.</div>
+
+            <div id="admin-panel" style="display: none;">
+              <div class="admin-actions">
+                <button class="btn-admin" id="btn-restart" onclick="handleRestart()">
+                  🔄 REINICIAR
+                </button>
+                <button class="btn-admin" id="btn-pick" onclick="handlePickWinner()">
+                  🏆 GANADOR
+                </button>
+              </div>
+            </div>
           </div>
 
-          <div class="refresh-row">
-            <div class="net-dot"></div>
-            <span>Auto-refresh</span>
-            <button class="refresh-btn" onclick="fetchState()" title="Refrescar ahora">↻</button>
-            <span class="refresh-countdown" id="countdown">10s</span>
-          </div>
-        </div>
-
-        <!-- RIGHT: Lottery stats -->
-        <div class="card">
-          <div class="card-head">
-            <span class="card-title">ESTADO DE LA LOTERÍA</span>
-          </div>
-
-          <!-- Not initialized -->
-          <div class="not-init" id="not-init-section">
-            <p>No se encontró una lotería activa en el contrato.<br/>Si eres el administrador, puedes inicializarla aquí.</p>
-            <button class="btn-init" id="btn-init" onclick="handleInit()">INICIALIZAR (0.1 SOL / ticket)</button>
-          </div>
-
-          <!-- Lottery data -->
-          <div id="lottery-data" style="display:none">
-            <div class="stat-row">
-              <span class="sk">Precio ticket</span>
-              <span class="sv gold" id="d-price">—</span>
+          <!-- HISTORY -->
+          <div class="card full-card">
+            <div class="card-head">
+              <div class="card-title">ACTIVIDAD RECIENTE</div>
+              <div style="font-size: .7rem; color: var(--muted);">
+                <span id="countdown">10s</span>
+              </div>
             </div>
-            <div class="stat-row">
-              <span class="sk">Tickets vendidos</span>
-              <span class="sv" id="d-tickets">—</span>
-            </div>
-            <div class="stat-row">
-              <span class="sk">Bote total</span>
-              <span class="sv gold" id="d-prize">—</span>
-            </div>
-            <div class="stat-row">
-              <span class="sk">Estado</span>
-              <span id="d-status">—</span>
-            </div>
-            <div class="stat-row">
-              <span class="sk">Admin</span>
-              <span class="sv sv-addr" id="d-admin">—</span>
-            </div>
-            <div class="stat-row">
-              <span class="sk">Contrato</span>
-              <a class="sv sv-addr" id="d-program" href="#" target="_blank" style="color:var(--primary-hi);text-decoration:none">—</a>
-            </div>
-            <div class="winner-banner" id="winner-banner" style="display:none">
-              <div class="winner-banner-label">🏆 GANADOR</div>
-              <div class="winner-banner-addr" id="d-winner">—</div>
+            <div class="history-list" id="history-list">
+              <div style="text-align: center; padding: 40px 20px; color: var(--muted); font-size: .85rem;">
+                No hay actividad reciente
+              </div>
             </div>
           </div>
         </div>
-      </div>
-
-      <!-- Admin panel -->
-      <div class="admin-wrap" id="admin-wrap" style="display:none">
-        <div class="admin-card">
-          <div class="admin-head">
-            <span class="admin-badge">ADMIN</span>
-            <span style="font-size:.85rem;font-weight:600;color:var(--red-hi)">Panel de Administrador</span>
-          </div>
-          <p class="admin-desc">
-            Cierra la lotería y elige un ganador aleatorio usando el timestamp del bloque de Solana.<br/>
-            <strong style="color:var(--red-hi);font-size:.78rem">⚠️ Esta acción es irreversible. El bote se transfiere al ganador automáticamente.</strong>
-          </p>
-          <button class="btn-pick" id="btn-pick" onclick="handlePickWinner()">
-            CERRAR LOTERÍA Y ELEGIR GANADOR
-          </button>
-          <button class="btn-pick" id="btn-restart" onclick="handleRestart()" style="display:none;margin-top:10px;border-color:var(--green);color:var(--green-hi)">
-            🔄 NUEVA RONDA
-          </button>
-        </div>
-      </div>
-
-    </div><!-- /wrap -->
-  </div><!-- /dashboard -->
-
-</div><!-- /root -->
-
-<!-- ── Transaction modal ── -->
-<div id="tx-modal">
-  <div class="tx-box">
-    <div class="tx-icon" id="tx-icon">⏳</div>
-    <div class="tx-title" id="tx-title">Procesando</div>
-    <div class="tx-subtitle" id="tx-subtitle">Por favor espera...</div>
-    <div class="tx-steps">
-      <div class="tx-step pending" id="step-1">
-        <span class="tx-step-icon" id="s1-icon">○</span>
-        <span>Firma en Phantom</span>
-      </div>
-      <div class="tx-step pending" id="step-2">
-        <span class="tx-step-icon" id="s2-icon">○</span>
-        <span>Enviando a la red</span>
-      </div>
-      <div class="tx-step pending" id="step-3">
-        <span class="tx-step-icon" id="s3-icon">○</span>
-        <span>Confirmando en Devnet</span>
       </div>
     </div>
-    <div class="tx-link" id="tx-link">
-      <a id="tx-explorer-link" href="#" target="_blank">Ver en Explorer ↗</a>
-    </div>
-    <button class="tx-close-btn" id="tx-close-btn" onclick="closeTxModal()">CERRAR</button>
   </div>
 </div>
 
-<!-- ── Toasts ── -->
+<!-- TX MODAL -->
+<div id="tx-modal" onclick="closeTxModal()">
+  <div class="tx-content" onclick="event.stopPropagation()">
+    <div id="tx-loading" style="display: none;">
+      <div class="tx-loader"></div>
+      <div class="tx-title" id="tx-title-loading">Procesando...</div>
+      <div class="tx-desc" id="tx-desc-loading">Esperando confirmación...</div>
+    </div>
+    <div id="tx-success" style="display: none;">
+      <div class="tx-icon success">✓</div>
+      <div class="tx-title">¡Transacción exitosa!</div>
+      <div class="tx-desc" id="tx-desc-success"></div>
+      <a id="tx-link" class="tx-link" href="#" target="_blank">
+        Ver en Solscan ↗
+      </a>
+      <button class="tx-close" onclick="closeTxModal()">CERRAR</button>
+    </div>
+    <div id="tx-error" style="display: none;">
+      <div class="tx-icon error">✕</div>
+      <div class="tx-title">Error en la transacción</div>
+      <div class="tx-desc" id="tx-desc-error"></div>
+      <button class="tx-close" onclick="closeTxModal()">CERRAR</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOASTS -->
 <div id="toasts"></div>
 
 <script>
-// ══════════════════════════════════════════════
-//  CONFIG — Program ID fijo
-// ══════════════════════════════════════════════
-const {
-  Connection, PublicKey, Transaction, TransactionInstruction,
-  SystemProgram, LAMPORTS_PER_SOL, clusterApiUrl
+const { 
+  Connection, PublicKey, SystemProgram, Transaction, 
+  TransactionInstruction, sendAndConfirmTransaction 
 } = solanaWeb3;
 
-const PROGRAM_ID   = new PublicKey("4pbj6TqvWYxHcMDGr2fYck7BDudVtzgtSWj1iGmJr7gH");
-const EXPLORER_URL = (sig) => `https://explorer.solana.com/tx/${sig}?cluster=devnet`;
-const ADDR_URL     = (addr) => `https://explorer.solana.com/address/${addr}?cluster=devnet`;
-const connection   = new Connection(clusterApiUrl("devnet"), "confirmed");
+// ══════════════════════════════════════════════
+//  GLOBALS
+// ══════════════════════════════════════════════
+const PROGRAM_ID = new PublicKey("4pbj6TqvWYxHcMDGr2fYck7BDudVtzgtSWj1iGmJr7gH");
+const RPC       = "https://api.devnet.solana.com";
+const EXPLORER  = "https://solscan.io";
 
-// ══════════════════════════════════════════════
-//  STATE
-// ══════════════════════════════════════════════
+const conn = new Connection(RPC, "confirmed");
 let walletPubkey  = null;
 let lotteryState  = null;
 let myTickets     = 0;
-let refreshTimer  = null;
-let countdownVal  = 10;
-let countdownInt  = null;
 let busy          = false;
+let refreshTimer  = null;
+let countdownInt  = null;
+let countdownVal  = 10;
 
 // ══════════════════════════════════════════════
-//  UTILS
+//  HELPERS
 // ══════════════════════════════════════════════
-const enc = (s) => new TextEncoder().encode(s);
-
-async function discriminator(name) {
-  const hash = await crypto.subtle.digest("SHA-256", enc(`global:${name}`));
-  return new Uint8Array(hash).slice(0, 8);
+function utf8(s) { return new TextEncoder().encode(s); }
+function u64LE(n) {
+  const b = new ArrayBuffer(8);
+  new DataView(b).setBigUint64(0, n, true);
+  return new Uint8Array(b);
 }
-
-function u64LE(value) {
-  const buf = new ArrayBuffer(8);
-  new DataView(buf).setBigUint64(0, BigInt(value), true);
-  return new Uint8Array(buf);
-}
-
-function readU64(bytes, off) {
-  return new DataView(bytes.buffer, bytes.byteOffset + off, 8).getBigUint64(0, true);
-}
-
 function concat(...arrs) {
-  const len = arrs.reduce((s, a) => s + a.length, 0);
-  const out = new Uint8Array(len); let i = 0;
-  for (const a of arrs) { out.set(a, i); i += a.length; }
-  return out;
+  const len = arrs.reduce((acc, a) => acc + a.length, 0);
+  const res = new Uint8Array(len);
+  let off = 0;
+  for (const a of arrs) { res.set(a, off); off += a.length; }
+  return res;
 }
 
-function fmtSOL(lamports, decimals = 4) {
-  return (Number(lamports) / LAMPORTS_PER_SOL).toFixed(decimals) + " SOL";
+function short(pk, n = 4) {
+  if (!pk) return "...";
+  const s = pk.toBase58 ? pk.toBase58() : pk.toString();
+  return s.slice(0, n) + "..." + s.slice(-n);
 }
 
-function short(pk, n = 5) {
-  const s = pk.toBase58(); return s.slice(0, n) + "…" + s.slice(-n);
+function fmtSOL(lam, dec = 4) {
+  const sol = Number(lam) / 1e9;
+  return sol.toFixed(dec) + " ◎";
 }
 
 // ══════════════════════════════════════════════
-//  PDAs
+//  PDA FUNCTIONS
 // ══════════════════════════════════════════════
 function lotteryPDA() {
-  const [pda] = PublicKey.findProgramAddressSync([enc("lottery")], PROGRAM_ID);
-  return pda;
+  return PublicKey.findProgramAddressSync([utf8("lottery")], PROGRAM_ID)[0];
 }
-function ticketPDA(id, buyer) {
-  const [pda] = PublicKey.findProgramAddressSync(
-    [enc("ticket"), u64LE(id), buyer.toBytes()], PROGRAM_ID
-  );
-  return pda;
+
+function ticketPDA(ticketId) {
+  return PublicKey.findProgramAddressSync(
+    [utf8("ticket"), u64LE(BigInt(ticketId))],
+    PROGRAM_ID
+  )[0];
 }
 
 // ══════════════════════════════════════════════
-//  ACCOUNT DECODE
-//  Layout after 8-byte discriminator:
-//  admin(32) ticketPrice(8) totalTickets(8) totalPrize(8) isActive(1) winner(32)
+//  DISCRIMINATOR
 // ══════════════════════════════════════════════
-function decodeLottery(raw) {
-  const b = new Uint8Array(raw); const o = 8;
-  return {
-    admin:        new PublicKey(b.slice(o,      o+32)),
-    ticketPrice:  readU64(b, o+32),
-    totalTickets: readU64(b, o+40),
-    totalPrize:   readU64(b, o+48),
-    isActive:     b[o+56] === 1,
-    winner:       new PublicKey(b.slice(o+57,   o+89)),
-  };
+async function discriminator(name) {
+  const preimage = `global:${name}`;
+  const hash = await crypto.subtle.digest("SHA-256", utf8(preimage));
+  return new Uint8Array(hash).slice(0, 8);
 }
 
 // ══════════════════════════════════════════════
 //  FETCH STATE
 // ══════════════════════════════════════════════
 async function fetchState() {
-  if (!walletPubkey) return;
-  resetCountdown();
   try {
-    const bal  = await connection.getBalance(walletPubkey);
-    el("user-bal").textContent = (bal / LAMPORTS_PER_SOL).toFixed(4);
-
-    const info = await connection.getAccountInfo(lotteryPDA());
-    lotteryState = info ? decodeLottery(info.data) : null;
-    renderDashboard();
-  } catch (e) {
-    console.error(e);
-    toast("e", "RPC ERROR", e.message.slice(0, 80));
-  }
-}
-
-// ══════════════════════════════════════════════
-//  RENDER
-// ══════════════════════════════════════════════
-function renderDashboard() {
-  const ZERO = "11111111111111111111111111111111";
-
-  if (!lotteryState) {
-    el("not-init-section").style.display = "block";
-    el("lottery-data").style.display     = "none";
-    el("buy-wrap").style.display         = "none";
-    el("inactive-wrap").style.display    = "block";
-    el("admin-wrap").style.display       = "none";
-    el("hero-prize").textContent         = "0.0000";
-    el("hero-tickets").textContent       = "0";
-    el("hero-price").textContent         = "—";
-    el("hero-status").innerHTML          = '';
-    return;
-  }
-
-  const { admin, ticketPrice, totalTickets, totalPrize, isActive, winner } = lotteryState;
-  const isAdmin = walletPubkey && admin.toBase58() === walletPubkey.toBase58();
-
-  // Hero
-  el("hero-prize").textContent   = (Number(totalPrize) / LAMPORTS_PER_SOL).toFixed(4);
-  el("hero-tickets").textContent = totalTickets.toString();
-  el("hero-price").textContent   = fmtSOL(ticketPrice, 2);
-  el("hero-status").outerHTML    = isActive
-    ? `<span id="hero-status" class="prize-status active"><span class="pdot"></span>ACTIVA</span>`
-    : `<span id="hero-status" class="prize-status closed">CERRADA</span>`;
-
-  // Stats
-  el("not-init-section").style.display = "none";
-  el("lottery-data").style.display     = "block";
-  el("d-price").textContent            = fmtSOL(ticketPrice, 2);
-  el("d-tickets").textContent          = totalTickets.toString();
-  el("d-prize").textContent            = fmtSOL(totalPrize);
-  el("d-admin").textContent            = short(admin);
-  el("d-status").innerHTML             = isActive
-    ? '<span class="status-pill active"><span class="sdot"></span>ACTIVA</span>'
-    : '<span class="status-pill closed">CERRADA</span>';
-
-  const progEl = el("d-program");
-  progEl.textContent = short(PROGRAM_ID);
-  progEl.href        = ADDR_URL(PROGRAM_ID.toBase58());
-
-  // Winner
-  const hasWinner = !isActive && winner.toBase58() !== ZERO;
-  el("winner-banner").style.display = hasWinner ? "block" : "none";
-  if (hasWinner) el("d-winner").textContent = winner.toBase58();
-
-  // Buy / inactive
-  if (isActive) {
-    el("buy-wrap").style.display     = "block";
-    el("inactive-wrap").style.display = "none";
-    const btn = el("btn-buy");
-    btn.textContent = `COMPRAR TICKET · ${fmtSOL(ticketPrice, 2)}`;
-    btn.disabled    = busy;
-  } else {
-    el("buy-wrap").style.display     = "none";
-    el("inactive-wrap").style.display = "block";
-  }
-
-  // Admin — solo visible si esta wallet es el admin del contrato
-  if (isAdmin) {
-    el("admin-wrap").style.display = "block";
-    if (isActive) {
-      el("btn-pick").style.display    = "inline-block";
-      el("btn-restart").style.display = "none";
-      el("btn-pick").disabled = busy || Number(totalTickets) === 0;
-    } else {
-      el("btn-pick").style.display    = "none";
-      el("btn-restart").style.display = "inline-block";
-      el("btn-restart").disabled = busy;
+    const pda  = lotteryPDA();
+    const info = await conn.getAccountInfo(pda);
+    
+    if (!info) {
+      // Lottery not initialized
+      el("not-initialized").style.display = "block";
+      el("main-content").style.display = "none";
+      lotteryState = null;
+      return;
     }
-  } else {
-    el("admin-wrap").style.display = "none";
-  }
-}
 
-// ══════════════════════════════════════════════
-//  TX MODAL
-// ══════════════════════════════════════════════
-function openTxModal(title, subtitle) {
-  el("tx-title").textContent    = title;
-  el("tx-subtitle").textContent = subtitle;
-  el("tx-icon").textContent     = "⏳";
-  el("tx-link").style.display   = "none";
-  el("tx-close-btn").style.display = "none";
-  setStep(1); setStep(2, "pending"); setStep(3, "pending");
-  el("tx-modal").classList.add("show");
-}
-function closeTxModal() {
-  el("tx-modal").classList.remove("show");
-}
-function setStep(n, state = "active") {
-  const step = el(`step-${n}`);
-  const icon = el(`s${n}-icon`);
-  step.className = `tx-step ${state}`;
-  if (state === "active")  icon.innerHTML = '<span class="mini-spin"></span>';
-  if (state === "done")    icon.textContent = "✓";
-  if (state === "pending") icon.textContent = "○";
-  if (state === "error")   icon.textContent = "✕";
-}
-function txSuccess(sig) {
-  el("tx-icon").textContent = "🎉";
-  el("tx-title").textContent = "¡Transacción completada!";
-  el("tx-subtitle").textContent = "Confirmada en Devnet";
-  el("tx-link").style.display = "block";
-  el("tx-explorer-link").href = EXPLORER_URL(sig);
-  el("tx-explorer-link").textContent = `${sig.slice(0,14)}… Ver en Explorer ↗`;
-  el("tx-close-btn").style.display = "block";
-}
-function txError(msg) {
-  el("tx-icon").textContent = "❌";
-  el("tx-title").textContent = "Error";
-  el("tx-subtitle").textContent = msg.slice(0, 100);
-  el("tx-close-btn").style.display = "block";
+    // Hide not-initialized message and show main content
+    el("not-initialized").style.display = "none";
+    el("main-content").style.display = "block";
+
+    const data = info.data;
+    lotteryState = {
+      admin:        new PublicKey(data.slice(8, 40)),
+      ticketPrice:  new DataView(data.buffer, data.byteOffset + 40, 8).getBigUint64(0, true),
+      totalTickets: new DataView(data.buffer, data.byteOffset + 48, 8).getBigUint64(0, true),
+      totalPrize:   new DataView(data.buffer, data.byteOffset + 56, 8).getBigUint64(0, true),
+      isActive:     data[64] !== 0,
+      winner:       new PublicKey(data.slice(65, 97)),
+      bump:         data[97],
+    };
+
+    // Update UI
+    el("prize-amount").textContent   = fmtSOL(lotteryState.totalPrize, 2);
+    el("ticket-price").textContent   = fmtSOL(lotteryState.ticketPrice, 2);
+    el("total-tickets").textContent  = lotteryState.totalTickets.toString();
+
+    const status = el("lottery-status");
+    if (lotteryState.isActive) {
+      status.className = "prize-status active";
+      status.innerHTML = '<span class="pdot"></span>ACTIVA';
+    } else {
+      status.className = "prize-status closed";
+      status.innerHTML = '<span class="pdot"></span>CERRADA';
+    }
+
+    el("btn-buy").textContent = `COMPRAR TICKET · ${fmtSOL(lotteryState.ticketPrice, 2)}`;
+
+    // Show admin panel if current wallet is admin
+    if (walletPubkey && lotteryState.admin.equals(walletPubkey)) {
+      el("admin-panel").style.display = "block";
+    } else {
+      el("admin-panel").style.display = "none";
+    }
+
+    // Count my tickets
+    myTickets = 0;
+    for (let i = 1n; i <= lotteryState.totalTickets; i++) {
+      try {
+        const tPda = ticketPDA(i);
+        const tInfo = await conn.getAccountInfo(tPda);
+        if (tInfo) {
+          const owner = new PublicKey(tInfo.data.slice(8, 40));
+          if (walletPubkey && owner.equals(walletPubkey)) myTickets++;
+        }
+      } catch (e) {}
+    }
+    el("my-tickets-count").textContent = myTickets;
+
+    resetCountdown();
+  } catch (e) {
+    console.error("fetchState error:", e);
+  }
 }
 
 // ══════════════════════════════════════════════
 //  SEND TX
 // ══════════════════════════════════════════════
 async function sendTx(ixs) {
-  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
-  const tx = new Transaction({ recentBlockhash: blockhash, feePayer: walletPubkey });
+  const { blockhash } = await conn.getLatestBlockhash();
+  const tx = new Transaction();
+  tx.recentBlockhash = blockhash;
+  tx.feePayer        = walletPubkey;
   ixs.forEach(ix => tx.add(ix));
-  setStep(1, "active"); setStep(2, "pending"); setStep(3, "pending");
+
   const signed = await window.solana.signTransaction(tx);
-  setStep(1, "done"); setStep(2, "active");
-  const sig = await connection.sendRawTransaction(signed.serialize());
-  setStep(2, "done"); setStep(3, "active");
-  await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight });
-  setStep(3, "done");
+  const sig    = await conn.sendRawTransaction(signed.serialize());
+  await conn.confirmTransaction(sig, "confirmed");
   return sig;
 }
 
 // ══════════════════════════════════════════════
-//  INSTRUCTIONS
+//  TX MODAL
 // ══════════════════════════════════════════════
-async function handleInit() {
+function openTxModal(title, desc) {
+  el("tx-title-loading").textContent = title;
+  el("tx-desc-loading").textContent  = desc;
+  el("tx-loading").style.display = "block";
+  el("tx-success").style.display = "none";
+  el("tx-error").style.display   = "none";
+  el("tx-modal").style.display   = "flex";
+}
+
+function txSuccess(sig) {
+  el("tx-desc-success").textContent = `Firma: ${short(sig, 6)}`;
+  el("tx-link").href = `${EXPLORER}/tx/${sig}?cluster=devnet`;
+  el("tx-loading").style.display = "none";
+  el("tx-success").style.display = "block";
+}
+
+function txError(msg) {
+  el("tx-desc-error").textContent = msg;
+  el("tx-loading").style.display = "none";
+  el("tx-error").style.display   = "block";
+}
+
+function closeTxModal() {
+  el("tx-modal").style.display = "none";
+}
+
+// ══════════════════════════════════════════════
+//  ACTIONS
+// ══════════════════════════════════════════════
+
+async function handleInitialize() {
   if (!walletPubkey || busy) return;
-  busy = true; setBusy("btn-init", true);
-  openTxModal("Inicializando lotería", "Creando el contrato en Devnet...");
+  
+  const priceInput = prompt("¿Precio del ticket en SOL? (ejemplo: 0.1)", "0.1");
+  if (!priceInput) return;
+  
+  const ticketPrice = parseFloat(priceInput);
+  if (isNaN(ticketPrice) || ticketPrice <= 0) {
+    toast("e", "ERROR", "Precio inválido");
+    return;
+  }
+  
+  busy = true;
+  openTxModal("Inicializando lotería", "Creando cuenta en la blockchain...");
+  
   try {
     const disc = await discriminator("initialize");
-    const data = concat(disc, u64LE(BigInt(Math.round(0.1 * LAMPORTS_PER_SOL))));
+    const priceLamports = Math.floor(ticketPrice * 1e9);
+    const data = concat(disc, u64LE(BigInt(priceLamports)));
     const pda  = lotteryPDA();
-    const ix   = new TransactionInstruction({
+    
+    const ix = new TransactionInstruction({
       programId: PROGRAM_ID,
       keys: [
         { pubkey: pda,                     isSigner: false, isWritable: true  },
@@ -911,28 +834,34 @@ async function handleInit() {
       ],
       data,
     });
+    
     const sig = await sendTx([ix]);
     txSuccess(sig);
-    toast("s", "LOTERÍA CREADA", "La lotería está activa. ¡A por tickets! 🎉");
+    toast("s", "¡LOTERÍA INICIALIZADA! 🎉", `Precio del ticket: ${ticketPrice} SOL`);
     await fetchState();
   } catch (e) {
     console.error(e);
     txError(e.message);
-    toast("e", "ERROR", e.message.slice(0, 80));
+    toast("e", "ERROR AL INICIALIZAR", e.message.slice(0, 80));
   }
-  busy = false; setBusy("btn-init", false);
+  
+  busy = false;
 }
 
 async function handleBuy() {
   if (!walletPubkey || !lotteryState || busy) return;
   busy = true; setBusy("btn-buy", true);
-  const num = Number(lotteryState.totalTickets) + 1;
-  openTxModal(`Comprando ticket #${num}`, `Precio: ${fmtSOL(lotteryState.ticketPrice, 2)}`);
+  
+  const nextTicketNum = Number(lotteryState.totalTickets) + 1;
+  openTxModal(`Comprando ticket #${nextTicketNum}`, `Precio: ${fmtSOL(lotteryState.ticketPrice, 2)}`);
+  
   try {
     const disc  = await discriminator("buy_ticket");
     const pda   = lotteryPDA();
-    const tPda  = ticketPDA(lotteryState.totalTickets, walletPubkey);
-    const ix    = new TransactionInstruction({
+    // CORRECCIÓN CRÍTICA: usar totalTickets + 1 para el PDA
+    const tPda  = ticketPDA(lotteryState.totalTickets + 1n);
+    
+    const ix = new TransactionInstruction({
       programId: PROGRAM_ID,
       keys: [
         { pubkey: pda,                     isSigner: false, isWritable: true  },
@@ -942,17 +871,19 @@ async function handleBuy() {
       ],
       data: disc,
     });
+    
     const sig = await sendTx([ix]);
     txSuccess(sig);
     myTickets++;
     el("my-tickets-count").textContent = myTickets;
-    toast("s", `TICKET #${num} COMPRADO`, `¡Ya tienes ${myTickets} ticket${myTickets > 1 ? "s" : ""} en esta ronda! 🎟`);
+    toast("s", `TICKET #${nextTicketNum} COMPRADO`, `¡Ya tienes ${myTickets} ticket${myTickets > 1 ? "s" : ""} en esta ronda! 🎟`);
     await fetchState();
   } catch (e) {
     console.error(e);
     txError(e.message);
     toast("e", "ERROR AL COMPRAR", e.message.slice(0, 80));
   }
+  
   busy = false;
   if (lotteryState) el("btn-buy").textContent = `COMPRAR TICKET · ${fmtSOL(lotteryState.ticketPrice, 2)}`;
   setBusy("btn-buy", false);
@@ -961,21 +892,24 @@ async function handleBuy() {
 async function handleRestart() {
   if (!walletPubkey || !lotteryState || busy) return;
   if (!confirm("¿Iniciar nueva ronda? El precio del ticket se mantiene igual.")) return;
+  
   busy = true; setBusy("btn-restart", true);
   openTxModal("Iniciando nueva ronda", "Reiniciando la lotería...");
+  
   try {
     const disc = await discriminator("restart");
     const data = concat(disc, u64LE(BigInt(lotteryState.ticketPrice)));
     const pda  = lotteryPDA();
-    const ix   = new TransactionInstruction({
+    
+    const ix = new TransactionInstruction({
       programId: PROGRAM_ID,
       keys: [
         { pubkey: pda,                     isSigner: false, isWritable: true  },
         { pubkey: walletPubkey,            isSigner: true,  isWritable: true  },
-        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
       ],
       data,
     });
+    
     const sig = await sendTx([ix]);
     txSuccess(sig);
     myTickets = 0;
@@ -987,27 +921,36 @@ async function handleRestart() {
     txError(e.message);
     toast("e", "ERROR", e.message.slice(0, 80));
   }
+  
   busy = false; setBusy("btn-restart", false);
 }
 
 async function handlePickWinner() {
   if (!walletPubkey || !lotteryState || busy) return;
   if (!confirm("¿Cerrar la lotería y elegir ganador?\n\nEsta acción es irreversible.")) return;
+  
+  // For demo purposes, we're using the admin as winner
+  // In production, you'd implement proper random winner selection
+  const winnerPubkey = walletPubkey;
+  
   busy = true; setBusy("btn-pick", true);
   openTxModal("Eligiendo ganador", "Cerrando la lotería y transfiriendo el bote...");
+  
   try {
     const disc = await discriminator("pick_winner");
     const pda  = lotteryPDA();
-    const ix   = new TransactionInstruction({
+    
+    const ix = new TransactionInstruction({
       programId: PROGRAM_ID,
       keys: [
         { pubkey: pda,                     isSigner: false, isWritable: true  },
         { pubkey: walletPubkey,            isSigner: true,  isWritable: true  },
-        { pubkey: walletPubkey,            isSigner: false, isWritable: true  },
+        { pubkey: winnerPubkey,            isSigner: false, isWritable: true  },
         { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
       ],
       data: disc,
     });
+    
     const sig = await sendTx([ix]);
     txSuccess(sig);
     toast("s", "¡GANADOR ELEGIDO! 🏆", "El bote ha sido transferido.");
@@ -1017,6 +960,7 @@ async function handlePickWinner() {
     txError(e.message);
     toast("e", "ERROR", e.message.slice(0, 80));
   }
+  
   busy = false; setBusy("btn-pick", false);
 }
 

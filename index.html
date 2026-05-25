@@ -484,7 +484,6 @@ function renderActiveRounds(){
 
 function renderFinishedRounds(){
   const nowTs = Math.floor(Date.now()/1000);
-  // Finalizadas o terminadas (endTime pasado) pero aún no finalizadas
   const finished = rounds.filter(r => r.isFinalized || (r.endTime < nowTs && !r.isFinalized));
   const section = el("finished-rounds-section");
   const list = el("finished-rounds-list");
@@ -497,6 +496,12 @@ function renderFinishedRounds(){
     if (r.isFinalized) {
       const winnerStr = r.winner.equals(SystemProgram.programId) ? "Sin ganador" : short(r.winner,6);
       const prizeStr = r.totalPrize > 0n ? fmtSOL(r.totalPrize,2) : "0.00 ◎";
+      // ¿Es el ganador y queda premio por reclamar?
+      const isWinner = walletPubkey && r.winner.equals(walletPubkey);
+      const canClaim = isWinner && r.totalPrize > 0n;
+      const claimBtn = canClaim
+        ? `<button class="btn btn-outline" style="padding:6px 14px;font-size:.72rem;width:auto;" onclick="event.stopPropagation();handleClaimFromHistory(${r.id})">💰 Reclamar premio</button>`
+        : '';
       return `<div class="finished-item">
         <div class="finished-left">
           <div class="finished-round-num">#${r.id}</div>
@@ -505,13 +510,15 @@ function renderFinishedRounds(){
             <div>Ganador: <span class="winner">${winnerStr}</span></div>
           </div>
         </div>
-        <div class="finished-details" style="text-align:right;">
-          <div class="prize">${prizeStr}</div>
-          <a href="${EXPLORER}/account/${roundPDA(r.id).toBase58()}?cluster=devnet" target="_blank" style="font-size:.7rem;color:var(--muted);">ver cuenta ↗</a>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div class="finished-details" style="text-align:right;">
+            <div class="prize">${prizeStr}</div>
+            <a href="${EXPLORER}/account/${roundPDA(r.id).toBase58()}?cluster=devnet" target="_blank" style="font-size:.7rem;color:var(--muted);">ver cuenta ↗</a>
+          </div>
+          ${claimBtn}
         </div>
       </div>`;
     } else {
-      // Ronda terminada pero no finalizada
       const isAdmin = walletPubkey && r.admin.equals(walletPubkey);
       let actionBtn = '';
       if (isAdmin) {
@@ -716,6 +723,40 @@ async function handleClaim(){
     await fetchAll();
   }catch(e){txError(e.message);}
   busy=false;
+}
+
+async function handleClaimFromHistory(roundId){
+  if(!walletPubkey || busy) return;
+  const round = rounds.find(r => r.id === roundId);
+  if(!round || !round.isFinalized || round.totalPrize <= 0n) return;
+  if(!round.winner.equals(walletPubkey)) {
+    alert("Solo el ganador puede reclamar el premio.");
+    return;
+  }
+  busy = true;
+  openTxModal(`Reclamando premio de la ronda ${roundId}...`);
+  try {
+    const disc = await discriminator("claim_prize");
+    const data = concat(disc, u64LE(BigInt(roundId)));
+    const rPda = roundPDA(roundId);
+    const ix = new TransactionInstruction({
+      programId: PROGRAM_ID,
+      keys: [
+        {pubkey: rPda, isSigner: false, isWritable: true},
+        {pubkey: round.winner, isSigner: false, isWritable: true},
+        {pubkey: SystemProgram.programId, isSigner: false, isWritable: false}
+      ],
+      data
+    });
+    const sig = await sendTx([ix]);
+    txSuccess(sig);
+    addActivity("💰","w",`Premio reclamado ronda ${roundId}`,`${short(round.winner,8)}`,fmtSOL(round.totalPrize,4));
+    await fetchAll();
+    renderWinners();
+  } catch(e) {
+    txError(e.message);
+  }
+  busy = false;
 }
 
 function toggleCreateForm(){

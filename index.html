@@ -284,8 +284,7 @@
           <h3>ACCIÓN PARA RONDA SELECCIONADA</h3>
           <div id="selected-round-info" style="margin-bottom:16px; font-size:.85rem;"></div>
           <button class="btn btn-primary" id="btn-buy" onclick="handleBuy()">COMPRAR TICKET</button>
-          <button class="btn btn-gold" id="btn-finalize" style="margin-top:10px; display:none;" onclick="handleFinalize()">🎯 FINALIZAR RONDA Y PAGAR</button>
-          <button class="btn btn-outline" id="btn-claim" style="margin-top:10px; display:none;" onclick="handleClaim()">💰 RECLAMAR PREMIO</button>
+          <button class="btn btn-gold" id="btn-finalize" style="margin-top:10px; display:none;" onclick="handleFinalize()">🎯 FINALIZAR Y PAGAR GANADOR</button>
         </div>
 
 
@@ -497,24 +496,20 @@ function renderFinishedRounds(){
       const winnerStr = r.winner.equals(SystemProgram.programId) ? "Sin ganador" : short(r.winner,6);
       const prizeStr = r.totalPrize > 0n ? fmtSOL(r.totalPrize,2) : "0.00 ◎";
       const isWinner = walletPubkey && r.winner.equals(walletPubkey);
-      const canClaim = isWinner && r.totalPrize > 0n;
-      const claimBtn = canClaim
-        ? `<button class="btn btn-outline" style="padding:6px 14px;font-size:.72rem;width:auto;" onclick="event.stopPropagation();handleClaimFromHistory(${r.id})">💰 Reclamar premio</button>`
-        : '';
+      // Premio pagado automáticamente en la finalización - no hay claim
       return `<div class="finished-item">
         <div class="finished-left">
           <div class="finished-round-num">#${r.id}</div>
           <div class="finished-details">
             <div>Precio: ${fmtSOL(r.ticketPrice,2)} · Tickets: ${r.playerCount}/${r.maxTickets}</div>
-            <div>Ganador: <span class="winner">${winnerStr}</span></div>
+            <div>Ganador: <span class="winner">${winnerStr}</span> ${isWinner ? '🏆 (Tú)' : ''}</div>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:12px;">
           <div class="finished-details" style="text-align:right;">
-            <div class="prize">${prizeStr}</div>
+            <div class="prize">${prizeStr === "0.00 ◎" ? '<span style="color:var(--green-hi);">✅ Pagado</span>' : prizeStr}</div>
             <a href="${EXPLORER}/account/${roundPDA(r.id).toBase58()}?cluster=devnet" target="_blank" style="font-size:.7rem;color:var(--muted);">ver cuenta ↗</a>
           </div>
-          ${claimBtn}
         </div>
       </div>`;
     } else {
@@ -565,8 +560,7 @@ function updateSelectedRoundUI(){
   el("btn-buy").disabled=!canBuy;
   // El botón de finalizar ya no aparece en la vista activa (solo en historial)
   el("btn-finalize").style.display="none";
-  const isWinner=walletPubkey&&round.isFinalized&&round.winner.equals(walletPubkey);
-  el("btn-claim").style.display=(isWinner&&round.totalPrize>0n)?"inline-flex":"none";
+  // Botón de claim eliminado - el pago es automático al finalizar
 }
 
 /* ---------- TRANSACTION ---------- */
@@ -654,61 +648,41 @@ async function finalizeRound(roundId){
 
   const rPda = roundPDA(round.id);
 
-  // Calcular el ganador igual que el contrato: players[slot % playerCount]
-  // Intentamos varias veces por si el slot cambia entre el cálculo y la ejecución
-  const MAX_ATTEMPTS = 5;
-  let lastError = null;
+  // Calcular el ganador usando el slot actual
+  // El contrato confía en este cálculo y paga automáticamente
+  const slot = await conn.getSlot("confirmed");
+  const winnerIndex = Number(BigInt(slot) % BigInt(round.playerCount));
+  const winnerPubkey = round.players[winnerIndex];
 
-  for(let attempt = 0; attempt < MAX_ATTEMPTS; attempt++){
-    try {
-      const slot = await conn.getSlot("confirmed");
-      const winnerIndex = Number(BigInt(slot) % BigInt(round.playerCount));
-      const winnerPubkey = round.players[winnerIndex];
+  if(!winnerPubkey) throw new Error(`No se encontró jugador en índice ${winnerIndex}`);
 
-      if(!winnerPubkey) throw new Error(`No se encontró jugador en índice ${winnerIndex}`);
+  const disc = await discriminator("finalize_round");
+  const data = concat(disc, u64LE(BigInt(round.id)));
+  const ix = new TransactionInstruction({
+    programId: PROGRAM_ID,
+    keys: [
+      {pubkey: rPda,                    isSigner: false, isWritable: true},
+      {pubkey: walletPubkey,            isSigner: true,  isWritable: true},
+      {pubkey: winnerPubkey,            isSigner: false, isWritable: true},
+      {pubkey: SystemProgram.programId, isSigner: false, isWritable: false}
+    ],
+    data
+  });
 
-      el("tx-desc-loading").textContent =
-        `Intento ${attempt+1}: ganador estimado ${short(winnerPubkey,6)}, enviando tx...`;
+  // UNA SOLA TX: finaliza Y paga al ganador automáticamente
+  // NO necesita claim - el pago es inmediato
+  const sig = await sendTx([ix]);
 
-      const disc = await discriminator("finalize_round");
-      const data = concat(disc, u64LE(BigInt(round.id)));
-      const ix = new TransactionInstruction({
-        programId: PROGRAM_ID,
-        keys: [
-          {pubkey: rPda,                    isSigner: false, isWritable: true},
-          {pubkey: walletPubkey,            isSigner: true,  isWritable: true},
-          {pubkey: winnerPubkey,            isSigner: false, isWritable: true},
-          {pubkey: SystemProgram.programId, isSigner: false, isWritable: false}
-        ],
-        data
-      });
-
-      // Una sola tx: finaliza Y paga al ganador en el mismo acto
-      const sig = await sendTx([ix]);
-
-      saveWinner({
-        address: winnerPubkey.toBase58(),
-        prize: fmtSOL(round.totalPrize, 4),
-        round: round.id,
-        date: new Date().toLocaleDateString("es-ES"),
-        sig
-      });
-      addActivity("🏆","w",`Ganador ronda ${round.id}`,`${short(winnerPubkey,8)}`,fmtSOL(round.totalPrize,4));
-      txSuccess(sig);
-      return; // éxito — salir
-    } catch(e) {
-      lastError = e;
-      // Si el error es WrongWinnerAccount el slot cambió — reintentamos
-      if(e.message && e.message.includes("WrongWinnerAccount")){
-        await new Promise(r => setTimeout(r, 500));
-        continue;
-      }
-      // Cualquier otro error: propagar inmediatamente
-      throw e;
-    }
-  }
-
-  throw new Error(`No se pudo finalizar tras ${MAX_ATTEMPTS} intentos. ${lastError?.message||""}`);
+  saveWinner({
+    address: winnerPubkey.toBase58(),
+    prize: fmtSOL(round.totalPrize, 4),
+    round: round.id,
+    date: new Date().toLocaleDateString("es-ES"),
+    sig
+  });
+  addActivity("🏆","w",`Ganador ronda ${round.id}`,`${short(winnerPubkey,8)}`,fmtSOL(round.totalPrize,4));
+  addActivity("💰","g",`Premio pagado automáticamente`,`${short(winnerPubkey,8)}`,fmtSOL(round.totalPrize,4));
+  txSuccess(sig);
 }
 
 async function handleFinalize(roundIdParam = null){
@@ -734,56 +708,9 @@ async function handleFinalizeFromHistory(roundId){
   await handleFinalize(roundId);
 }
 
-async function handleClaim(){
-  if(!walletPubkey||selectedRoundId===null||busy)return;
-  const round=rounds.find(r=>r.id===selectedRoundId);
-  if(!round||!round.isFinalized||round.totalPrize<=0n)return;
-  busy=true;
-  openTxModal(`Reclamando premio...`);
-  try{
-    const disc=await discriminator("claim_prize");
-    const data=concat(disc,u64LE(BigInt(round.id)));
-    const rPda=roundPDA(round.id);
-    const ix=new TransactionInstruction({programId:PROGRAM_ID,keys:[{pubkey:rPda,isSigner:false,isWritable:true},{pubkey:round.winner,isSigner:false,isWritable:true},{pubkey:SystemProgram.programId,isSigner:false,isWritable:false}],data});
-    const sig=await sendTx([ix]);txSuccess(sig);
-    addActivity("💰","w",`Premio reclamado ronda ${round.id}`,`${short(round.winner,8)}`,fmtSOL(round.totalPrize,4));
-    await fetchAll();
-  }catch(e){txError(e.message);}
-  busy=false;
-}
-async function handleClaimFromHistory(roundId){
-  if(!walletPubkey || busy) return;
-  const round = rounds.find(r => r.id === roundId);
-  if(!round || !round.isFinalized || round.totalPrize <= 0n) return;
-  if(!round.winner.equals(walletPubkey)) {
-    alert("Solo el ganador puede reclamar el premio.");
-    return;
-  }
-  busy = true;
-  openTxModal(`Reclamando premio de la ronda ${roundId}...`);
-  try {
-    const disc = await discriminator("claim_prize");
-    const data = concat(disc, u64LE(BigInt(roundId)));
-    const rPda = roundPDA(roundId);
-    const ix = new TransactionInstruction({
-      programId: PROGRAM_ID,
-      keys: [
-        {pubkey: rPda, isSigner: false, isWritable: true},
-        {pubkey: round.winner, isSigner: false, isWritable: true},
-        {pubkey: SystemProgram.programId, isSigner: false, isWritable: false}
-      ],
-      data
-    });
-    const sig = await sendTx([ix]);
-    txSuccess(sig);
-    addActivity("💰","w",`Premio reclamado ronda ${roundId}`,`${short(round.winner,8)}`,fmtSOL(round.totalPrize,4));
-    await fetchAll();
-    renderWinners();
-  } catch(e) {
-    txError(e.message);
-  }
-  busy = false;
-}
+// ─── CLAIM ELIMINADO ───
+// Ya no es necesario porque finalize_round paga automáticamente
+// El premio se transfiere en la misma transacción de finalización
 
 function toggleCreateForm(){
   const form=el("create-round-form");

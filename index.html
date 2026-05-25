@@ -972,13 +972,14 @@ async function fetchState() {
 
     const data = info.data;
     lotteryState = {
-      admin:        new PublicKey(data.slice(8, 40)),
-      ticketPrice:  new DataView(data.buffer, data.byteOffset + 40, 8).getBigUint64(0, true),
-      totalTickets: new DataView(data.buffer, data.byteOffset + 48, 8).getBigUint64(0, true),
-      totalPrize:   new DataView(data.buffer, data.byteOffset + 56, 8).getBigUint64(0, true),
-      isActive:     data[64] !== 0,
-      winner:       new PublicKey(data.slice(65, 97)),
-    };
+     admin:          new PublicKey(data.slice(8, 40)),
+     ticketPrice:    new DataView(data.buffer, data.byteOffset + 40, 8).getBigUint64(0, true),
+     totalTickets:   new DataView(data.buffer, data.byteOffset + 48, 8).getBigUint64(0, true),
+     totalPrize:     new DataView(data.buffer, data.byteOffset + 56, 8).getBigUint64(0, true),
+     isActive:       data[64] !== 0,
+     winner:         new PublicKey(data.slice(65, 97)),
+     roundStartId:   new DataView(data.buffer, data.byteOffset + 97, 8).getBigUint64(0, true),  // ← NUEVO
+   };
 
     // Hero
     el("prize-amount").textContent  = fmtSOL(lotteryState.totalPrize, 2);
@@ -1040,7 +1041,7 @@ async function fetchState() {
 
     // Count my tickets
     myTickets = 0;
-    for (let i = 1n; i <= lotteryState.totalTickets; i++) {
+    const startId = lotteryState.roundStartId + 1n; for (let i = startId; i <= lotteryState.totalTickets; i++) {
       try {
         const tInfo = await conn.getAccountInfo(ticketPDA(i));
         if (tInfo) {
@@ -1342,7 +1343,7 @@ async function handlePickWinner() {
       } catch (_) {}
       // Update progress
       if (i % 5n === 0n) {
-        el("tx-desc-loading").textContent = `Leyendo tickets... ${i}/${lotteryState.totalTickets}`;
+        el("tx-desc-loading").textContent = `Leyendo tickets... ${i - startId + 1n}/${lotteryState.totalTickets - lotteryState.roundStartId}`;
       }
     }
 

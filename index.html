@@ -262,14 +262,33 @@
         </div>
       </div>
 
-           <div class="wrap">
-        <!-- rondas activas/próximas -->
-        <div class="rounds-section">...</div>
+      <div class="wrap">
+        <div class="rounds-section">
+          <div class="section-header">
+            <div class="section-title">RONDAS ACTIVAS / PRÓXIMAS</div>
+            <div id="create-round-btn-container" style="display:none;">
+              <button class="btn btn-outline" style="width:auto; padding:8px 16px;" onclick="toggleCreateForm()">➕ CREAR RONDA</button>
+            </div>
+          </div>
+          <div id="create-round-form" style="display:none;" class="admin-create-form">
+            <input type="number" id="new-price" placeholder="Precio SOL" step="0.001" min="0.001">
+            <input type="datetime-local" id="new-start">
+            <input type="datetime-local" id="new-end">
+            <input type="number" id="new-max" placeholder="Max tickets" min="1">
+            <button class="btn btn-primary" style="width:auto;" onclick="handleCreateRound()">CREAR</button>
+          </div>
+          <div class="rounds-grid" id="rounds-container"></div>
+        </div>
 
-        <!-- panel de acciones -->
-        <div class="actions-panel" id="actions-container">...</div>
+        <div class="actions-panel" id="actions-container" style="display:none;">
+          <h3>ACCIÓN PARA RONDA SELECCIONADA</h3>
+          <div id="selected-round-info" style="margin-bottom:16px; font-size:.85rem;"></div>
+          <button class="btn btn-primary" id="btn-buy" onclick="handleBuy()">COMPRAR TICKET</button>
+          <button class="btn btn-gold" id="btn-finalize" style="margin-top:10px; display:none;" onclick="handleFinalize()">🎯 FINALIZAR RONDA Y PAGAR</button>
+          <button class="btn btn-outline" id="btn-claim" style="margin-top:10px; display:none;" onclick="handleClaim()">💰 RECLAMAR PREMIO</button>
+        </div>
 
-        <!-- GANADORES / ACTIVIDAD -->
+
         <div class="full-card">
           <div class="hof-tabs">
             <button class="hof-tab active" id="tab-hof" onclick="switchTab('hof')">🏆 GANADORES</button>
@@ -279,18 +298,18 @@
           <div id="panel-activity" style="display:none;"><div class="history-list" id="history-list"></div></div>
         </div>
 
-        <!-- AQUÍ VA EL HISTORIAL DE RONDAS FINALIZADAS -->
         <div class="finished-section" id="finished-rounds-section" style="display:none;">
           <div class="section-header">
             <div class="section-title">📜 HISTORIAL DE RONDAS FINALIZADAS</div>
           </div>
           <div class="finished-list" id="finished-rounds-list"></div>
         </div>
-      </div> <!-- FIN de .wrap -->
-    </div> <!-- FIN de #main-content -->
-  </div> <!-- FIN de #dashboard -->
 
-  
+        
+      </div>
+    </div>
+  </div>
+</div>
 
 <div id="tx-modal" class="modal-overlay" onclick="closeTxModal()">
   <div class="modal-box" onclick="event.stopPropagation()">

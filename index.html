@@ -6,7 +6,8 @@
   <title>SolLotto Multi‑Ronda — Devnet</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
-  <script src="https://unpkg.com/@solana/web3.js@1.91.8/lib/index.iife.min.js"></script>
+  <script src="https://unpkg.com/@solana/web3.js@1.91.8/lib/index.iife.min.js">
+  </script>
   <style>
     :root {
       --bg: #060910;
@@ -441,8 +442,9 @@ async function fetchAll(){
     }
 
     if(selectedRoundId !== null){
+      const nowTs = Math.floor(Date.now()/1000);
       const sel = rounds.find(r=>r.id===selectedRoundId);
-      if(!sel || sel.isFinalized) selectedRoundId = null;
+      if(!sel || sel.isFinalized || sel.endTime < nowTs) selectedRoundId = null;
     }
 
     renderActiveRounds();
@@ -455,16 +457,16 @@ async function fetchAll(){
 
 function renderActiveRounds(){
   const container=el("rounds-container");
-  const activeRounds = rounds.filter(r => !r.isFinalized);
+  const nowTs=Math.floor(Date.now()/1000);
+  // Solo rondas no finalizadas cuyo tiempo de fin aún no ha pasado (activas o próximas)
+  const activeRounds = rounds.filter(r => !r.isFinalized && r.endTime >= nowTs);
   if(activeRounds.length===0){
     container.innerHTML="<p style='color:var(--muted);text-align:center;padding:20px;'>No hay rondas activas o próximas.</p>";
     return;
   }
-  const nowTs=Math.floor(Date.now()/1000);
   container.innerHTML=activeRounds.map(r=>{
     let statusClass='status-upcoming',statusText='PRÓXIMA';
-    if(nowTs>=r.startTime&&nowTs<=r.endTime){statusClass='status-active';statusText='ACTIVA';}
-    else if(nowTs>r.endTime){statusClass='status-finished';statusText='FINALIZABLE';}
+    if(nowTs>=r.startTime){statusClass='status-active';statusText='ACTIVA';}
     const progress=r.maxTickets>0n?Math.min(100,(Number(r.playerCount)/Number(r.maxTickets))*100):0;
     return `<div class="round-card ${selectedRoundId===r.id?'selected':''}" onclick="selectRound(${r.id})">
       <div class="round-id">RONDA #${r.id}</div>
@@ -478,7 +480,9 @@ function renderActiveRounds(){
 }
 
 function renderFinishedRounds(){
-  const finished = rounds.filter(r => r.isFinalized);
+  const nowTs = Math.floor(Date.now()/1000);
+  // Finalizadas o terminadas (endTime pasado) pero aún no finalizadas
+  const finished = rounds.filter(r => r.isFinalized || (r.endTime < nowTs && !r.isFinalized));
   const section = el("finished-rounds-section");
   const list = el("finished-rounds-list");
   if(finished.length === 0){
@@ -487,48 +491,71 @@ function renderFinishedRounds(){
   }
   section.style.display = "block";
   list.innerHTML = finished.map(r => {
-    const winnerStr = r.winner.equals(SystemProgram.programId) ? "Sin ganador" : short(r.winner,6);
-    const prizeStr = r.totalPrize > 0n ? fmtSOL(r.totalPrize,2) : "0.00 ◎";
-    return `<div class="finished-item">
-      <div class="finished-left">
-        <div class="finished-round-num">#${r.id}</div>
-        <div class="finished-details">
-          <div>Precio: ${fmtSOL(r.ticketPrice,2)} · Tickets: ${r.playerCount}/${r.maxTickets}</div>
-          <div>Ganador: <span class="winner">${winnerStr}</span></div>
+    if (r.isFinalized) {
+      const winnerStr = r.winner.equals(SystemProgram.programId) ? "Sin ganador" : short(r.winner,6);
+      const prizeStr = r.totalPrize > 0n ? fmtSOL(r.totalPrize,2) : "0.00 ◎";
+      return `<div class="finished-item">
+        <div class="finished-left">
+          <div class="finished-round-num">#${r.id}</div>
+          <div class="finished-details">
+            <div>Precio: ${fmtSOL(r.ticketPrice,2)} · Tickets: ${r.playerCount}/${r.maxTickets}</div>
+            <div>Ganador: <span class="winner">${winnerStr}</span></div>
+          </div>
         </div>
-      </div>
-      <div class="finished-details" style="text-align:right;">
-        <div class="prize">${prizeStr}</div>
-        <a href="${EXPLORER}/account/${roundPDA(r.id).toBase58()}?cluster=devnet" target="_blank" style="font-size:.7rem;color:var(--muted);">ver cuenta ↗</a>
-      </div>
-    </div>`;
+        <div class="finished-details" style="text-align:right;">
+          <div class="prize">${prizeStr}</div>
+          <a href="${EXPLORER}/account/${roundPDA(r.id).toBase58()}?cluster=devnet" target="_blank" style="font-size:.7rem;color:var(--muted);">ver cuenta ↗</a>
+        </div>
+      </div>`;
+    } else {
+      // Ronda terminada pero no finalizada
+      const isAdmin = walletPubkey && r.admin.equals(walletPubkey);
+      let actionBtn = '';
+      if (isAdmin) {
+        actionBtn = `<button class="btn btn-outline" style="padding:6px 14px;font-size:.72rem;width:auto;" onclick="event.stopPropagation();handleFinalizeFromHistory(${r.id})">🎯 Finalizar</button>`;
+      }
+      return `<div class="finished-item">
+        <div class="finished-left">
+          <div class="finished-round-num">#${r.id}</div>
+          <div class="finished-details">
+            <div>Precio: ${fmtSOL(r.ticketPrice,2)} · Tickets: ${r.playerCount}/${r.maxTickets}</div>
+            <div>Estado: <span style="color:var(--muted-hi);">⏳ Pendiente de finalizar</span></div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          ${actionBtn}
+          <a href="${EXPLORER}/account/${roundPDA(r.id).toBase58()}?cluster=devnet" target="_blank" style="font-size:.7rem;color:var(--muted);">ver cuenta ↗</a>
+        </div>
+      </div>`;
+    }
   }).join("");
 }
 
 function selectRound(id){
+  const nowTs=Math.floor(Date.now()/1000);
   const round = rounds.find(r=>r.id===id);
-  if(!round || round.isFinalized) return;
+  // No permitir seleccionar si está finalizada o si su tiempo terminó
+  if(!round || round.isFinalized || round.endTime < nowTs) return;
   selectedRoundId = id;
   renderActiveRounds();
   updateSelectedRoundUI();
 }
 
 function updateSelectedRoundUI(){
+  const nowTs=Math.floor(Date.now()/1000);
   const round = rounds.find(r=>r.id===selectedRoundId);
   const actions = el("actions-container");
-  if(!round || round.isFinalized){
+  if(!round || round.isFinalized || round.endTime < nowTs){
     actions.style.display="none";
     return;
   }
   actions.style.display="block";
-  const nowTs=Math.floor(Date.now()/1000);
   const isActive=!round.isFinalized&&nowTs>=round.startTime&&nowTs<=round.endTime;
-  const isFinished=!round.isFinalized&&nowTs>=round.endTime;
   const canBuy=isActive&&round.playerCount<round.maxTickets;
-  el("selected-round-info").innerHTML=`Ronda #${round.id} · ${fmtSOL(round.ticketPrice,2)} · ${round.playerCount}/${round.maxTickets} · Bote: ${fmtSOL(round.totalPrize,2)}<br>Estado: ${isActive?'ACTIVA':(isFinished?'FINALIZABLE':'PRÓXIMA')}`;
+  el("selected-round-info").innerHTML=`Ronda #${round.id} · ${fmtSOL(round.ticketPrice,2)} · ${round.playerCount}/${round.maxTickets} · Bote: ${fmtSOL(round.totalPrize,2)}<br>Estado: ${isActive?'ACTIVA':'PRÓXIMA'}`;
   el("btn-buy").disabled=!canBuy;
-  const isRoundAdmin=walletPubkey&&round.admin.equals(walletPubkey);
-  el("btn-finalize").style.display=(isRoundAdmin&&isFinished&&round.playerCount>0)?"inline-flex":"none";
+  // El botón de finalizar ya no aparece en la vista activa (solo en historial)
+  el("btn-finalize").style.display="none";
   const isWinner=walletPubkey&&round.isFinalized&&round.winner.equals(walletPubkey);
   el("btn-claim").style.display=(isWinner&&round.totalPrize>0n)?"inline-flex":"none";
 }
@@ -611,51 +638,50 @@ async function handleBuy(){
   busy=false;
 }
 
-async function handleFinalize(){
-  if(!walletPubkey||selectedRoundId===null||busy)return;
-  const round=rounds.find(r=>r.id===selectedRoundId);
-  if(!round||round.isFinalized||!round.admin.equals(walletPubkey)){alert("No eres el admin de esta ronda o ya está finalizada.");return;}
-  
-  const roundId = round.id;
-  
-  busy=true;
-  openTxModal(`Finalizando ronda ${round.id}...`);
-  try{
-    const rPda=roundPDA(round.id);
-    // 1) Finalizar
-    const disc1=await discriminator("finalize_round");
-    const data1=concat(disc1,u64LE(BigInt(round.id)));
-    const ix1=new TransactionInstruction({programId:PROGRAM_ID,keys:[{pubkey:rPda,isSigner:false,isWritable:true},{pubkey:walletPubkey,isSigner:true,isWritable:false}],data:data1});
-    await sendTx([ix1]);
-    
-    // Esperar 2 segundos para que la blockchain propague el cambio
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    await fetchAll();
-    const updated = rounds.find(r => r.id === roundId);
-    console.log("Ronda después de finalizar:", updated);
-    if(!updated || !updated.isFinalized) throw new Error("No se finalizó correctamente o los datos tardan en propagarse.");
-    
-    // 2) Reclamar premio automáticamente
-    if(updated.totalPrize > 0n && !updated.winner.equals(SystemProgram.programId)){
-      const disc2 = await discriminator("claim_prize");
-      const data2 = concat(disc2, u64LE(BigInt(roundId)));
-      const ix2 = new TransactionInstruction({programId:PROGRAM_ID,keys:[{pubkey: rPda, isSigner: false, isWritable: true},{pubkey: updated.winner, isSigner: false, isWritable: true},{pubkey: SystemProgram.programId, isSigner: false, isWritable: false}], data: data2});
-      const sig = await sendTx([ix2]);
-      txSuccess(sig);
-      saveWinner({
-        address: updated.winner.toBase58(),
-        prize: fmtSOL(updated.totalPrize,4),
-        round: updated.id,
-        date: new Date().toLocaleDateString("es-ES"),
-        sig
-      });
-      addActivity("🏆","w",`Ganador ronda ${updated.id}`,`${short(updated.winner,8)}`,fmtSOL(updated.totalPrize,4));
-    } else {
-      txSuccess("Ronda finalizada sin premio.");
-    }
-    
-    selectedRoundId = null;
+async function finalizeRound(roundId){
+  const round = rounds.find(r=>r.id===roundId);
+  if(!round || round.isFinalized || !round.admin.equals(walletPubkey)) throw new Error("No puedes finalizar esta ronda.");
+  const rPda = roundPDA(round.id);
+  // 1) Finalizar
+  const disc1 = await discriminator("finalize_round");
+  const data1 = concat(disc1, u64LE(BigInt(round.id)));
+  const ix1 = new TransactionInstruction({programId:PROGRAM_ID,keys:[{pubkey:rPda,isSigner:false,isWritable:true},{pubkey:walletPubkey,isSigner:true,isWritable:false}],data:data1});
+  await sendTx([ix1]);
+
+  // Esperar propagación
+  await new Promise(resolve => setTimeout(resolve, 2000));
+  await fetchAll();
+  const updated = rounds.find(r => r.id === roundId);
+  if(!updated || !updated.isFinalized) throw new Error("No se finalizó correctamente o los datos tardan en propagarse.");
+
+  // 2) Reclamar premio automáticamente
+  if(updated.totalPrize > 0n && !updated.winner.equals(SystemProgram.programId)){
+    const disc2 = await discriminator("claim_prize");
+    const data2 = concat(disc2, u64LE(BigInt(roundId)));
+    const ix2 = new TransactionInstruction({programId:PROGRAM_ID,keys:[{pubkey: rPda, isSigner: false, isWritable: true},{pubkey: updated.winner, isSigner: false, isWritable: true},{pubkey: SystemProgram.programId, isSigner: false, isWritable: false}], data: data2});
+    const sig = await sendTx([ix2]);
+    saveWinner({
+      address: updated.winner.toBase58(),
+      prize: fmtSOL(updated.totalPrize,4),
+      round: updated.id,
+      date: new Date().toLocaleDateString("es-ES"),
+      sig
+    });
+    addActivity("🏆","w",`Ganador ronda ${updated.id}`,`${short(updated.winner,8)}`,fmtSOL(updated.totalPrize,4));
+    txSuccess(sig);
+  } else {
+    txSuccess("Ronda finalizada sin premio.");
+  }
+}
+
+async function handleFinalize(roundIdParam = null){
+  const targetRoundId = roundIdParam ?? selectedRoundId;
+  if(!walletPubkey || targetRoundId === null || busy) return;
+  busy = true;
+  openTxModal(`Finalizando ronda ${targetRoundId}...`);
+  try {
+    await finalizeRound(targetRoundId);
+    if (selectedRoundId === targetRoundId) selectedRoundId = null;
     renderActiveRounds();
     renderFinishedRounds();
     updateSelectedRoundUI();
@@ -664,6 +690,11 @@ async function handleFinalize(){
     txError(e.message);
   }
   busy = false;
+}
+
+// Llamada desde el botón del historial
+async function handleFinalizeFromHistory(roundId){
+  await handleFinalize(roundId);
 }
 
 async function handleClaim(){

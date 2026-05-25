@@ -604,6 +604,9 @@
           <button class="btn-pick" id="btn-pick" onclick="handlePickWinner()">
             CERRAR LOTERÍA Y ELEGIR GANADOR
           </button>
+          <button class="btn-pick" id="btn-restart" onclick="handleRestart()" style="display:none;margin-top:10px;border-color:var(--green);color:var(--green-hi)">
+            🔄 NUEVA RONDA
+          </button>
         </div>
       </div>
 
@@ -814,10 +817,18 @@ function renderDashboard() {
     el("inactive-wrap").style.display = "block";
   }
 
-  // Admin
+  // Admin — solo visible si esta wallet es el admin del contrato
   if (isAdmin) {
     el("admin-wrap").style.display = "block";
-    el("btn-pick").disabled = busy || !isActive || Number(totalTickets) === 0;
+    if (isActive) {
+      el("btn-pick").style.display    = "inline-block";
+      el("btn-restart").style.display = "none";
+      el("btn-pick").disabled = busy || Number(totalTickets) === 0;
+    } else {
+      el("btn-pick").style.display    = "none";
+      el("btn-restart").style.display = "inline-block";
+      el("btn-restart").disabled = busy;
+    }
   } else {
     el("admin-wrap").style.display = "none";
   }
@@ -945,6 +956,38 @@ async function handleBuy() {
   busy = false;
   if (lotteryState) el("btn-buy").textContent = `COMPRAR TICKET · ${fmtSOL(lotteryState.ticketPrice, 2)}`;
   setBusy("btn-buy", false);
+}
+
+async function handleRestart() {
+  if (!walletPubkey || !lotteryState || busy) return;
+  if (!confirm("¿Iniciar nueva ronda? El precio del ticket se mantiene igual.")) return;
+  busy = true; setBusy("btn-restart", true);
+  openTxModal("Iniciando nueva ronda", "Reiniciando la lotería...");
+  try {
+    const disc = await discriminator("restart");
+    const data = concat(disc, u64LE(BigInt(lotteryState.ticketPrice)));
+    const pda  = lotteryPDA();
+    const ix   = new TransactionInstruction({
+      programId: PROGRAM_ID,
+      keys: [
+        { pubkey: pda,                     isSigner: false, isWritable: true  },
+        { pubkey: walletPubkey,            isSigner: true,  isWritable: true  },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ],
+      data,
+    });
+    const sig = await sendTx([ix]);
+    txSuccess(sig);
+    myTickets = 0;
+    el("my-tickets-count").textContent = 0;
+    toast("s", "NUEVA RONDA INICIADA 🎲", "¡La lotería está activa!");
+    await fetchState();
+  } catch (e) {
+    console.error(e);
+    txError(e.message);
+    toast("e", "ERROR", e.message.slice(0, 80));
+  }
+  busy = false; setBusy("btn-restart", false);
 }
 
 async function handlePickWinner() {

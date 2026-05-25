@@ -8,6 +8,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
   <script src="https://unpkg.com/@solana/web3.js@1.91.8/lib/index.iife.min.js"></script>
   <style>
+    /* exactamente el mismo CSS que tenías, sin cambios */
     :root {
       --bg:         #060910;
       --surface:    #0c1120;
@@ -550,11 +551,8 @@
             <span class="card-title">ESTADO DE LA LOTERÍA</span>
           </div>
 
-          <!-- Not initialized -->
-          <div class="not-init" id="not-init-section">
-            <p>No se encontró una lotería activa en el contrato.<br/>Si eres el administrador, puedes inicializarla aquí.</p>
-            <button class="btn-init" id="btn-init" onclick="handleInit()">INICIALIZAR (0.1 SOL / ticket)</button>
-          </div>
+          <!-- Not initialized (solo admin ve el botón) -->
+          <div class="not-init" id="not-init-section" style="display:none"></div>
 
           <!-- Lottery data -->
           <div id="lottery-data" style="display:none">
@@ -590,7 +588,7 @@
         </div>
       </div>
 
-      <!-- Admin panel -->
+      <!-- Admin panel (solo admin ve esto) -->
       <div class="admin-wrap" id="admin-wrap" style="display:none">
         <div class="admin-card">
           <div class="admin-head">
@@ -706,12 +704,19 @@ function short(pk, n = 5) {
 //  PDAs
 // ══════════════════════════════════════════════
 function lotteryPDA() {
-  const [pda] = PublicKey.findProgramAddressSync([enc("lottery")], PROGRAM_ID);
+  // Nota: ahora el contrato usa seeds = [b"lottery", &lottery_id.to_le_bytes()]
+  // Por simplicidad aquí usamos el id = 0 (puedes cambiarlo en el futuro)
+  const lotteryId = 0;
+  const [pda] = PublicKey.findProgramAddressSync(
+    [enc("lottery"), u64LE(lotteryId)],
+    PROGRAM_ID
+  );
   return pda;
 }
 function ticketPDA(id, buyer) {
   const [pda] = PublicKey.findProgramAddressSync(
-    [enc("ticket"), u64LE(id), buyer.toBytes()], PROGRAM_ID
+    [enc("ticket"), u64LE(id), u64LE(id), buyer.toBytes()],
+    PROGRAM_ID
   );
   return pda;
 }
@@ -719,17 +724,18 @@ function ticketPDA(id, buyer) {
 // ══════════════════════════════════════════════
 //  ACCOUNT DECODE
 //  Layout after 8-byte discriminator:
-//  admin(32) ticketPrice(8) totalTickets(8) totalPrize(8) isActive(1) winner(32)
+//  id(8) admin(32) ticketPrice(8) totalTickets(8) totalPrize(8) isActive(1) winner(32)
 // ══════════════════════════════════════════════
 function decodeLottery(raw) {
   const b = new Uint8Array(raw); const o = 8;
   return {
-    admin:        new PublicKey(b.slice(o,      o+32)),
-    ticketPrice:  readU64(b, o+32),
-    totalTickets: readU64(b, o+40),
-    totalPrize:   readU64(b, o+48),
-    isActive:     b[o+56] === 1,
-    winner:       new PublicKey(b.slice(o+57,   o+89)),
+    id:           readU64(b, o),
+    admin:        new PublicKey(b.slice(o+8,   o+40)),
+    ticketPrice:  readU64(b, o+40),
+    totalTickets: readU64(b, o+48),
+    totalPrize:   readU64(b, o+56),
+    isActive:     b[o+64] === 1,
+    winner:       new PublicKey(b.slice(o+65,   o+97)),
   };
 }
 
@@ -758,38 +764,57 @@ async function fetchState() {
 function renderDashboard() {
   const ZERO = "11111111111111111111111111111111";
 
+  const notInit = el("not-init-section");
+  const lotteryData = el("lottery-data");
+  const buyWrap = el("buy-wrap");
+  const inactiveWrap = el("inactive-wrap");
+  const adminWrap = el("admin-wrap");
+
   if (!lotteryState) {
-    el("not-init-section").style.display = "block";
-    el("lottery-data").style.display     = "none";
-    el("buy-wrap").style.display         = "none";
-    el("inactive-wrap").style.display    = "block";
-    el("admin-wrap").style.display       = "none";
-    el("hero-prize").textContent         = "0.0000";
-    el("hero-tickets").textContent       = "0";
-    el("hero-price").textContent         = "—";
-    el("hero-status").innerHTML          = '';
+    // No hay cuenta de lotería
+    lotteryData.style.display = "none";
+    buyWrap.style.display = "none";
+    inactiveWrap.style.display = "block";
+    adminWrap.style.display = "none";
+
+    // Solo el admin puede inicializar (mostramos el botón si está conectado)
+    if (walletPubkey) {
+      notInit.style.display = "block";
+      notInit.innerHTML = `
+        <p>No se encontró una lotería activa en el contrato.</p>
+        <button class="btn-init" id="btn-init" onclick="handleInit()">INICIALIZAR (0.1 SOL / ticket)</button>
+      `;
+    } else {
+      notInit.style.display = "none";
+    }
+
+    el("hero-prize").textContent = "0.0000";
+    el("hero-tickets").textContent = "0";
+    el("hero-price").textContent = "—";
+    el("hero-status").innerHTML = '';
     return;
   }
 
   const { admin, ticketPrice, totalTickets, totalPrize, isActive, winner } = lotteryState;
   const isAdmin = walletPubkey && admin.toBase58() === walletPubkey.toBase58();
 
+  // Mostrar la sección de datos
+  lotteryData.style.display = "block";
+
   // Hero
-  el("hero-prize").textContent   = (Number(totalPrize) / LAMPORTS_PER_SOL).toFixed(4);
+  el("hero-prize").textContent = (Number(totalPrize) / LAMPORTS_PER_SOL).toFixed(4);
   el("hero-tickets").textContent = totalTickets.toString();
-  el("hero-price").textContent   = fmtSOL(ticketPrice, 2);
-  el("hero-status").outerHTML    = isActive
+  el("hero-price").textContent = fmtSOL(ticketPrice, 2);
+  el("hero-status").outerHTML = isActive
     ? `<span id="hero-status" class="prize-status active"><span class="pdot"></span>ACTIVA</span>`
     : `<span id="hero-status" class="prize-status closed">CERRADA</span>`;
 
   // Stats
-  el("not-init-section").style.display = "none";
-  el("lottery-data").style.display     = "block";
-  el("d-price").textContent            = fmtSOL(ticketPrice, 2);
-  el("d-tickets").textContent          = totalTickets.toString();
-  el("d-prize").textContent            = fmtSOL(totalPrize);
-  el("d-admin").textContent            = short(admin);
-  el("d-status").innerHTML             = isActive
+  el("d-price").textContent   = fmtSOL(ticketPrice, 2);
+  el("d-tickets").textContent = totalTickets.toString();
+  el("d-prize").textContent   = fmtSOL(totalPrize);
+  el("d-admin").textContent   = short(admin);
+  el("d-status").innerHTML    = isActive
     ? '<span class="status-pill active"><span class="sdot"></span>ACTIVA</span>'
     : '<span class="status-pill closed">CERRADA</span>';
 
@@ -802,24 +827,36 @@ function renderDashboard() {
   el("winner-banner").style.display = hasWinner ? "block" : "none";
   if (hasWinner) el("d-winner").textContent = winner.toBase58();
 
-  // Buy / inactive
+  // Lógica de compra
   if (isActive) {
-    el("buy-wrap").style.display     = "block";
-    el("inactive-wrap").style.display = "none";
+    buyWrap.style.display = "block";
+    inactiveWrap.style.display = "none";
     const btn = el("btn-buy");
     btn.textContent = `COMPRAR TICKET · ${fmtSOL(ticketPrice, 2)}`;
-    btn.disabled    = busy;
+    btn.disabled = busy;
   } else {
-    el("buy-wrap").style.display     = "none";
-    el("inactive-wrap").style.display = "block";
+    buyWrap.style.display = "none";
+    inactiveWrap.style.display = "block";
   }
 
-  // Admin
-  if (isAdmin) {
-    el("admin-wrap").style.display = "block";
-    el("btn-pick").disabled = busy || !isActive || Number(totalTickets) === 0;
+  // Sección "not-init" (reinicio para admin)
+  if (!isActive && isAdmin) {
+    // Lotería cerrada y el usuario es admin → mostrar botón de nueva ronda
+    notInit.style.display = "block";
+    notInit.innerHTML = `
+      <p>La lotería anterior terminó. Inicia una nueva ronda.</p>
+      <button class="btn-init" id="btn-reset" onclick="handleReset()">NUEVA RONDA</button>
+    `;
   } else {
-    el("admin-wrap").style.display = "none";
+    notInit.style.display = "none";
+  }
+
+  // Admin panel (solo admin y lotería activa)
+  if (isAdmin && isActive) {
+    adminWrap.style.display = "block";
+    el("btn-pick").disabled = busy || Number(totalTickets) === 0;
+  } else {
+    adminWrap.style.display = "none";
   }
 }
 
@@ -889,7 +926,8 @@ async function handleInit() {
   openTxModal("Inicializando lotería", "Creando el contrato en Devnet...");
   try {
     const disc = await discriminator("initialize");
-    const data = concat(disc, u64LE(BigInt(Math.round(0.1 * LAMPORTS_PER_SOL))));
+    const lotteryId = 0;
+    const data = concat(disc, u64LE(lotteryId), u64LE(BigInt(Math.round(0.1 * LAMPORTS_PER_SOL))));
     const pda  = lotteryPDA();
     const ix   = new TransactionInstruction({
       programId: PROGRAM_ID,
@@ -920,7 +958,7 @@ async function handleBuy() {
   try {
     const disc  = await discriminator("buy_ticket");
     const pda   = lotteryPDA();
-    const tPda  = ticketPDA(lotteryState.totalTickets, walletPubkey);
+    const tPda  = ticketPDA(lotteryState.id, walletPubkey);
     const ix    = new TransactionInstruction({
       programId: PROGRAM_ID,
       keys: [
@@ -975,6 +1013,41 @@ async function handlePickWinner() {
     toast("e", "ERROR", e.message.slice(0, 80));
   }
   busy = false; setBusy("btn-pick", false);
+}
+
+// --- NUEVA FUNCIÓN: Reset ---
+async function handleReset() {
+  if (!walletPubkey || !lotteryState || busy) return;
+  if (!confirm("¿Iniciar una nueva ronda con el mismo precio de ticket?")) return;
+  busy = true;
+  const resetBtn = el("btn-reset");
+  if (resetBtn) resetBtn.disabled = true;
+  openTxModal("Reiniciando lotería", "Habilitando nueva ronda...");
+  try {
+    const disc = await discriminator("reset_lottery");
+    const data = concat(disc, u64LE(lotteryState.ticketPrice));
+    const pda = lotteryPDA();
+    const ix = new TransactionInstruction({
+      programId: PROGRAM_ID,
+      keys: [
+        { pubkey: pda,          isSigner: false, isWritable: true },
+        { pubkey: walletPubkey, isSigner: true,  isWritable: true },
+      ],
+      data,
+    });
+    const sig = await sendTx([ix]);
+    txSuccess(sig);
+    myTickets = 0;
+    el("my-tickets-count").textContent = "0";
+    toast("s", "NUEVA RONDA", "La lotería está activa otra vez 🎉");
+    await fetchState();
+  } catch (e) {
+    console.error(e);
+    txError(e.message);
+    toast("e", "ERROR", e.message.slice(0, 80));
+  }
+  busy = false;
+  if (resetBtn) resetBtn.disabled = false;
 }
 
 // ══════════════════════════════════════════════

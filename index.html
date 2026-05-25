@@ -326,6 +326,9 @@ const RPC = "https://api.devnet.solana.com";
 const EXPLORER = "https://solscan.io";
 const conn = new Connection(RPC, "confirmed");
 
+// CORRECCIÓN: definir el número fijo de jugadores (máximo) igual que en el contrato
+const MAX_PLAYERS = 10;
+
 let walletPubkey = null;
 let globalState = null;
 let rounds = [];
@@ -351,7 +354,7 @@ function globalPDA(){return PublicKey.findProgramAddressSync([utf8("global")],PR
 function roundPDA(roundId){return PublicKey.findProgramAddressSync([utf8("round"),u64LE(BigInt(roundId))],PROGRAM_ID)[0];}
 function ticketPDA(roundId, ticketNumber){return PublicKey.findProgramAddressSync([utf8("ticket"),u64LE(BigInt(roundId)),u64LE(BigInt(ticketNumber))],PROGRAM_ID)[0];}
 
-/* ---------- FETCH GLOBAL + ROUNDS (DINÁMICO) ---------- */
+/* ---------- FETCH GLOBAL + ROUNDS (CORREGIDO) ---------- */
 async function fetchAll() {
   try {
     const gPDA = globalPDA();
@@ -379,18 +382,13 @@ async function fetchAll() {
         const rInfo = await conn.getAccountInfo(rPDA);
         if (!rInfo) continue;
         const data = rInfo.data;
-        const dataLen = data.length - 8; // sin los 8 del discriminator
-        const FIXED_SIZE = 122; // bytes fijos (sin el array de players): id(8)+ticket_price(8)+start_time(8)+end_time(8)+max_tickets(8) + player_count(8)+winner(32)+is_finalized(1)+total_prize(8)+admin(32)+bump(1)
-        if (dataLen < FIXED_SIZE) {
-          console.warn(`Ronda ${i}: cuenta demasiado pequeña, se omite`);
+
+        // CORRECCIÓN: tamaño mínimo esperado = 8 (discriminador) + 442 (datos serializados sin padding)
+        const MIN_DATA_LEN = 8 + 8 + 8 + 8 + 8 + MAX_PLAYERS * 32 + 8 + 32 + 1 + 8 + 32 + 1; // 450
+        if (data.length < MIN_DATA_LEN) {
+          console.warn(`Ronda ${i}: cuenta demasiado pequeña (${data.length} < ${MIN_DATA_LEN}), se omite`);
           continue;
         }
-        const numPlayers = (dataLen - FIXED_SIZE) / 32;
-        if (numPlayers % 1 !== 0) {
-          console.warn(`Ronda ${i}: número de jugadores no entero, se omite`);
-          continue;
-        }
-        const maxPlayers = Math.floor(numPlayers);
 
         let offset = 8; // saltar discriminador
         const id = Number(new DataView(data.buffer, data.byteOffset + offset, 8).getBigUint64(0, true)); offset += 8;
@@ -398,12 +396,15 @@ async function fetchAll() {
         const startTime = Number(new DataView(data.buffer, data.byteOffset + offset, 8).getBigInt64(0, true)); offset += 8;
         const endTime = Number(new DataView(data.buffer, data.byteOffset + offset, 8).getBigInt64(0, true)); offset += 8;
         const maxTickets = new DataView(data.buffer, data.byteOffset + offset, 8).getBigUint64(0, true); offset += 8;
+
+        // CORRECCIÓN: leer exactamente MAX_PLAYERS jugadores, no calcular numPlayers desde dataLen
         const players = [];
-        for (let j = 0; j < maxPlayers; j++) {
+        for (let j = 0; j < MAX_PLAYERS; j++) {
           const pubkey = new PublicKey(data.slice(offset, offset + 32));
           offset += 32;
           players.push(pubkey);
         }
+
         const playerCount = Number(new DataView(data.buffer, data.byteOffset + offset, 8).getBigUint64(0, true)); offset += 8;
         const winner = new PublicKey(data.slice(offset, offset + 32)); offset += 32;
         const isFinalized = data[offset] !== 0; offset += 1;
@@ -443,7 +444,7 @@ function renderRounds() {
     else if (nowTs >= r.startTime && nowTs <= r.endTime) { statusClass = 'status-active'; statusText = 'ACTIVA'; }
     else if (nowTs > r.endTime) { statusClass = 'status-finished'; statusText = 'FINALIZABLE'; }
 
-    const progress = r.maxTickets > 0 ? Math.min(100, (Number(r.playerCount) / Number(r.maxTickets))*100) : 0;
+    const progress = r.maxTickets > 0n ? Math.min(100, (Number(r.playerCount) / Number(r.maxTickets))*100) : 0;
     return `
       <div class="round-card ${selectedRoundId===r.id?'selected':''}" onclick="selectRound(${r.id})">
         <div class="round-id">RONDA #${r.id}</div>
@@ -568,7 +569,8 @@ async function handleBuy() {
     const disc = await discriminator("buy_ticket");
     const data = concat(disc, u64LE(BigInt(round.id)));
     const roundPda = roundPDA(round.id);
-    const nextTicketNum = round.playerCount + 1n;
+    // CORRECCIÓN: convertir playerCount a BigInt antes de sumar 1n
+    const nextTicketNum = BigInt(round.playerCount) + 1n;
     const ticketPda = ticketPDA(round.id, nextTicketNum);
     const ix = new TransactionInstruction({
       programId: PROGRAM_ID,

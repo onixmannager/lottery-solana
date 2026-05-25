@@ -1285,8 +1285,9 @@ async function handleRestart() {
     const ix = new TransactionInstruction({
       programId: PROGRAM_ID,
       keys: [
-        { pubkey: pda,          isSigner: false, isWritable: true },
-        { pubkey: walletPubkey, isSigner: true,  isWritable: true },
+        { pubkey: pda,                     isSigner: false, isWritable: true  },
+        { pubkey: walletPubkey,            isSigner: true,  isWritable: true  },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },  // ← AÑADIDO
       ],
       data,
     });
@@ -1306,7 +1307,7 @@ async function handleRestart() {
 
   busy = false; setBusy("btn-restart", false);
 }
-
+  
 async function handlePickWinner() {
   if (!walletPubkey || !lotteryState || busy) return;
   if (lotteryState.totalTickets === 0n) {

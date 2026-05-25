@@ -333,16 +333,6 @@
     .btn-pick:hover:not(:disabled) { background: rgba(239,68,68,.1); box-shadow: 0 0 24px rgba(239,68,68,.2); }
     .btn-pick:disabled { opacity: .3; cursor: not-allowed; }
 
-    .btn-restart {
-      font-family: var(--font); font-size: .8rem; font-weight: 600; letter-spacing: .1em;
-      padding: 13px 28px; border-radius: 10px; cursor: pointer; transition: all .2s;
-      background: transparent; border: 1px solid var(--green);
-      color: var(--green-hi); margin-top: 10px;
-    }
-    .btn-restart:hover:not(:disabled) { background: rgba(16,185,129,.1); box-shadow: 0 0 24px rgba(16,185,129,.2); }
-    .btn-restart:disabled { opacity: .3; cursor: not-allowed; }
-    .admin-btn-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
-
     /* ── Refresh bar ── */
     .refresh-row {
       display: flex; align-items: center; gap: 8px;
@@ -569,10 +559,6 @@
           <!-- Lottery data -->
           <div id="lottery-data" style="display:none">
             <div class="stat-row">
-              <span class="sk">Tickets totales (histórico)</span>
-              <span class="sv" id="d-round">—</span>
-            </div>
-            <div class="stat-row">
               <span class="sk">Precio ticket</span>
               <span class="sv gold" id="d-price">—</span>
             </div>
@@ -612,21 +598,18 @@
             <span style="font-size:.85rem;font-weight:600;color:var(--red-hi)">Panel de Administrador</span>
           </div>
           <p class="admin-desc" id="admin-desc-active">
-            Cierra la lotería y elige un ganador aleatorio usando el timestamp del bloque de Solana.<br/>
+            Cierra la lotería y elige un ganador aleatorio.<br/>
             <strong style="color:var(--red-hi);font-size:.78rem">⚠️ Esta acción es irreversible. El bote se transfiere al ganador automáticamente.</strong>
           </p>
           <p class="admin-desc" id="admin-desc-closed" style="display:none">
-            La lotería ha terminado. Puedes iniciar una nueva ronda con el mismo contrato.<br/>
-            <strong style="color:var(--green-hi);font-size:.78rem">✅ El PDA ya existe — no hace falta re-deployar el contrato.</strong>
+            Lotería cerrada. Puedes iniciar una nueva ronda.
           </p>
-          <div class="admin-btn-row">
-            <button class="btn-pick" id="btn-pick" onclick="handlePickWinner()">
-              CERRAR LOTERÍA Y ELEGIR GANADOR
-            </button>
-            <button class="btn-restart" id="btn-restart" onclick="handleRestart()" style="display:none">
-              🔄 REINICIAR NUEVA RONDA
-            </button>
-          </div>
+          <button class="btn-pick" id="btn-pick" onclick="handlePickWinner()">
+            CERRAR LOTERÍA Y ELEGIR GANADOR
+          </button>
+          <button class="btn-pick" id="btn-restart" onclick="handleRestart()" style="display:none;margin-top:10px;border-color:var(--green);color:var(--green-hi)">
+            🔄 NUEVA RONDA
+          </button>
         </div>
       </div>
 
@@ -677,7 +660,7 @@ const {
 const PROGRAM_ID   = new PublicKey("27WmZciMu23KeTEmtYQxKtAMc4TUjZ3BT6853M5rB8g5");
 const EXPLORER_URL = (sig) => `https://explorer.solana.com/tx/${sig}?cluster=devnet`;
 const ADDR_URL     = (addr) => `https://explorer.solana.com/address/${addr}?cluster=devnet`;
-const connection   = new Connection(clusterApiUrl("devnet"), { commitment: "confirmed", confirmTransactionInitialTimeout: 60000 });
+const connection   = new Connection(clusterApiUrl("devnet"), "confirmed");
 
 // ══════════════════════════════════════════════
 //  STATE
@@ -732,11 +715,10 @@ function lotteryPDA() {
   const [pda] = PublicKey.findProgramAddressSync([enc("lottery")], PROGRAM_ID);
   return pda;
 }
-function ticketPDA(globalNextId) {
-  // seed = [b"ticket", global_ticket_count+1]
-  // global_ticket_count nunca se resetea → PDAs siempre únicos
+function ticketPDA(nextId) {
+  // seed matches contract: [b"ticket", (total_tickets+1) as u64 LE]
   const [pda] = PublicKey.findProgramAddressSync(
-    [enc("ticket"), u64LE(globalNextId)], PROGRAM_ID
+    [enc("ticket"), u64LE(nextId)], PROGRAM_ID
   );
   return pda;
 }
@@ -747,33 +729,17 @@ function ticketPDA(globalNextId) {
 //  admin(32) ticketPrice(8) totalTickets(8) totalPrize(8) isActive(1) winner(32)
 // ══════════════════════════════════════════════
 function decodeLottery(raw) {
-  // Layout:
-  // [0..7]    discriminator         8
-  // [8..39]   admin                 32
-  // [40..47]  ticket_price          8
-  // [48..55]  total_tickets         8  (se resetea por ronda)
-  // [56..63]  total_prize           8  (se resetea por ronda)
-  // [64]      is_active             1
-  // [65..96]  winner                32
-  // [97..104] global_ticket_count   8  (nunca se resetea)
+  // [0-7] discriminator | [8-39] admin | [40-47] ticket_price
+  // [48-55] total_tickets | [56-63] total_prize | [64] is_active | [65-96] winner
   const b = new Uint8Array(raw);
-  if (b.length < 105) {
-    console.error("[decodeLottery] buffer too short:", b.length, "bytes — redespliega el contrato");
-    throw new Error("Contrato desactualizado (97 bytes). Haz Build + Deploy del nuevo lib.rs en Solana Playground, actualiza PROGRAM_ID en el HTML, y refresca.");
-  }
-  const state = {
-    admin:             new PublicKey(b.slice(8,  40)),
-    ticketPrice:       readU64(b, 40),
-    totalTickets:      readU64(b, 48),
-    totalPrize:        readU64(b, 56),
-    isActive:          b[64] === 1,
-    winner:            new PublicKey(b.slice(65, 97)),
-    globalTicketCount: readU64(b, 97),
+  return {
+    admin:        new PublicKey(b.slice(8,  40)),
+    ticketPrice:  readU64(b, 40),
+    totalTickets: readU64(b, 48),
+    totalPrize:   readU64(b, 56),
+    isActive:     b[64] === 1,
+    winner:       new PublicKey(b.slice(65, 97)),
   };
-  console.log("[decodeLottery] isActive:", state.isActive,
-              "| totalTickets:", state.totalTickets.toString(),
-              "| globalTicketCount:", state.globalTicketCount.toString());
-  return state;
 }
 
 // ══════════════════════════════════════════════
@@ -802,13 +768,10 @@ function renderDashboard() {
   const ZERO = "11111111111111111111111111111111";
 
   if (!lotteryState) {
-    // Si no hay lotería, solo el admin puede inicializarla
-    // Como no tenemos admin guardado, mostramos la sección pero el contrato rechazará
-    // si no es el deployer original.
     el("not-init-section").style.display = "block";
     el("lottery-data").style.display     = "none";
     el("buy-wrap").style.display         = "none";
-    el("inactive-wrap").style.display    = "none";
+    el("inactive-wrap").style.display    = "block";
     el("admin-wrap").style.display       = "none";
     el("hero-prize").textContent         = "0.0000";
     el("hero-tickets").textContent       = "0";
@@ -835,7 +798,6 @@ function renderDashboard() {
   el("d-tickets").textContent          = totalTickets.toString();
   el("d-prize").textContent            = fmtSOL(totalPrize);
   el("d-admin").textContent            = short(admin);
-  const roundEl = el("d-round"); if (roundEl) roundEl.textContent = lotteryState.globalTicketCount.toString();
   el("d-status").innerHTML             = isActive
     ? '<span class="status-pill active"><span class="sdot"></span>ACTIVA</span>'
     : '<span class="status-pill closed">CERRADA</span>';
@@ -861,20 +823,18 @@ function renderDashboard() {
     el("inactive-wrap").style.display = "block";
   }
 
-  // Admin — solo visible para el wallet que creó la lotería
+  // Admin — solo visible si la wallet conectada es el admin del contrato
   if (isAdmin) {
     el("admin-wrap").style.display = "block";
     if (isActive) {
-      // Lotería activa: mostrar botón cerrar, ocultar reiniciar
-      el("btn-pick").style.display     = "inline-block";
-      el("btn-restart").style.display  = "none";
+      el("btn-pick").style.display    = "inline-block";
+      el("btn-restart").style.display = "none";
       el("admin-desc-active").style.display = "block";
       el("admin-desc-closed").style.display = "none";
       el("btn-pick").disabled = busy || Number(totalTickets) === 0;
     } else {
-      // Lotería cerrada: ocultar cerrar, mostrar reiniciar
-      el("btn-pick").style.display     = "none";
-      el("btn-restart").style.display  = "inline-block";
+      el("btn-pick").style.display    = "none";
+      el("btn-restart").style.display = "inline-block";
       el("admin-desc-active").style.display = "none";
       el("admin-desc-closed").style.display = "block";
       el("btn-restart").disabled = busy;
@@ -934,7 +894,7 @@ async function sendTx(ixs) {
   setStep(1, "active"); setStep(2, "pending"); setStep(3, "pending");
   const signed = await window.solana.signTransaction(tx);
   setStep(1, "done"); setStep(2, "active");
-  const sig = await connection.sendRawTransaction(signed.serialize(), { skipPreflight: false, preflightCommitment: "confirmed" });
+  const sig = await connection.sendRawTransaction(signed.serialize());
   setStep(2, "done"); setStep(3, "active");
   await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight });
   setStep(3, "done");
@@ -976,43 +936,20 @@ async function handleInit() {
 async function handleBuy() {
   if (!walletPubkey || busy) return;
   busy = true; setBusy("btn-buy", true);
-
-  // Leer estado FRESCO del chain antes de construir la tx
-  let freshState;
   try {
+    // Leer estado fresco del chain para tener total_tickets exacto
     const info = await connection.getAccountInfo(lotteryPDA(), "confirmed");
-    if (!info) throw new Error("Lotería no inicializada en el contrato.");
-    freshState = decodeLottery(info.data);
-    console.log("[buy] freshState:", {
-      isActive: freshState.isActive,
-      totalTickets: freshState.totalTickets.toString(),
-      ticketPrice: freshState.ticketPrice.toString(),
-      admin: freshState.admin.toBase58(),
-    });
-  } catch(e) {
-    busy = false; setBusy("btn-buy", false);
-    txError(e.message);
-    toast("e", "ERROR LEYENDO ESTADO", e.message.slice(0,80));
-    return;
-  }
+    if (!info) throw new Error("Lotería no inicializada.");
+    const fresh = decodeLottery(info.data);
+    if (!fresh.isActive) throw new Error("La lotería está cerrada.");
 
-  if (!freshState.isActive) {
-    busy = false; setBusy("btn-buy", false);
-    toast("e", "LOTERÍA CERRADA", "El admin aún no ha iniciado la siguiente ronda.");
-    return;
-  }
+    const nextId = fresh.totalTickets + 1n; // BigInt
+    const num    = Number(nextId);
+    openTxModal(`Comprando ticket #${num}`, `Precio: ${fmtSOL(fresh.ticketPrice, 2)}`);
 
-  const currentTickets = freshState.totalTickets; // BigInt
-  const num = Number(currentTickets) + 1;
-  openTxModal(`Comprando ticket #${num}`, `Precio: ${fmtSOL(freshState.ticketPrice, 2)}`);
-
-  try {
-    const disc  = await discriminator("buy_ticket");
-    const pda   = lotteryPDA();
-    const globalNext = freshState.globalTicketCount + 1n; // BigInt: siguiente ID global
-    const tPda       = ticketPDA(globalNext);
-
-    console.log("[buy] ticket PDA:", tPda.toBase58(), "globalNext:", globalNext.toString());
+    const disc = await discriminator("buy_ticket");
+    const pda  = lotteryPDA();
+    const tPda = ticketPDA(nextId);
 
     const ix = new TransactionInstruction({
       programId: PROGRAM_ID,
@@ -1028,15 +965,12 @@ async function handleBuy() {
     txSuccess(sig);
     myTickets++;
     el("my-tickets-count").textContent = myTickets;
-    lotteryState = freshState; // actualizar state local con el fresh
     toast("s", `TICKET #${num} COMPRADO`, `¡Ya tienes ${myTickets} ticket${myTickets > 1 ? "s" : ""} en esta ronda! 🎟`);
     await fetchState();
   } catch (e) {
     console.error(e);
     txError(e.message);
     toast("e", "ERROR AL COMPRAR", e.message.slice(0, 80));
-    // Refrescar estado por si el error fue de sincronización
-    await fetchState();
   }
   busy = false;
   if (lotteryState) el("btn-buy").textContent = `COMPRAR TICKET · ${fmtSOL(lotteryState.ticketPrice, 2)}`;
@@ -1045,15 +979,16 @@ async function handleBuy() {
 
 async function handleRestart() {
   if (!walletPubkey || !lotteryState || busy) return;
-  if (!confirm("¿Iniciar una nueva ronda de lotería?\n\nSe reiniciarán los tickets y el bote. El precio del ticket se mantiene igual.")) return;
+  if (!confirm("¿Iniciar nueva ronda?
+
+El precio del ticket se mantiene igual.")) return;
   busy = true; setBusy("btn-restart", true);
-  openTxModal("Reiniciando lotería", "Iniciando nueva ronda en el contrato...");
+  openTxModal("Iniciando nueva ronda", "Reiniciando la lotería...");
   try {
-    const disc        = await discriminator("restart");
-    const ticketPrice = lotteryState.ticketPrice; // mantiene el mismo precio
-    const data        = concat(disc, u64LE(ticketPrice));
-    const pda         = lotteryPDA();
-    const ix          = new TransactionInstruction({
+    const disc = await discriminator("restart");
+    const data = concat(disc, u64LE(BigInt(lotteryState.ticketPrice)));
+    const pda  = lotteryPDA();
+    const ix   = new TransactionInstruction({
       programId: PROGRAM_ID,
       keys: [
         { pubkey: pda,                     isSigner: false, isWritable: true  },
@@ -1066,12 +1001,12 @@ async function handleRestart() {
     txSuccess(sig);
     myTickets = 0;
     el("my-tickets-count").textContent = 0;
-    toast("s", "NUEVA RONDA INICIADA 🎲", "La lotería está activa de nuevo. ¡A por tickets!");
+    toast("s", "NUEVA RONDA INICIADA 🎲", "¡La lotería está activa!");
     await fetchState();
   } catch (e) {
     console.error(e);
     txError(e.message);
-    toast("e", "ERROR AL REINICIAR", e.message.slice(0, 80));
+    toast("e", "ERROR", e.message.slice(0, 80));
   }
   busy = false; setBusy("btn-restart", false);
 }

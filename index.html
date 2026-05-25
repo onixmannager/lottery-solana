@@ -506,13 +506,13 @@
   <!-- ═══════ DASHBOARD ═══════ -->
   <div id="dashboard">
 
-    <!-- Not Initialized -->
+    <!-- Not Initialized (cuenta nunca creada on-chain) -->
     <div id="not-initialized">
       <div class="ni-icon">🎰</div>
-      <h2>Lotería no inicializada</h2>
-      <p>La lotería aún no ha sido creada en la blockchain.<br>
+      <h2 id="ni-title">Lotería no inicializada</h2>
+      <p id="ni-desc">La lotería aún no ha sido creada en la blockchain.<br>
          Si eres el administrador, puedes inicializarla ahora.</p>
-      <button class="btn-initialize" onclick="handleInitialize()">🚀 INICIALIZAR LOTERÍA</button>
+      <button class="btn-initialize" id="ni-btn" onclick="handleInitialize()">🚀 INICIALIZAR LOTERÍA</button>
     </div>
 
     <!-- Main Content -->
@@ -955,9 +955,15 @@ async function fetchState() {
     const info = await conn.getAccountInfo(pda);
 
     if (!info) {
+      // Cuenta nunca creada — solo el admin puede inicializar
       el("not-initialized").style.display = "block";
       el("main-content").style.display    = "none";
       lotteryState = null;
+      el("ni-title").textContent = "Lotería no inicializada";
+      el("ni-desc").innerHTML   = "La cuenta de la lotería aún no existe en la blockchain.<br>Conecta la wallet de administrador para crearla.";
+      el("ni-btn").style.display = "inline-flex";
+      el("ni-btn").textContent  = "🚀 INICIALIZAR LOTERÍA";
+      el("ni-btn").onclick      = handleInitialize;
       return;
     }
 
@@ -1118,12 +1124,32 @@ function copyWinnerAddr() {
 async function handleInitialize() {
   if (!walletPubkey || busy) return;
 
+  // IMPORTANTE: comprobar si la cuenta ya existe on-chain.
+  // Si existe pero está cerrada -> usar restart, no initialize.
+  // initialize solo funciona si la cuenta NUNCA ha existido.
+  const existingInfo = await conn.getAccountInfo(lotteryPDA());
+  if (existingInfo) {
+    // La cuenta ya existe — no podemos llamar a initialize de nuevo.
+    // Redirigir a restart si está cerrada.
+    if (lotteryState && !lotteryState.isActive) {
+      toast("i", "LOTERÍA YA EXISTE", "La cuenta ya está creada. Usa 'Nueva Ronda' para reiniciarla.");
+      await fetchState(); // refresca UI para mostrar el panel admin
+    } else if (lotteryState && lotteryState.isActive) {
+      toast("i", "LOTERÍA YA ACTIVA", "La lotería ya está en marcha. Puedes comprar tickets.");
+      await fetchState();
+    } else {
+      // lotteryState aún null pero la cuenta existe — refrescar
+      await fetchState();
+    }
+    return;
+  }
+
   const priceStr = await showInput({
     icon: "🚀",
     title: "Inicializar Lotería",
-    desc: "Introduce el precio de cada ticket en SOL.",
+    desc: "Introduce el precio de cada ticket en SOL. Esta operación crea la cuenta on-chain por primera vez.",
     label: "PRECIO DEL TICKET (SOL)",
-    note: "Este valor se almacenará on-chain y no podrá cambiarse hasta la siguiente ronda.",
+    note: "Solo es necesario hacerlo una vez. Las siguientes rondas usan 'Nueva Ronda'.",
     defaultValue: "0.1",
   });
   if (!priceStr) return;
@@ -1135,7 +1161,7 @@ async function handleInitialize() {
   }
 
   busy = true;
-  openTxModal("Inicializando lotería", "Creando cuenta en la blockchain...");
+  openTxModal("Inicializando lotería", "Creando cuenta en la blockchain por primera vez...");
 
   try {
     const disc          = await discriminator("initialize");

@@ -325,7 +325,7 @@ const { Connection, PublicKey, SystemProgram, Transaction, TransactionInstructio
 const PROGRAM_ID = new PublicKey("AZFvRwhuBiUbj4wvLu1EbZVdLgcYrYpHm3nRttDS4Vx3");
 const RPC = "https://api.devnet.solana.com";
 const EXPLORER = "https://solscan.io";
-const MAX_PLAYERS = 10;
+const MAX_PLAYERS = 2000; // debe coincidir con MAX_PLAYERS_PER_ROUND en Rust
 const HOF_KEY = "sollotto_winners_v2";
 
 const conn = new Connection(RPC, "confirmed");

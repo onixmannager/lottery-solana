@@ -981,10 +981,11 @@ async function fetchState() {
      roundStartId:   new DataView(data.buffer, data.byteOffset + 97, 8).getBigUint64(0, true),  // ← NUEVO
    };
 
-    // Hero
-    el("prize-amount").textContent  = fmtSOL(lotteryState.totalPrize, 2);
-    el("ticket-price").textContent  = fmtSOL(lotteryState.ticketPrice, 2);
-    el("total-tickets").textContent = lotteryState.totalTickets.toString();
+   // Hero
+el("prize-amount").textContent  = fmtSOL(lotteryState.totalPrize, 2);
+el("ticket-price").textContent  = fmtSOL(lotteryState.ticketPrice, 2);
+const roundTickets = lotteryState.totalTickets - lotteryState.roundStartId;
+el("total-tickets").textContent = roundTickets.toString();   // ← ahora muestra los de la ronda actual
 
     const status = el("lottery-status");
     if (lotteryState.isActive) {
@@ -1311,10 +1312,10 @@ async function handleRestart() {
   
 async function handlePickWinner() {
   if (!walletPubkey || !lotteryState || busy) return;
-  if (lotteryState.totalTickets === 0n) {
+  if (lotteryState.totalTickets <= lotteryState.roundStartId) {
     toast("e", "SIN TICKETS", "No hay tickets vendidos en esta ronda.");
     return;
-  }
+}
 
   const ok = await showConfirm({
     iconEmoji: "🏆",
@@ -1335,8 +1336,11 @@ async function handlePickWinner() {
 
   try {
     // Gather all ticket owners
-    const owners = [];
-    for (let i = 1n; i <= lotteryState.totalTickets; i++) {
+    // Gather all ticket owners from the current round only
+const owners = [];
+const startId = lotteryState.roundStartId + 1n;
+const roundTicketCount = lotteryState.totalTickets - lotteryState.roundStartId;
+for (let i = startId; i <= lotteryState.totalTickets; i++) {
       try {
         const tInfo = await conn.getAccountInfo(ticketPDA(i));
         if (tInfo) owners.push(new PublicKey(tInfo.data.slice(8, 40)));

@@ -506,7 +506,7 @@
   <!-- ═══════ DASHBOARD ═══════ -->
   <div id="dashboard">
 
-    <!-- Not Initialized -->
+    <!-- Not Initialized (cuenta nunca creada on-chain) -->
     <div id="not-initialized">
       <div class="ni-icon">🎰</div>
       <h2 id="ni-title">Lotería no inicializada</h2>
@@ -530,7 +530,7 @@
               <strong id="ticket-price">0.0 ◎</strong>
             </div>
             <div class="prize-meta-item">
-              <span>Tickets en esta ronda:</span>
+              <span>Tickets vendidos:</span>
               <strong id="total-tickets">0</strong>
             </div>
             <div class="prize-meta-item">
@@ -735,10 +735,10 @@ const {
 // ══════════════════════════════════════════════
 //  CONSTANTS
 // ══════════════════════════════════════════════
-const PROGRAM_ID = new PublicKey("4pbj6TqvWYxHcMDGr2fYck7BDudVtzgtSWj1iGmJr7gH"); // ← actualiza si despliegas un nuevo programa
+const PROGRAM_ID = new PublicKey("4pbj6TqvWYxHcMDGr2fYck7BDudVtzgtSWj1iGmJr7gH");
 const RPC        = "https://api.devnet.solana.com";
 const EXPLORER   = "https://solscan.io";
-const HOF_KEY    = "sollotto_winners_devnet_v2"; // nueva clave para separar rondas reales
+const HOF_KEY    = "sollotto_winners_devnet"; // localStorage key for Hall of Fame
 
 // ══════════════════════════════════════════════
 //  STATE
@@ -752,7 +752,7 @@ let refreshTimer = null;
 let countdownInt = null;
 let countdownVal = 10;
 let currentTab   = 'hof';
-let activityLog  = [];
+let activityLog  = []; // in-memory activity feed
 
 // ══════════════════════════════════════════════
 //  HELPERS
@@ -807,8 +807,8 @@ function loadWinners() {
 }
 function saveWinner(entry) {
   const list = loadWinners();
-  list.unshift(entry);
-  localStorage.setItem(HOF_KEY, JSON.stringify(list.slice(0, 50)));
+  list.unshift(entry); // newest first
+  localStorage.setItem(HOF_KEY, JSON.stringify(list.slice(0, 50))); // cap at 50
 }
 function renderWinners() {
   const list = loadWinners();
@@ -876,8 +876,10 @@ function switchTab(tab) {
 }
 
 // ══════════════════════════════════════════════
-//  CUSTOM MODALS
+//  CUSTOM MODAL SYSTEM (replaces confirm/prompt/alert)
 // ══════════════════════════════════════════════
+
+// — Confirm modal —
 let _confirmResolve = null;
 function showConfirm({ title, desc, details, iconEmoji, okLabel, okClass }) {
   return new Promise(resolve => {
@@ -896,6 +898,7 @@ function showConfirm({ title, desc, details, iconEmoji, okLabel, okClass }) {
 function _confirmAccept() { el("confirm-modal").classList.remove("flex"); _confirmResolve && _confirmResolve(true); }
 function _confirmReject() { el("confirm-modal").classList.remove("flex"); _confirmResolve && _confirmResolve(false); }
 
+// — Input modal —
 let _inputResolve = null;
 function showInput({ title, desc, label, note, defaultValue, icon }) {
   return new Promise(resolve => {
@@ -920,6 +923,7 @@ function _inputCancel() {
   el("input-modal").classList.remove("flex");
   _inputResolve && _inputResolve(null);
 }
+// Enter key in input field — attached in the load handler below
 
 // ══════════════════════════════════════════════
 //  PDA FUNCTIONS
@@ -951,6 +955,7 @@ async function fetchState() {
     const info = await conn.getAccountInfo(pda);
 
     if (!info) {
+      // Cuenta nunca creada — solo el admin puede inicializar
       el("not-initialized").style.display = "block";
       el("main-content").style.display    = "none";
       lotteryState = null;
@@ -973,16 +978,12 @@ async function fetchState() {
       totalPrize:   new DataView(data.buffer, data.byteOffset + 56, 8).getBigUint64(0, true),
       isActive:     data[64] !== 0,
       winner:       new PublicKey(data.slice(65, 97)),
-      roundStartId: new DataView(data.buffer, data.byteOffset + 97, 8).getBigUint64(0, true), // ← NUEVO
     };
-
-    // Calcular tickets de la ronda actual
-    const roundTickets = Number(lotteryState.totalTickets - lotteryState.roundStartId);
 
     // Hero
     el("prize-amount").textContent  = fmtSOL(lotteryState.totalPrize, 2);
     el("ticket-price").textContent  = fmtSOL(lotteryState.ticketPrice, 2);
-    el("total-tickets").textContent = roundTickets.toString();
+    el("total-tickets").textContent = lotteryState.totalTickets.toString();
 
     const status = el("lottery-status");
     if (lotteryState.isActive) {
@@ -1019,7 +1020,7 @@ async function fetchState() {
         btnPick.style.opacity    = "";
         btnRestart.disabled      = true;
         btnRestart.style.opacity = "0.35";
-        hint.innerHTML = `Ronda activa con ${roundTickets} tickets. Elige ganador para cerrar.`;
+        hint.innerHTML = "Ronda activa — elige ganador para cerrar, luego podrás reiniciar.";
       } else {
         btnPick.disabled         = true;
         btnPick.style.opacity    = "0.35";
@@ -1037,11 +1038,9 @@ async function fetchState() {
       el("user-name").textContent   = "ANON";
     }
 
-    // Count my tickets SOLO de la ronda actual
+    // Count my tickets
     myTickets = 0;
-    const start = lotteryState.roundStartId + 1n;
-    const end   = lotteryState.totalTickets;
-    for (let i = start; i <= end; i++) {
+    for (let i = 1n; i <= lotteryState.totalTickets; i++) {
       try {
         const tInfo = await conn.getAccountInfo(ticketPDA(i));
         if (tInfo) {
@@ -1052,6 +1051,7 @@ async function fetchState() {
     }
     el("my-tickets-count").textContent = myTickets;
 
+    // Render hall of fame
     renderWinners();
     resetCountdown();
   } catch (e) {
@@ -1124,15 +1124,21 @@ function copyWinnerAddr() {
 async function handleInitialize() {
   if (!walletPubkey || busy) return;
 
+  // IMPORTANTE: comprobar si la cuenta ya existe on-chain.
+  // Si existe pero está cerrada -> usar restart, no initialize.
+  // initialize solo funciona si la cuenta NUNCA ha existido.
   const existingInfo = await conn.getAccountInfo(lotteryPDA());
   if (existingInfo) {
+    // La cuenta ya existe — no podemos llamar a initialize de nuevo.
+    // Redirigir a restart si está cerrada.
     if (lotteryState && !lotteryState.isActive) {
       toast("i", "LOTERÍA YA EXISTE", "La cuenta ya está creada. Usa 'Nueva Ronda' para reiniciarla.");
-      await fetchState();
+      await fetchState(); // refresca UI para mostrar el panel admin
     } else if (lotteryState && lotteryState.isActive) {
       toast("i", "LOTERÍA YA ACTIVA", "La lotería ya está en marcha. Puedes comprar tickets.");
       await fetchState();
     } else {
+      // lotteryState aún null pero la cuenta existe — refrescar
       await fetchState();
     }
     return;
@@ -1260,6 +1266,7 @@ async function handleRestart() {
     details: `<div class="confirm-details">
       <div class="confirm-row"><span>Precio ticket</span><span>${ticketPrice} SOL</span></div>
       <div class="confirm-row"><span>Bote actual</span><span>${fmtSOL(lotteryState.totalPrize, 4)}</span></div>
+      <div class="confirm-row"><span>Tickets previos</span><span>${lotteryState.totalTickets} (no se pierden)</span></div>
     </div>`,
     okLabel: "NUEVA RONDA",
     okClass: "mbtn-primary",
@@ -1280,7 +1287,7 @@ async function handleRestart() {
       keys: [
         { pubkey: pda,                     isSigner: false, isWritable: true  },
         { pubkey: walletPubkey,            isSigner: true,  isWritable: true  },
-        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, // ← CORREGIDO
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },  // ← AÑADIDO
       ],
       data,
     });
@@ -1300,12 +1307,10 @@ async function handleRestart() {
 
   busy = false; setBusy("btn-restart", false);
 }
-
+  
 async function handlePickWinner() {
   if (!walletPubkey || !lotteryState || busy) return;
-  
-  const roundTickets = Number(lotteryState.totalTickets - lotteryState.roundStartId);
-  if (roundTickets === 0) {
+  if (lotteryState.totalTickets === 0n) {
     toast("e", "SIN TICKETS", "No hay tickets vendidos en esta ronda.");
     return;
   }
@@ -1313,9 +1318,9 @@ async function handlePickWinner() {
   const ok = await showConfirm({
     iconEmoji: "🏆",
     title: "¿Elegir ganador?",
-    desc: "Se sorteará aleatoriamente entre todos los tickets de esta ronda. El bote se transferirá al ganador on-chain.",
+    desc: "Se sorteará aleatoriamente entre todos los tickets. El bote se transferirá al ganador on-chain.",
     details: `<div class="confirm-details">
-      <div class="confirm-row"><span>Tickets en juego</span><span>${roundTickets}</span></div>
+      <div class="confirm-row"><span>Tickets en juego</span><span>${lotteryState.totalTickets}</span></div>
       <div class="confirm-row"><span>Bote total</span><span>${fmtSOL(lotteryState.totalPrize, 4)}</span></div>
     </div>
     <div class="confirm-warn">⚠️ Esta acción es IRREVERSIBLE. Una vez elegido el ganador, la ronda se cerrará definitivamente.</div>`,
@@ -1328,17 +1333,16 @@ async function handlePickWinner() {
   openTxModal("Sorteando ganador", "Recopilando tickets on-chain...");
 
   try {
-    // Gather ticket owners SOLO de esta ronda
+    // Gather all ticket owners
     const owners = [];
-    const start = lotteryState.roundStartId + 1n;
-    const end   = lotteryState.totalTickets;
-    for (let i = start; i <= end; i++) {
+    for (let i = 1n; i <= lotteryState.totalTickets; i++) {
       try {
         const tInfo = await conn.getAccountInfo(ticketPDA(i));
         if (tInfo) owners.push(new PublicKey(tInfo.data.slice(8, 40)));
       } catch (_) {}
-      if ((i - start) % 5n === 0n) {
-        el("tx-desc-loading").textContent = `Leyendo tickets... ${i - start}/${roundTickets}`;
+      // Update progress
+      if (i % 5n === 0n) {
+        el("tx-desc-loading").textContent = `Leyendo tickets... ${i}/${lotteryState.totalTickets}`;
       }
     }
 
@@ -1348,10 +1352,13 @@ async function handlePickWinner() {
       return;
     }
 
-    // Random
+    // Random: slot XOR timestamp for entropy
+    el("tx-desc-loading").textContent = "Calculando ganador...";
     const slotInfo = await conn.getSlot();
     const seed = Math.abs(slotInfo ^ Date.now());
     const winnerPubkey = owners[seed % owners.length];
+
+    el("tx-desc-loading").textContent = `Ganador: ${short(winnerPubkey, 6)} — enviando tx...`;
 
     const disc = await discriminator("pick_winner");
     const pda  = lotteryPDA();
@@ -1375,15 +1382,19 @@ async function handlePickWinner() {
       address: winnerPubkey.toBase58(),
       prize: fmtSOL(prizeBeforeTx, 4),
       prizeLamports: prizeBeforeTx.toString(),
-      round: roundTickets,
+      round: Number(lotteryState.totalTickets), // use totalTickets as round marker
       date: new Date().toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" }),
       sig,
     };
     saveWinner(winnerEntry);
+
+    // Log activity
     addActivity("🏆", "w", `¡Ganador sorteado!`, `${short(winnerPubkey, 8)}`, fmtSOL(prizeBeforeTx, 4));
 
+    // Close TX modal, open winner celebration
     closeTxModal();
     showWinnerModal(winnerPubkey, prizeBeforeTx, sig);
+
     toast("s", "¡GANADOR ELEGIDO! 🏆", `${short(winnerPubkey, 6)} recibe ${fmtSOL(prizeBeforeTx, 4)}`);
     await fetchState();
   } catch (e) {
@@ -1465,6 +1476,7 @@ function resetCountdown() {
 //  INIT
 // ══════════════════════════════════════════════
 window.addEventListener("load", () => {
+  // Attach input field keyboard shortcuts
   const inputField = el("input-field");
   if (inputField) {
     inputField.addEventListener("keydown", e => {
@@ -1473,7 +1485,7 @@ window.addEventListener("load", () => {
     });
   }
 
-  renderWinners();
+  renderWinners(); // show HOF even before connecting
   if (window.solana?.isPhantom && window.solana.isConnected) {
     window.solana.connect({ onlyIfTrusted: true }).then(r => {
       walletPubkey = r.publicKey;
@@ -1487,6 +1499,7 @@ window.solana?.on?.("accountChanged", pk => {
   else disconnectWallet();
 });
 
+// close modals on Escape
 document.addEventListener("keydown", e => {
   if (e.key === "Escape") {
     _confirmReject();

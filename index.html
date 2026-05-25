@@ -8,11 +8,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
   <script src="https://unpkg.com/@solana/web3.js@1.91.8/lib/index.iife.min.js"></script>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
     :root {
       --bg: #06080d;
       --surface: #0a0f1a;
@@ -35,6 +31,7 @@
       --shadow: 0 4px 24px rgba(0,0,0,0.3);
       --font: 'Inter', sans-serif;
       --mono: 'JetBrains Mono', monospace;
+      --sidebar-w: 260px;
     }
     body {
       font-family: var(--font);
@@ -42,6 +39,7 @@
       color: var(--text);
       min-height: 100vh;
       display: flex;
+      overflow-x: hidden;
     }
     body::before {
       content: '';
@@ -54,76 +52,77 @@
         radial-gradient(circle at 70% 60%, rgba(240,185,11,0.05) 0%, transparent 50%);
     }
 
-    /* ═══════ SIDEBAR ═══════ */
+    /* ═══════ SIDEBAR — RIGHT SIDE ═══════ */
     #sidebar {
-      width: 260px;
-      background: rgba(10,15,26,0.9);
+      width: var(--sidebar-w);
+      background: rgba(10,15,26,0.97);
       backdrop-filter: blur(20px);
-      border-right: 1px solid var(--border);
+      border-left: 1px solid var(--border);
       display: flex;
       flex-direction: column;
       position: fixed;
       top: 0;
-      left: 0;
+      right: 0;
       height: 100vh;
       z-index: 100;
-      transition: transform 0.3s ease;
-      box-shadow: var(--shadow);
+      transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+      box-shadow: -4px 0 32px rgba(0,0,0,0.4);
     }
     .sidebar-logo {
-      padding: 24px 20px;
+      padding: 22px 18px;
       border-bottom: 1px solid var(--border);
       display: flex;
       align-items: center;
       gap: 10px;
     }
     .logo-icon {
-      width: 36px;
-      height: 36px;
+      width: 34px;
+      height: 34px;
       background: linear-gradient(135deg, var(--primary), #7c4dff);
       border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: 800;
-      font-size: 18px;
+      font-size: 16px;
       color: #fff;
       box-shadow: 0 0 20px rgba(91,108,240,0.4);
+      flex-shrink: 0;
     }
     .logo-text {
       font-weight: 700;
-      font-size: 1rem;
+      font-size: 0.95rem;
       letter-spacing: 0.05em;
       color: var(--text);
+      white-space: nowrap;
     }
-    .logo-text span {
-      color: var(--primary-glow);
-    }
+    .logo-text span { color: var(--primary-glow); }
     .devnet-badge {
-      font-size: 0.6rem;
+      font-size: 0.58rem;
       font-weight: 700;
       letter-spacing: 0.2em;
       background: rgba(91,108,240,0.15);
       color: var(--primary-glow);
       border: 1px solid rgba(91,108,240,0.3);
       border-radius: 20px;
-      padding: 2px 8px;
+      padding: 2px 7px;
       margin-left: 6px;
     }
     .sidebar-nav {
       flex: 1;
-      padding: 16px 12px;
+      padding: 14px 10px;
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 3px;
+      overflow-y: auto;
     }
     .nav-item {
       display: flex;
       align-items: center;
       gap: 12px;
-      padding: 12px 16px;
+      padding: 11px 14px;
       border-radius: 10px;
-      font-size: 0.85rem;
+      font-size: 0.84rem;
       font-weight: 500;
       letter-spacing: 0.03em;
       color: var(--text-secondary);
@@ -135,10 +134,7 @@
       width: 100%;
       text-align: left;
     }
-    .nav-item:hover {
-      background: var(--surface-light);
-      color: var(--text);
-    }
+    .nav-item:hover { background: var(--surface-light); color: var(--text); }
     .nav-item.active {
       background: var(--surface-light);
       color: var(--text);
@@ -146,12 +142,7 @@
       border: 1px solid var(--border-light);
       font-weight: 600;
     }
-    .nav-icon {
-      width: 20px;
-      text-align: center;
-      font-size: 1rem;
-      opacity: 0.8;
-    }
+    .nav-icon { width: 20px; text-align: center; font-size: 1rem; opacity: 0.8; }
     .sidebar-footer {
       padding: 12px;
       border-top: 1px solid var(--border);
@@ -163,28 +154,25 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 8px 12px;
-      font-size: 0.75rem;
+      padding: 7px 12px;
+      font-size: 0.74rem;
       color: var(--text-muted);
     }
     .net-dot {
-      width: 6px;
-      height: 6px;
+      width: 6px; height: 6px;
       border-radius: 50%;
       background: var(--green);
       box-shadow: 0 0 8px var(--green-glow);
       animation: pulse-dot 2s infinite;
+      flex-shrink: 0;
     }
-    @keyframes pulse-dot {
-      0%,100% { opacity:1; }
-      50% { opacity:0.4; }
-    }
+    @keyframes pulse-dot { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
     #btn-wallet {
       font-family: var(--font);
-      font-size: 0.8rem;
+      font-size: 0.78rem;
       font-weight: 600;
       letter-spacing: 0.05em;
-      padding: 10px 16px;
+      padding: 10px 14px;
       border-radius: 8px;
       border: 1px solid var(--border-light);
       background: transparent;
@@ -196,54 +184,58 @@
       gap: 8px;
       width: 100%;
     }
-    #btn-wallet:hover {
-      border-color: var(--primary);
-      color: var(--primary-glow);
-      background: rgba(91,108,240,0.06);
-    }
-    #btn-wallet.on {
-      border-color: rgba(20,184,122,0.4);
-      color: var(--green-glow);
-      background: rgba(20,184,122,0.06);
-    }
-    .wallet-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: currentColor;
-      flex-shrink: 0;
-    }
+    #btn-wallet:hover { border-color: var(--primary); color: var(--primary-glow); background: rgba(91,108,240,0.06); }
+    #btn-wallet.on { border-color: rgba(20,184,122,0.4); color: var(--green-glow); background: rgba(20,184,122,0.06); }
+    .wallet-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
 
-    /* Mobile toggle */
+    /* ═══ OVERLAY (mobile) ═══ */
+    #sidebar-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 99;
+      backdrop-filter: blur(2px);
+    }
+    #sidebar-overlay.visible { display: block; }
+
+    /* ═══ HAMBURGER — top right, shifts with sidebar ═══ */
     .sidebar-toggle {
       display: none;
       position: fixed;
-      top: 16px;
-      left: 16px;
+      top: 14px;
+      right: 14px;
       z-index: 200;
       background: var(--surface-light);
       border: 1px solid var(--border-light);
-      border-radius: 8px;
-      width: 40px;
-      height: 40px;
+      border-radius: 10px;
+      width: 42px;
+      height: 42px;
       cursor: pointer;
       color: var(--text);
-      font-size: 1.2rem;
+      font-size: 1.1rem;
       align-items: center;
       justify-content: center;
-      backdrop-filter: blur(10px);
+      backdrop-filter: blur(12px);
+      transition: right 0.3s cubic-bezier(0.4,0,0.2,1), background 0.2s;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.3);
     }
+    .sidebar-toggle:hover { background: var(--border); }
+    .sidebar-toggle.shifted { right: calc(var(--sidebar-w) + 14px); }
 
-    /* ═══════ MAIN ═══════ */
+    /* ═══ MAIN ═══ */
     #main-area {
-      margin-left: 260px;
+      margin-right: var(--sidebar-w);
       flex: 1;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       position: relative;
       z-index: 1;
+      min-width: 0;
     }
+
+    /* ═══ WELCOME ═══ */
     #welcome {
       flex: 1;
       display: flex;
@@ -255,7 +247,7 @@
     }
     .welcome-badge {
       display: inline-block;
-      font-size: 0.7rem;
+      font-size: 0.68rem;
       font-weight: 700;
       letter-spacing: 0.25em;
       color: var(--gold);
@@ -263,13 +255,13 @@
       border: 1px solid rgba(240,185,11,0.2);
       border-radius: 20px;
       padding: 6px 16px;
-      margin-bottom: 32px;
+      margin-bottom: 28px;
     }
     .welcome-title {
-      font-size: clamp(2.2rem, 6vw, 3.8rem);
+      font-size: clamp(1.9rem, 6vw, 3.8rem);
       font-weight: 800;
       line-height: 1.1;
-      margin-bottom: 20px;
+      margin-bottom: 18px;
       color: #fff;
     }
     .welcome-title span {
@@ -278,11 +270,11 @@
       -webkit-text-fill-color: transparent;
     }
     .welcome-desc {
-      font-size: 1rem;
+      font-size: clamp(0.85rem, 2.5vw, 1rem);
       color: var(--text-secondary);
-      max-width: 500px;
+      max-width: 480px;
       line-height: 1.6;
-      margin-bottom: 48px;
+      margin-bottom: 40px;
       font-weight: 300;
     }
     .btn-connect-main {
@@ -290,7 +282,7 @@
       font-size: 0.9rem;
       font-weight: 700;
       letter-spacing: 0.1em;
-      padding: 16px 48px;
+      padding: 15px 44px;
       border-radius: 12px;
       border: none;
       cursor: pointer;
@@ -309,147 +301,133 @@
       transform: translateX(-100%);
       transition: transform 0.5s;
     }
-    .btn-connect-main:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 0 60px rgba(91,108,240,0.6);
-    }
-    .btn-connect-main:hover::after {
-      transform: translateX(100%);
-    }
+    .btn-connect-main:hover { transform: translateY(-2px); box-shadow: 0 0 60px rgba(91,108,240,0.6); }
+    .btn-connect-main:hover::after { transform: translateX(100%); }
     #no-phantom-msg {
       display: none;
-      margin-top: 24px;
+      margin-top: 20px;
       background: rgba(240,68,68,0.1);
       border: 1px solid rgba(240,68,68,0.25);
       border-radius: 8px;
-      padding: 14px 20px;
-      font-size: 0.85rem;
+      padding: 12px 18px;
+      font-size: 0.83rem;
       color: var(--red-glow);
     }
-    #no-phantom-msg a {
-      color: var(--red-glow);
-    }
+    #no-phantom-msg a { color: var(--red-glow); }
 
-    #dashboard {
-      display: none;
-      flex: 1;
-      flex-direction: column;
-    }
-    #dashboard.active-db {
-      display: flex;
-    }
+    #dashboard { display: none; flex: 1; flex-direction: column; }
+    #dashboard.active-db { display: flex; }
 
-    /* ═══ PENDING CLAIMS BANNER (siempre visible si hay premios) ═══ */
+    /* ═══ PENDING CLAIMS BANNER ═══ */
     #pending-claims-banner {
       display: none;
-      background: linear-gradient(90deg, rgba(240,185,11,0.12), rgba(240,185,11,0.03));
-      border-bottom: 1px solid rgba(240,185,11,0.3);
-      padding: 16px 32px;
+      background: linear-gradient(90deg, rgba(240,185,11,0.14), rgba(240,185,11,0.04));
+      border-bottom: 1px solid rgba(240,185,11,0.35);
+      padding: 14px 24px;
       backdrop-filter: blur(10px);
       z-index: 10;
+      position: sticky;
+      top: 0;
     }
     .pcb-inner {
       display: flex;
       align-items: center;
-      gap: 20px;
+      gap: 14px;
       flex-wrap: wrap;
       justify-content: space-between;
     }
     .pcb-text {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
       font-weight: 600;
       color: var(--gold);
+      font-size: 0.88rem;
     }
     .pcb-amount {
       font-family: var(--mono);
       font-weight: 700;
-      font-size: 1.3rem;
+      font-size: 1.2rem;
       color: var(--gold-glow);
     }
     .btn-claim-banner {
       font-family: var(--font);
-      font-size: 0.8rem;
+      font-size: 0.78rem;
       font-weight: 700;
       letter-spacing: 0.08em;
-      padding: 12px 28px;
+      padding: 10px 22px;
       border-radius: 10px;
       border: none;
       cursor: pointer;
       background: linear-gradient(135deg, var(--gold), #d4a00b);
       color: #000;
-      box-shadow: 0 0 24px rgba(240,185,11,0.5);
+      box-shadow: 0 0 20px rgba(240,185,11,0.5);
       transition: all 0.2s;
       display: inline-flex;
       align-items: center;
       gap: 8px;
+      white-space: nowrap;
     }
-    .btn-claim-banner:hover {
-      transform: scale(1.02);
-      box-shadow: 0 0 40px rgba(240,185,11,0.7);
-    }
+    .btn-claim-banner:hover { transform: scale(1.03); box-shadow: 0 0 36px rgba(240,185,11,0.7); }
 
     /* ═══ CONTENT SECTIONS ═══ */
     .content-section {
       display: none;
       flex: 1;
-      padding: 0 40px 40px;
+      padding: 0 28px 40px;
       animation: fadeIn 0.2s ease;
     }
-    .content-section.active-section {
-      display: block;
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(5px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
+    .content-section.active-section { display: block; }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(5px);} to{opacity:1;transform:translateY(0);} }
 
     .section-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 28px 0 20px;
+      padding: 24px 0 18px;
       border-bottom: 1px solid var(--border);
-      margin-bottom: 24px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 12px;
     }
     .section-header-left h2 {
-      font-size: 1.6rem;
+      font-size: clamp(1.2rem, 4vw, 1.6rem);
       font-weight: 700;
       color: #fff;
-      margin-bottom: 4px;
+      margin-bottom: 3px;
     }
     .section-header-left .subtitle {
-      font-size: 0.85rem;
+      font-size: 0.8rem;
       color: var(--text-muted);
+      line-height: 1.4;
     }
     .admin-badge {
       background: rgba(240,185,11,0.15);
       color: var(--gold);
       border: 1px solid rgba(240,185,11,0.3);
       border-radius: 20px;
-      padding: 4px 14px;
-      font-size: 0.7rem;
+      padding: 4px 12px;
+      font-size: 0.68rem;
       font-weight: 700;
       letter-spacing: 0.1em;
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      margin-left: 10px;
+      margin-left: 8px;
     }
 
-    /* ═══ ROUND CARDS (grandes y atractivas) ═══ */
+    /* ═══ ROUND CARDS ═══ */
     .rounds-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      gap: 24px;
-      margin-top: 8px;
+      grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+      gap: 18px;
+      margin-top: 4px;
     }
     .round-card {
       background: var(--surface-light);
       border: 1px solid var(--border);
       border-radius: var(--radius-lg);
-      padding: 28px 24px;
+      padding: 22px 20px;
       cursor: pointer;
       transition: all 0.3s ease;
       position: relative;
@@ -465,100 +443,38 @@
       opacity: 0;
       transition: opacity 0.3s;
     }
-    .round-card:hover {
-      border-color: var(--border-light);
-      transform: translateY(-4px);
-      box-shadow: 0 12px 32px rgba(0,0,0,0.5);
-    }
-    .round-card:hover::before {
-      opacity: 1;
-    }
-    .round-card.selected {
-      border-color: var(--primary);
-      box-shadow: 0 0 0 2px var(--primary);
-    }
-    .round-card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 16px;
-    }
-    .round-id {
-      font-size: 0.8rem;
-      font-weight: 700;
-      letter-spacing: 0.15em;
-      color: var(--text-muted);
-    }
-    .round-status-badge {
-      font-size: 0.68rem;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      padding: 4px 12px;
-      border-radius: 20px;
-    }
-    .status-active {
-      background: rgba(20,184,122,0.15);
-      color: var(--green-glow);
-      border: 1px solid rgba(20,184,122,0.3);
-    }
-    .status-upcoming {
-      background: rgba(91,108,240,0.15);
-      color: var(--primary-glow);
-      border: 1px solid rgba(91,108,240,0.3);
-    }
-    .round-ticket-price {
-      font-family: var(--mono);
-      font-size: 2.4rem;
-      font-weight: 700;
-      color: var(--gold);
-      margin-bottom: 8px;
-    }
-    .round-meta {
-      display: flex;
-      gap: 16px;
-      font-size: 0.85rem;
-      color: var(--text-secondary);
-      margin-bottom: 14px;
-    }
-    .round-progress {
-      background: var(--bg);
-      border-radius: 6px;
-      height: 8px;
-      overflow: hidden;
-      margin: 16px 0;
-    }
-    .round-progress-bar {
-      height: 100%;
-      background: linear-gradient(90deg, var(--primary), var(--gold));
-      transition: width 0.3s;
-    }
-    .round-time {
-      font-size: 0.8rem;
-      color: var(--text-muted);
-    }
+    .round-card:hover { border-color: var(--border-light); transform: translateY(-3px); box-shadow: 0 10px 28px rgba(0,0,0,0.5); }
+    .round-card:hover::before { opacity: 1; }
+    .round-card.selected { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary); }
+    .round-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .round-id { font-size: 0.76rem; font-weight: 700; letter-spacing: 0.15em; color: var(--text-muted); }
+    .round-status-badge { font-size: 0.65rem; font-weight: 700; letter-spacing: 0.1em; padding: 4px 11px; border-radius: 20px; }
+    .status-active { background: rgba(20,184,122,0.15); color: var(--green-glow); border: 1px solid rgba(20,184,122,0.3); }
+    .status-upcoming { background: rgba(91,108,240,0.15); color: var(--primary-glow); border: 1px solid rgba(91,108,240,0.3); }
+    .round-ticket-price { font-family: var(--mono); font-size: clamp(1.6rem, 5vw, 2.4rem); font-weight: 700; color: var(--gold); margin-bottom: 6px; }
+    .round-meta { display: flex; gap: 14px; font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 12px; flex-wrap: wrap; }
+    .round-progress { background: var(--bg); border-radius: 6px; height: 6px; overflow: hidden; margin: 14px 0; }
+    .round-progress-bar { height: 100%; background: linear-gradient(90deg, var(--primary), var(--gold)); transition: width 0.3s; }
+    .round-time { font-size: 0.76rem; color: var(--text-muted); line-height: 1.5; }
 
-    /* ═══ ACTIONS PANEL (bajo la grid) ═══ */
+    /* ═══ ACTIONS PANEL ═══ */
     #actions-container {
       background: var(--surface-light);
       border: 1px solid var(--border);
       border-radius: var(--radius-lg);
-      padding: 28px;
-      margin-top: 24px;
+      padding: 22px 20px;
+      margin-top: 20px;
       display: none;
     }
-    #actions-container h3 {
-      font-size: 0.8rem;
-      letter-spacing: 0.15em;
-      color: var(--text-muted);
-      margin-bottom: 18px;
-      text-transform: uppercase;
-    }
+    #actions-container h3 { font-size: 0.76rem; letter-spacing: 0.15em; color: var(--text-muted); margin-bottom: 16px; text-transform: uppercase; }
+
+    /* ═══ BUTTONS ═══ */
     .btn {
       font-family: var(--font);
-      font-size: 0.85rem;
+      font-size: 0.84rem;
       font-weight: 600;
-      letter-spacing: 0.08em;
-      padding: 14px 24px;
+      letter-spacing: 0.06em;
+      padding: 13px 22px;
       border-radius: 10px;
       border: none;
       cursor: pointer;
@@ -568,227 +484,185 @@
       justify-content: center;
       gap: 8px;
     }
-    .btn:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-      transform: none !important;
-    }
-    .btn-primary {
-      background: var(--primary);
-      color: #fff;
-      width: 100%;
-      box-shadow: 0 4px 18px rgba(91,108,240,0.3);
-    }
-    .btn-primary:hover:not(:disabled) {
-      background: #6b7cf5;
-      transform: translateY(-1px);
-    }
-    .btn-gold {
-      background: linear-gradient(135deg, var(--gold), #d4a00b);
-      color: #000;
-      font-weight: 700;
-      width: 100%;
-      box-shadow: 0 4px 18px rgba(240,185,11,0.3);
-    }
-    .btn-gold:hover:not(:disabled) {
-      transform: translateY(-1px);
-      box-shadow: 0 6px 24px rgba(240,185,11,0.5);
-    }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; }
+    .btn-primary { background: var(--primary); color: #fff; width: 100%; box-shadow: 0 4px 18px rgba(91,108,240,0.3); }
+    .btn-primary:hover:not(:disabled) { background: #6b7cf5; transform: translateY(-1px); }
+    .btn-gold { background: linear-gradient(135deg, var(--gold), #d4a00b); color: #000; font-weight: 700; width: 100%; box-shadow: 0 4px 18px rgba(240,185,11,0.3); }
+    .btn-gold:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(240,185,11,0.5); }
     .btn-claim-highlight {
       background: var(--gold);
       color: #000;
       font-weight: 700;
       width: 100%;
-      box-shadow: 0 0 24px rgba(240,185,11,0.5);
+      box-shadow: 0 0 22px rgba(240,185,11,0.5);
       animation: claim-glow 2s ease-in-out infinite;
     }
-    @keyframes claim-glow {
-      0%,100% { box-shadow: 0 0 20px rgba(240,185,11,0.4); }
-      50% { box-shadow: 0 0 40px rgba(240,185,11,0.7); }
-    }
-    .btn-outline {
-      background: transparent;
-      border: 1px solid var(--border-light);
-      color: var(--text-secondary);
-      width: 100%;
-    }
-    .btn-outline:hover:not(:disabled) {
-      background: var(--surface-light);
-      color: #fff;
-      border-color: var(--primary);
-    }
+    @keyframes claim-glow { 0%,100%{box-shadow:0 0 20px rgba(240,185,11,0.4);} 50%{box-shadow:0 0 38px rgba(240,185,11,0.7);} }
+    .btn-outline { background: transparent; border: 1px solid var(--border-light); color: var(--text-secondary); width: 100%; }
+    .btn-outline:hover:not(:disabled) { background: var(--surface-light); color: #fff; border-color: var(--primary); }
 
     /* ═══ ADMIN FORM ═══ */
     .admin-create-form {
       display: flex;
       flex-wrap: wrap;
-      gap: 12px;
+      gap: 10px;
       background: var(--surface-light);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 18px;
-      margin-bottom: 20px;
+      padding: 16px;
+      margin-bottom: 18px;
     }
     .admin-create-form input {
-      flex: 1 1 140px;
+      flex: 1 1 130px;
       background: var(--bg);
       border: 1px solid var(--border-light);
       border-radius: 8px;
-      padding: 10px 14px;
+      padding: 9px 12px;
       color: var(--text);
       font-family: var(--mono);
-      font-size: 0.8rem;
+      font-size: 0.78rem;
+      min-width: 0;
     }
+    .admin-create-form input:focus { outline: none; border-color: var(--primary); }
 
-    /* ═══ WINNERS / ACTIVITY / HISTORY ═══ */
-    .list-container {
-      margin-top: 8px;
-    }
+    /* ═══ LISTS: winners / activity / history ═══ */
+    .list-container { margin-top: 6px; display: flex; flex-direction: column; gap: 8px; }
     .winner-item, .history-item, .finished-item {
       background: var(--surface-light);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 16px 20px;
+      padding: 14px 16px;
       display: flex;
       align-items: center;
-      gap: 14px;
+      gap: 12px;
       transition: border-color 0.2s;
     }
-    .winner-item:hover, .history-item:hover, .finished-item:hover {
-      border-color: var(--border-light);
-    }
+    .winner-item:hover, .history-item:hover, .finished-item:hover { border-color: var(--border-light); }
     .winner-rank {
-      width: 34px;
-      height: 34px;
+      width: 32px; height: 32px;
       border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      display: flex; align-items: center; justify-content: center;
       font-weight: 700;
       background: rgba(240,185,11,0.1);
       color: var(--gold);
       border: 1px solid rgba(240,185,11,0.3);
       flex-shrink: 0;
+      font-size: 0.85rem;
     }
-    .winner-info {
-      flex: 1;
-    }
-    .winner-addr {
+    .winner-info { flex: 1; min-width: 0; }
+    .winner-addr { font-family: var(--mono); font-size: 0.76rem; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .winner-meta { font-size: 0.68rem; color: var(--text-muted); margin-top: 2px; }
+    .prize-amount { font-family: var(--mono); font-weight: 700; color: var(--gold); font-size: 0.85rem; white-space: nowrap; flex-shrink: 0; }
+    .empty-state { text-align: center; padding: 50px 20px; color: var(--text-muted); font-size: 0.9rem; }
+
+    /* history-item sub-elements */
+    .history-ico { width: 30px; height: 30px; border-radius: 50%; display:flex; align-items:center; justify-content:center; font-size:0.85rem; flex-shrink:0; }
+    .history-ico.t { background: rgba(91,108,240,0.15); }
+    .history-ico.w { background: rgba(240,185,11,0.15); }
+    .history-info { flex: 1; min-width: 0; }
+    .history-t { font-size: 0.84rem; font-weight: 500; }
+    .history-d { font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* finished-item sub-elements */
+    .finished-left { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+    .finished-round-num {
       font-family: var(--mono);
       font-size: 0.8rem;
-      cursor: pointer;
-    }
-    .winner-meta {
-      font-size: 0.7rem;
-      color: var(--text-muted);
-    }
-    .prize-amount {
-      font-family: var(--mono);
       font-weight: 700;
-      color: var(--gold);
-    }
-    .empty-state {
-      text-align: center;
-      padding: 60px 20px;
       color: var(--text-muted);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 4px 8px;
+      flex-shrink: 0;
     }
+    .finished-details { font-size: 0.78rem; color: var(--text-secondary); min-width: 0; }
+    .finished-details .winner { color: var(--gold); font-family: var(--mono); }
+    .finished-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+
+    /* ═══ PAGINATION ═══ */
+    .pagination {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin-top: 18px;
+      flex-wrap: wrap;
+    }
+    .page-btn {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 7px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border-light);
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.2s;
+      min-width: 36px;
+    }
+    .page-btn:hover { border-color: var(--primary); color: var(--primary-glow); }
+    .page-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; box-shadow: 0 0 12px rgba(91,108,240,0.4); }
+    .page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .page-info { font-size: 0.72rem; color: var(--text-muted); padding: 0 6px; }
 
     /* ═══ MODAL ═══ */
-    .modal-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      z-index: 999;
-      background: rgba(6,8,13,0.9);
-      backdrop-filter: blur(8px);
-      align-items: center;
-      justify-content: center;
-    }
-    .modal-overlay.flex {
-      display: flex;
-    }
-    .modal-box {
-      background: var(--surface-light);
-      border: 1px solid var(--border-light);
-      border-radius: var(--radius-lg);
-      padding: 40px;
-      width: 90%;
-      max-width: 460px;
-      text-align: center;
-    }
-    .tx-loader {
-      width: 60px;
-      height: 60px;
-      margin: 0 auto 24px;
-      border: 4px solid var(--border);
-      border-top-color: var(--primary);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .tx-icon {
-      width: 60px;
-      height: 60px;
-      border-radius: 50%;
-      margin: 0 auto 24px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 2rem;
-    }
+    .modal-overlay { display: none; position: fixed; inset: 0; z-index: 999; background: rgba(6,8,13,0.9); backdrop-filter: blur(8px); align-items: center; justify-content: center; }
+    .modal-overlay.flex { display: flex; }
+    .modal-box { background: var(--surface-light); border: 1px solid var(--border-light); border-radius: var(--radius-lg); padding: 36px 28px; width: 90%; max-width: 440px; text-align: center; }
+    .tx-loader { width: 56px; height: 56px; margin: 0 auto 22px; border: 4px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to{transform:rotate(360deg);} }
+    .tx-icon { width: 56px; height: 56px; border-radius: 50%; margin: 0 auto 22px; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; }
     .tx-icon.success { background: rgba(20,184,122,0.15); color: var(--green); }
     .tx-icon.error { background: rgba(240,68,68,0.15); color: var(--red); }
-    .modal-title { font-size: 1.3rem; font-weight: 700; margin-bottom: 8px; }
-    .modal-desc { font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 20px; }
-    .tx-link {
-      display: inline-block;
-      margin-top: 16px;
-      color: var(--primary-glow);
-      text-decoration: none;
-      font-weight: 600;
-    }
-    .modal-btns { margin-top: 20px; display: flex; gap: 12px; justify-content: center; }
-    .mbtn {
-      font-family: var(--font);
-      font-size: 0.8rem;
-      font-weight: 600;
-      padding: 10px 24px;
-      border-radius: 8px;
-      border: none;
-      cursor: pointer;
-    }
+    .modal-title { font-size: 1.2rem; font-weight: 700; margin-bottom: 8px; }
+    .modal-desc { font-size: 0.87rem; color: var(--text-secondary); margin-bottom: 16px; word-break: break-all; }
+    .tx-link { display: inline-block; margin-top: 14px; color: var(--primary-glow); text-decoration: none; font-weight: 600; font-size: 0.88rem; }
+    .modal-btns { margin-top: 18px; display: flex; gap: 10px; justify-content: center; }
+    .mbtn { font-family: var(--font); font-size: 0.8rem; font-weight: 600; padding: 9px 22px; border-radius: 8px; border: none; cursor: pointer; }
     .mbtn-secondary { background: var(--surface); color: var(--text-secondary); }
     .mbtn-primary { background: var(--primary); color: #fff; }
 
     /* ═══ NOT INITIALIZED ═══ */
-    #not-initialized {
-      display: none;
-      text-align: center;
-      padding: 80px 24px;
-    }
+    #not-initialized { display: none; text-align: center; padding: 60px 20px; }
 
     /* ═══ RESPONSIVE ═══ */
-    @media (max-width: 900px) {
+    @media (max-width: 860px) {
       #sidebar {
-        transform: translateX(-100%);
+        transform: translateX(100%);
+        border-left: 1px solid var(--border);
       }
       #sidebar.open {
         transform: translateX(0);
       }
-      .sidebar-toggle {
-        display: flex;
-      }
-      #main-area {
-        margin-left: 0;
-      }
-      .rounds-grid {
-        grid-template-columns: 1fr;
-      }
+      .sidebar-toggle { display: flex; }
+      #main-area { margin-right: 0; }
+      .rounds-grid { grid-template-columns: 1fr; }
+      .content-section { padding: 0 14px 32px; }
+      .section-header { padding: 18px 0 14px; }
+      #pending-claims-banner { padding: 12px 14px; }
+      .pcb-inner { gap: 10px; }
+      .pcb-amount { font-size: 1rem; }
+      .btn-claim-banner { padding: 9px 16px; font-size: 0.74rem; }
+      .admin-create-form { padding: 12px; }
+      .admin-create-form input { flex: 1 1 100%; }
+      .finished-item { flex-wrap: wrap; gap: 8px; }
+      .finished-actions { width: 100%; justify-content: flex-end; }
     }
-  </style>
+    @media (max-width: 480px) {
+      .welcome-title { font-size: 1.75rem; }
+      .welcome-desc { font-size: 0.82rem; }
+      .btn-connect-main { padding: 13px 32px; font-size: 0.84rem; }
+      .round-ticket-price { font-size: 1.6rem; }
+      .modal-box { padding: 24px 18px; }
+      .section-header-left h2 { font-size: 1.15rem; }
+    }
+</style>
 </head>
 <body>
-  <button class="sidebar-toggle" id="sidebar-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+  <div id="sidebar-overlay" onclick="closeSidebar()"></div>
+<button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()">☰</button>
 
   <!-- ═══ SIDEBAR ═══ -->
   <aside id="sidebar">
@@ -893,7 +767,7 @@
               <div class="subtitle">Historial de premios entregados</div>
             </div>
           </div>
-          <div class="list-container" id="winners-list"></div>
+          <div id="winners-paged"></div>
         </div>
 
         <!-- SECCIÓN ACTIVIDAD -->
@@ -904,7 +778,7 @@
               <div class="subtitle">Transacciones y eventos</div>
             </div>
           </div>
-          <div class="list-container" id="history-list"></div>
+          <div id="activity-paged"></div>
         </div>
 
         <!-- SECCIÓN HISTORIAL -->
@@ -916,7 +790,7 @@
             </div>
           </div>
           <div id="finished-rounds-section" style="display:none;">
-            <div class="list-container" id="finished-rounds-list"></div>
+            <div id="finished-paged"></div>
           </div>
           <div id="no-finished-msg" class="empty-state" style="display:none;">No hay rondas finalizadas todavía.</div>
         </div>
@@ -935,8 +809,7 @@
 
   <script>
     // ══════════════════════════════════════
-    // LÓGICA EXACTAMENTE IGUAL A LA VERSIÓN FUNCIONAL
-    // (sin cambios en las funciones, IDs mantenidos)
+    // BLOCKCHAIN LOGIC — UNCHANGED
     // ══════════════════════════════════════
     const { Connection, PublicKey, SystemProgram, Transaction, TransactionInstruction } = solanaWeb3;
     const PROGRAM_ID = new PublicKey("AZFvRwhuBiUbj4wvLu1EbZVdLgcYrYpHm3nRttDS4Vx3");
@@ -944,6 +817,7 @@
     const EXPLORER = "https://solscan.io";
     const MAX_PLAYERS = 10;
     const HOF_KEY = "sollotto_winners_v2";
+    const PAGE_SIZE = 10;
 
     const conn = new Connection(RPC, "confirmed");
     let walletPubkey = null;
@@ -955,6 +829,11 @@
     let activityLog = JSON.parse(localStorage.getItem("sollotto_activity")||"[]");
     let refreshTimer = null;
     let pendingClaimRoundId = null;
+
+    // Pagination state
+    let winnersPage = 0;
+    let activityPage = 0;
+    let finishedPage = 0;
 
     const el = id => document.getElementById(id);
     function utf8(s) { return new TextEncoder().encode(s); }
@@ -969,6 +848,32 @@
     function roundPDA(roundId){return PublicKey.findProgramAddressSync([utf8("round"),u64LE(BigInt(roundId))],PROGRAM_ID)[0];}
     function ticketPDA(roundId, ticketNumber){return PublicKey.findProgramAddressSync([utf8("ticket"),u64LE(BigInt(roundId)),u64LE(BigInt(ticketNumber))],PROGRAM_ID)[0];}
 
+    // ── Sidebar toggle ──
+    function toggleSidebar() {
+      const sidebar = el("sidebar");
+      const overlay = el("sidebar-overlay");
+      const toggle = el("sidebar-toggle");
+      const isOpen = sidebar.classList.contains("open");
+      if (isOpen) {
+        sidebar.classList.remove("open");
+        overlay.classList.remove("visible");
+        toggle.classList.remove("shifted");
+        toggle.textContent = "☰";
+      } else {
+        sidebar.classList.add("open");
+        overlay.classList.add("visible");
+        toggle.classList.add("shifted");
+        toggle.textContent = "✕";
+      }
+    }
+    function closeSidebar() {
+      el("sidebar").classList.remove("open");
+      el("sidebar-overlay").classList.remove("visible");
+      const toggle = el("sidebar-toggle");
+      toggle.classList.remove("shifted");
+      toggle.textContent = "☰";
+    }
+
     function switchMainSection(section) {
       currentMainSection = section;
       document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active-section'));
@@ -976,37 +881,217 @@
       document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
       document.querySelector(`.nav-item[data-section="${section}"]`).classList.add('active');
       if (section === 'rounds') updateSelectedRoundUI();
-      document.getElementById('sidebar').classList.remove('open');
+      closeSidebar();
     }
 
+    // ── Pagination helper ──
+    function renderPaged(containerId, items, page, renderItem, onPageChange) {
+      const container = el(containerId);
+      if (!container) return;
+      const total = items.length;
+      const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+      const safePage = Math.min(page, totalPages - 1);
+      const slice = items.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
+
+      let html = '<div class="list-container">';
+      if (total === 0) {
+        html += '<div class="empty-state">Sin datos aún.</div>';
+      } else {
+        html += slice.map(renderItem).join('');
+      }
+      html += '</div>';
+
+      // Pagination buttons
+      if (totalPages > 1) {
+        html += '<div class="pagination">';
+        html += `<button class="page-btn" onclick="${onPageChange}(${safePage-1})" ${safePage===0?'disabled':''}>‹</button>`;
+        for (let p = 0; p < totalPages; p++) {
+          if (totalPages <= 7 || Math.abs(p - safePage) <= 2 || p === 0 || p === totalPages-1) {
+            html += `<button class="page-btn ${p===safePage?'active':''}" onclick="${onPageChange}(${p})">${p+1}</button>`;
+          } else if (Math.abs(p - safePage) === 3) {
+            html += `<span class="page-info">…</span>`;
+          }
+        }
+        html += `<button class="page-btn" onclick="${onPageChange}(${safePage+1})" ${safePage===totalPages-1?'disabled':''}>›</button>`;
+        html += `<span class="page-info">${safePage+1}/${totalPages}</span>`;
+        html += '</div>';
+      }
+
+      container.innerHTML = html;
+    }
+
+    // ── Activity ──
     function addActivity(icon,cls,title,detail,amount){
       activityLog.unshift({icon,cls,title,detail,amount,time:new Date().toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"})});
-      if(activityLog.length>30) activityLog.pop();
+      if(activityLog.length>100) activityLog.pop();
       localStorage.setItem("sollotto_activity",JSON.stringify(activityLog));
       renderActivity();
     }
     function renderActivity(){
-      const c=el("history-list");
-      if(!c) return;
-      if(!activityLog.length){c.innerHTML='<div class="empty-state">No hay actividad reciente.</div>';return;}
-      c.innerHTML=activityLog.map(a=>`<div class="history-item"><div class="history-ico ${a.cls}">${a.icon}</div><div class="history-info"><div class="history-t">${a.title}</div><div class="history-d">${a.detail} · ${a.time}</div></div>${a.amount?`<div class="prize-amount">${a.amount}</div>`:""}</div>`).join("");
+      // already newest-first (unshift used on add)
+      renderPaged('activity-paged', activityLog, activityPage, a =>
+        `<div class="history-item">
+          <div class="history-ico ${a.cls}">${a.icon}</div>
+          <div class="history-info">
+            <div class="history-t">${a.title}</div>
+            <div class="history-d">${a.detail} · ${a.time}</div>
+          </div>
+          ${a.amount ? `<div class="prize-amount">${a.amount}</div>` : ""}
+        </div>`,
+        'goActivityPage'
+      );
     }
+    function goActivityPage(p) { activityPage = p; renderActivity(); }
 
+    // ── Winners ──
     function loadWinners(){try{return JSON.parse(localStorage.getItem(HOF_KEY)||"[]");}catch{return[];}}
     function saveWinner(entry){const list=loadWinners();list.unshift(entry);localStorage.setItem(HOF_KEY,JSON.stringify(list.slice(0,50)));}
     function renderWinners(){
-      const list=loadWinners();
-      const c=el("winners-list");
-      if(!c) return;
-      if(!list.length){c.innerHTML='<div class="empty-state">Aún no hay ganadores.</div>';return;}
-      c.innerHTML=list.map((w,i)=>{
-        const medal=i===0?"1":i===1?"2":i===2?"3":"·";
-        const rankClass=i===0?"r1":"";
-        return `<div class="winner-item"><div class="winner-rank ${rankClass}">${medal}</div><div class="winner-info"><div class="winner-addr" onclick="copyText('${w.address}')">${w.address}</div><div class="winner-meta">Ronda ${w.round} · ${w.date}</div></div><div class="prize-amount">${w.prize}<div class="winner-meta"><a href="${EXPLORER}/tx/${w.sig}?cluster=devnet" target="_blank">ver tx ↗</a></div></div></div>`;
-      }).join("");
+      const list = loadWinners(); // already newest-first (unshift on save)
+      renderPaged('winners-paged', list, winnersPage, (w, idx) => {
+        const i = winnersPage * PAGE_SIZE + (typeof idx === 'number' ? idx : 0);
+        const medal = i===0?"🥇":i===1?"🥈":i===2?"🥉":`${i+1}`;
+        return `<div class="winner-item">
+          <div class="winner-rank">${medal}</div>
+          <div class="winner-info">
+            <div class="winner-addr" onclick="copyText('${w.address}')" title="Copiar dirección">${w.address}</div>
+            <div class="winner-meta">Ronda ${w.round} · ${w.date}</div>
+          </div>
+          <div class="prize-amount" style="text-align:right;">
+            ${w.prize}
+            <div class="winner-meta" style="margin-top:3px;"><a href="${EXPLORER}/tx/${w.sig}?cluster=devnet" target="_blank" style="color:var(--primary-glow);text-decoration:none;">ver tx ↗</a></div>
+          </div>
+        </div>`;
+      }, 'goWinnersPage');
     }
+
+    // Need to pass index properly
+    function renderWinnersFixed(){
+      const list = loadWinners();
+      const container = el('winners-paged');
+      if (!container) return;
+      const totalPages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+      const safePage = Math.min(winnersPage, totalPages - 1);
+      const slice = list.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
+
+      let html = '<div class="list-container">';
+      if (!list.length) {
+        html += '<div class="empty-state">Aún no hay ganadores.</div>';
+      } else {
+        html += slice.map((w, localIdx) => {
+          const globalIdx = safePage * PAGE_SIZE + localIdx;
+          const medal = globalIdx===0?"🥇":globalIdx===1?"🥈":globalIdx===2?"🥉":`${globalIdx+1}`;
+          return `<div class="winner-item">
+            <div class="winner-rank">${medal}</div>
+            <div class="winner-info">
+              <div class="winner-addr" onclick="copyText('${w.address}')" title="Copiar">${w.address}</div>
+              <div class="winner-meta">Ronda ${w.round} · ${w.date}</div>
+            </div>
+            <div class="prize-amount" style="text-align:right;">
+              ${w.prize}
+              <div class="winner-meta" style="margin-top:3px;"><a href="${EXPLORER}/tx/${w.sig}?cluster=devnet" target="_blank" style="color:var(--primary-glow);text-decoration:none;">ver tx ↗</a></div>
+            </div>
+          </div>`;
+        }).join('');
+      }
+      html += '</div>';
+      if (totalPages > 1) {
+        html += buildPagination(safePage, totalPages, 'goWinnersPage');
+      }
+      container.innerHTML = html;
+    }
+    function goWinnersPage(p) { winnersPage = p; renderWinnersFixed(); }
+
+    function buildPagination(current, total, fn) {
+      let html = '<div class="pagination">';
+      html += `<button class="page-btn" onclick="${fn}(${current-1})" ${current===0?'disabled':''}>‹</button>`;
+      for (let p = 0; p < total; p++) {
+        if (total <= 7 || Math.abs(p - current) <= 1 || p === 0 || p === total-1) {
+          html += `<button class="page-btn ${p===current?'active':''}" onclick="${fn}(${p})">${p+1}</button>`;
+        } else if (Math.abs(p - current) === 2) {
+          html += `<span class="page-info">…</span>`;
+        }
+      }
+      html += `<button class="page-btn" onclick="${fn}(${current+1})" ${current===total-1?'disabled':''}>›</button>`;
+      html += `<span class="page-info">${current+1}/${total}</span>`;
+      html += '</div>';
+      return html;
+    }
+
     function copyText(t){navigator.clipboard.writeText(t).then(()=>{});}
 
+    // ── Finished rounds with pagination (reverse chron) ──
+    function renderFinishedRoundsPaged(finishedArr) {
+      const container = el('finished-paged');
+      const noMsg = el("no-finished-msg");
+      const section = el("finished-rounds-section");
+      if (!finishedArr || finishedArr.length === 0) {
+        if (container) container.innerHTML = '';
+        if (section) section.style.display = "none";
+        if (noMsg) noMsg.style.display = "block";
+        return;
+      }
+      if (section) section.style.display = "block";
+      if (noMsg) noMsg.style.display = "none";
+      if (!container) return;
+
+      // Reverse chronological: newest round id first
+      const sorted = [...finishedArr].sort((a, b) => b.id - a.id);
+      const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+      const safePage = Math.min(finishedPage, totalPages - 1);
+      const slice = sorted.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
+
+      let html = '<div class="list-container">';
+      html += slice.map(r => {
+        if (r.isFinalized) {
+          const winnerStr = r.winner.equals(SystemProgram.programId) ? "Sin ganador" : short(r.winner, 6);
+          const prizeStr = r.totalPrize > 0n ? fmtSOL(r.totalPrize, 2) : "0.00 ◎";
+          const isWinner = walletPubkey && r.winner.equals(walletPubkey);
+          const canClaim = isWinner && r.totalPrize > 0n;
+          const claimBtn = canClaim
+            ? `<button class="btn-claim-highlight" style="padding:8px 14px;font-size:0.72rem;width:auto;animation:claim-glow 2s infinite;" onclick="event.stopPropagation();handleClaimFromHistory(${r.id})">Reclamar</button>`
+            : '';
+          return `<div class="finished-item">
+            <div class="finished-left">
+              <span class="finished-round-num">#${r.id}</span>
+              <div class="finished-details">
+                <div>${fmtSOL(r.ticketPrice,2)} · ${r.playerCount}/${r.maxTickets} tickets</div>
+                <div>Ganador: <span class="winner">${winnerStr}</span></div>
+              </div>
+            </div>
+            <div class="finished-actions">
+              <div class="prize-amount">${prizeStr}</div>
+              ${claimBtn}
+            </div>
+          </div>`;
+        } else {
+          const isAdmin = walletPubkey && r.admin.equals(walletPubkey);
+          const actionBtn = isAdmin
+            ? `<button class="btn-outline" style="padding:8px 14px;font-size:0.72rem;width:auto;" onclick="event.stopPropagation();handleFinalizeFromHistory(${r.id})">Finalizar</button>`
+            : '';
+          return `<div class="finished-item">
+            <div class="finished-left">
+              <span class="finished-round-num">#${r.id}</span>
+              <div class="finished-details">
+                <div>${fmtSOL(r.ticketPrice,2)} · ${r.playerCount}/${r.maxTickets} tickets</div>
+                <div style="color:var(--text-muted);">Pendiente de finalizar</div>
+              </div>
+            </div>
+            <div class="finished-actions">${actionBtn}</div>
+          </div>`;
+        }
+      }).join('');
+      html += '</div>';
+      if (totalPages > 1) {
+        html += buildPagination(safePage, totalPages, 'goFinishedPage');
+      }
+      container.innerHTML = html;
+    }
+    function goFinishedPage(p) { finishedPage = p; renderFinishedRoundsPaged(window._lastFinished || []); }
+
+    // ══════════════════════════════════════
+    // BLOCKCHAIN FUNCTIONS — UNCHANGED
+    // ══════════════════════════════════════
     async function fetchAll(){
       try{
         const gPDA=globalPDA();
@@ -1073,7 +1158,7 @@
         renderActiveRounds();
         renderFinishedRounds();
         updateSelectedRoundUI();
-        renderWinners();
+        renderWinnersFixed();
         renderActivity();
       }catch(e){console.error("fetchAll",e);}
     }
@@ -1129,57 +1214,8 @@
     function renderFinishedRounds(){
       const nowTs = Math.floor(Date.now()/1000);
       const finished = rounds.filter(r => r.isFinalized || (r.endTime < nowTs && !r.isFinalized));
-      const section = el("finished-rounds-section");
-      const list = el("finished-rounds-list");
-      const noMsg = el("no-finished-msg");
-      if(finished.length === 0){
-        if(section) section.style.display = "none";
-        if(noMsg) noMsg.style.display = "block";
-        return;
-      }
-      if(section) section.style.display = "block";
-      if(noMsg) noMsg.style.display = "none";
-      if(!list) return;
-      list.innerHTML = finished.map(r => {
-        if (r.isFinalized) {
-          const winnerStr = r.winner.equals(SystemProgram.programId) ? "Sin ganador" : short(r.winner,6);
-          const prizeStr = r.totalPrize > 0n ? fmtSOL(r.totalPrize,2) : "0.00 ◎";
-          const isWinner = walletPubkey && r.winner.equals(walletPubkey);
-          const canClaim = isWinner && r.totalPrize > 0n;
-          const claimBtn = canClaim
-            ? `<button class="btn-claim-highlight" style="padding:8px 16px;font-size:0.72rem;width:auto;" onclick="event.stopPropagation();handleClaimFromHistory(${r.id})">Reclamar</button>`
-            : '';
-          return `<div class="finished-item">
-            <div class="finished-left">
-              <span class="finished-round-num">#${r.id}</span>
-              <div class="finished-details">
-                <div>Precio: ${fmtSOL(r.ticketPrice,2)} · Tickets: ${r.playerCount}/${r.maxTickets}</div>
-                <div>Ganador: <span class="winner">${winnerStr}</span></div>
-              </div>
-            </div>
-            <div style="display:flex;align-items:center;gap:12px;">
-              <div class="prize-amount">${prizeStr}</div>
-              ${claimBtn}
-            </div>
-          </div>`;
-        } else {
-          const isAdmin = walletPubkey && r.admin.equals(walletPubkey);
-          let actionBtn = '';
-          if (isAdmin) {
-            actionBtn = `<button class="btn-outline" style="padding:8px 16px;font-size:0.72rem;width:auto;" onclick="event.stopPropagation();handleFinalizeFromHistory(${r.id})">Finalizar</button>`;
-          }
-          return `<div class="finished-item">
-            <div class="finished-left">
-              <span class="finished-round-num">#${r.id}</span>
-              <div class="finished-details">
-                <div>Precio: ${fmtSOL(r.ticketPrice,2)} · Tickets: ${r.playerCount}/${r.maxTickets}</div>
-                <div>Estado: Pendiente de finalizar</div>
-              </div>
-            </div>
-            ${actionBtn}
-          </div>`;
-        }
-      }).join("");
+      window._lastFinished = finished;
+      renderFinishedRoundsPaged(finished);
     }
 
     function selectRound(id){
@@ -1359,8 +1395,8 @@
           {pubkey: SystemProgram.programId, isSigner: false, isWritable: false}
         ], data});
         const sig = await sendTx([ix]); txSuccess(sig);
-        addActivity("💰","w",`Premio reclamado ronda ${roundId}`,`${short(round.winner,8)}`,fmtSOL(round.totalPrize,4));
-        await fetchAll(); renderWinners();
+        addActivity("💰","w",`Premio reclamado ${roundId}`,`${short(round.winner,8)}`,fmtSOL(round.totalPrize,4));
+        await fetchAll(); renderWinnersFixed();
       } catch(e) { txError(e.message); }
       busy = false;
     }
@@ -1398,13 +1434,13 @@
     }
 
     window.addEventListener("load",()=>{
-      renderWinners(); renderActivity();
+      renderWinnersFixed(); renderActivity();
       if(window.solana?.isPhantom&&window.solana.isConnected){
         window.solana.connect({onlyIfTrusted:true}).then(r=>{walletPubkey=r.publicKey;connectWallet();}).catch(()=>{});
       }
     });
     window.solana?.on?.("disconnect",disconnectWallet);
     window.solana?.on?.("accountChanged",pk=>{if(pk){walletPubkey=pk;fetchAll();startPolling();}else disconnectWallet();});
-  </script>
+</script>
 </body>
 </html>

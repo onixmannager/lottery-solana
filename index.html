@@ -673,7 +673,7 @@ const {
 const PROGRAM_ID   = new PublicKey("27WmZciMu23KeTEmtYQxKtAMc4TUjZ3BT6853M5rB8g5");
 const EXPLORER_URL = (sig) => `https://explorer.solana.com/tx/${sig}?cluster=devnet`;
 const ADDR_URL     = (addr) => `https://explorer.solana.com/address/${addr}?cluster=devnet`;
-const connection   = new Connection(clusterApiUrl("devnet"), "confirmed");
+const connection   = new Connection(clusterApiUrl("devnet"), { commitment: "confirmed", confirmTransactionInitialTimeout: 60000 });
 
 // ══════════════════════════════════════════════
 //  STATE
@@ -741,15 +741,31 @@ function ticketPDA(id, buyer) {
 //  admin(32) ticketPrice(8) totalTickets(8) totalPrize(8) isActive(1) winner(32)
 // ══════════════════════════════════════════════
 function decodeLottery(raw) {
-  const b = new Uint8Array(raw); const o = 8;
-  return {
-    admin:        new PublicKey(b.slice(o,      o+32)),
-    ticketPrice:  readU64(b, o+32),
-    totalTickets: readU64(b, o+40),
-    totalPrize:   readU64(b, o+48),
-    isActive:     b[o+56] === 1,
-    winner:       new PublicKey(b.slice(o+57,   o+89)),
+  // Layout (Anchor, sin padding extra):
+  // [0..7]   discriminator  (8 bytes)
+  // [8..39]  admin          (32 bytes Pubkey)
+  // [40..47] ticket_price   (u64 LE)
+  // [48..55] total_tickets  (u64 LE)
+  // [56..63] total_prize    (u64 LE)
+  // [64]     is_active      (bool, 1 byte)
+  // [65..96] winner         (32 bytes Pubkey)
+  const b = new Uint8Array(raw);
+  if (b.length < 97) {
+    console.error("[decodeLottery] buffer too short:", b.length, "bytes");
+    throw new Error("Account data demasiado corto: " + b.length + " bytes");
+  }
+  const state = {
+    admin:        new PublicKey(b.slice(8,  40)),
+    ticketPrice:  readU64(b, 40),
+    totalTickets: readU64(b, 48),
+    totalPrize:   readU64(b, 56),
+    isActive:     b[64] === 1,
+    winner:       new PublicKey(b.slice(65, 97)),
   };
+  console.log("[decodeLottery] raw[64] (isActive byte):", b[64], "→", state.isActive,
+              "| totalTickets:", state.totalTickets.toString(),
+              "| totalPrize:", state.totalPrize.toString());
+  return state;
 }
 
 // ══════════════════════════════════════════════
@@ -909,7 +925,7 @@ async function sendTx(ixs) {
   setStep(1, "active"); setStep(2, "pending"); setStep(3, "pending");
   const signed = await window.solana.signTransaction(tx);
   setStep(1, "done"); setStep(2, "active");
-  const sig = await connection.sendRawTransaction(signed.serialize());
+  const sig = await connection.sendRawTransaction(signed.serialize(), { skipPreflight: false, preflightCommitment: "confirmed" });
   setStep(2, "done"); setStep(3, "active");
   await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight });
   setStep(3, "done");
@@ -949,15 +965,52 @@ async function handleInit() {
 }
 
 async function handleBuy() {
-  if (!walletPubkey || !lotteryState || busy) return;
+  if (!walletPubkey || busy) return;
   busy = true; setBusy("btn-buy", true);
-  const num = Number(lotteryState.totalTickets) + 1;
-  openTxModal(`Comprando ticket #${num}`, `Precio: ${fmtSOL(lotteryState.ticketPrice, 2)}`);
+
+  // Leer estado FRESCO del chain antes de construir la tx
+  let freshState;
+  try {
+    const info = await connection.getAccountInfo(lotteryPDA(), "confirmed");
+    if (!info) throw new Error("Lotería no inicializada en el contrato.");
+    freshState = decodeLottery(info.data);
+    console.log("[buy] freshState:", {
+      isActive: freshState.isActive,
+      totalTickets: freshState.totalTickets.toString(),
+      ticketPrice: freshState.ticketPrice.toString(),
+      admin: freshState.admin.toBase58(),
+    });
+  } catch(e) {
+    busy = false; setBusy("btn-buy", false);
+    txError(e.message);
+    toast("e", "ERROR LEYENDO ESTADO", e.message.slice(0,80));
+    return;
+  }
+
+  if (!freshState.isActive) {
+    busy = false; setBusy("btn-buy", false);
+    toast("e", "LOTERÍA CERRADA", "El admin aún no ha iniciado la siguiente ronda.");
+    return;
+  }
+
+  const currentTickets = freshState.totalTickets; // BigInt
+  const num = Number(currentTickets) + 1;
+  openTxModal(`Comprando ticket #${num}`, `Precio: ${fmtSOL(freshState.ticketPrice, 2)}`);
+
   try {
     const disc  = await discriminator("buy_ticket");
     const pda   = lotteryPDA();
-    const tPda  = ticketPDA(lotteryState.totalTickets, walletPubkey);
-    const ix    = new TransactionInstruction({
+    const tPda  = ticketPDA(currentTickets, walletPubkey);
+
+    console.log("[buy] ticket PDA:", tPda.toBase58(), "seed id:", currentTickets.toString());
+
+    // Verificar que el ticket PDA no exista ya (evita error 0x0 por cuenta duplicada)
+    const existing = await connection.getAccountInfo(tPda);
+    if (existing) {
+      throw new Error(`El ticket PDA ya existe para este slot (id=${currentTickets}). Refresca e inténtalo de nuevo.`);
+    }
+
+    const ix = new TransactionInstruction({
       programId: PROGRAM_ID,
       keys: [
         { pubkey: pda,                     isSigner: false, isWritable: true  },
@@ -971,12 +1024,15 @@ async function handleBuy() {
     txSuccess(sig);
     myTickets++;
     el("my-tickets-count").textContent = myTickets;
+    lotteryState = freshState; // actualizar state local con el fresh
     toast("s", `TICKET #${num} COMPRADO`, `¡Ya tienes ${myTickets} ticket${myTickets > 1 ? "s" : ""} en esta ronda! 🎟`);
     await fetchState();
   } catch (e) {
     console.error(e);
     txError(e.message);
     toast("e", "ERROR AL COMPRAR", e.message.slice(0, 80));
+    // Refrescar estado por si el error fue de sincronización
+    await fetchState();
   }
   busy = false;
   if (lotteryState) el("btn-buy").textContent = `COMPRAR TICKET · ${fmtSOL(lotteryState.ticketPrice, 2)}`;

@@ -764,26 +764,41 @@
     .tx-icon.error { animation: icon-pop 0.35s cubic-bezier(0.34,1.56,0.64,1); }
     @keyframes icon-pop { from{transform:scale(0.5);opacity:0;} to{transform:scale(1);opacity:1;} }
 
-    /* ═══ SKELETON LOADER ═══ */
-    .skeleton-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 18px; margin-top: 4px; }
-    .skeleton-card {
-      background: var(--surface-light);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      padding: 22px 20px;
-      overflow: hidden;
+    /* ═══ IN-CARD BUY BUTTON ═══ */
+    .card-buy-btn {
+      font-family: var(--font);
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      padding: 10px 16px;
+      border-radius: 9px;
+      border: none;
+      cursor: pointer;
+      background: var(--primary);
+      color: #fff;
+      width: 100%;
+      margin-top: 12px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      box-shadow: 0 3px 14px rgba(91,108,240,0.3);
+      transition: all 0.2s;
       position: relative;
+      overflow: hidden;
     }
-    .skeleton-card::after {
+    .card-buy-btn::after {
       content: '';
       position: absolute;
       inset: 0;
-      background: linear-gradient(90deg, transparent 25%, rgba(255,255,255,0.04) 50%, transparent 75%);
-      background-size: 200% 100%;
-      animation: shimmer 1.4s infinite;
+      background: linear-gradient(105deg, transparent 35%, rgba(255,255,255,0.15) 50%, transparent 65%);
+      transform: translateX(-100%);
+      transition: transform 0.5s;
     }
-    @keyframes shimmer { 0%{background-position:200% 0;} 100%{background-position:-200% 0;} }
-    .sk-line { background: var(--border); border-radius: 4px; margin-bottom: 10px; }
+    .card-buy-btn:hover:not(:disabled)::after { transform: translateX(100%); }
+    .card-buy-btn:hover:not(:disabled) { background: #6b7cf5; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(91,108,240,0.45); }
+    .card-buy-btn:disabled { opacity: 0.38; cursor: not-allowed; transform: none !important; }
+    .card-buy-btn.full { background: var(--surface); color: var(--text-muted); border: 1px solid var(--border); box-shadow: none; }
 
     /* ═══ ACTIVE BADGE COUNTER ON NAV ═══ */
     .nav-badge {
@@ -954,12 +969,10 @@
 
           <div class="rounds-grid" id="rounds-container"></div>
 
-          <div id="actions-container">
-            <h3>Ronda seleccionada</h3>
-            <div id="selected-round-info" style="margin-bottom:16px;font-size:0.9rem;"></div>
-            <button class="btn btn-primary" id="btn-buy" onclick="handleBuy()">Comprar ticket</button>
-            <button class="btn btn-gold" id="btn-finalize" style="margin-top:10px;display:none;" onclick="handleFinalize()">Finalizar ronda y pagar</button>
-            <button class="btn btn-claim-highlight" id="btn-claim" style="margin-top:10px;display:none;" onclick="handleClaim()">Reclamar premio</button>
+          <div id="actions-container" style="display:none !important;">
+            <button class="btn btn-primary" id="btn-buy" onclick="handleBuy()" style="display:none;"></button>
+            <button class="btn btn-gold" id="btn-finalize" style="display:none;" onclick="handleFinalize()"></button>
+            <button class="btn btn-claim-highlight" id="btn-claim" style="display:none;" onclick="handleClaim()"></button>
           </div>
         </div>
 
@@ -1286,21 +1299,7 @@
     // ══════════════════════════════════════
     // BLOCKCHAIN FUNCTIONS — UNCHANGED
     // ══════════════════════════════════════
-    function showSkeletonRounds() {
-      const container = el("rounds-container");
-      if (!container) return;
-      container.innerHTML = `<div class="skeleton-grid" style="display:contents;">` + Array(3).fill(`
-        <div class="skeleton-card">
-          <div class="sk-line" style="height:10px;width:40%;"></div>
-          <div class="sk-line" style="height:32px;width:60%;margin-top:14px;"></div>
-          <div class="sk-line" style="height:10px;width:80%;"></div>
-          <div class="sk-line" style="height:6px;width:100%;margin-top:14px;border-radius:6px;"></div>
-          <div class="sk-line" style="height:10px;width:55%;margin-top:10px;"></div>
-        </div>`).join('') + `</div>`;
-    }
-
     async function fetchAll(){
-      showSkeletonRounds();
       try{
         const gPDA=globalPDA();
         const gInfo=await conn.getAccountInfo(gPDA);
@@ -1420,7 +1419,8 @@
       }
       container.innerHTML=activeRounds.map(r=>{
         let statusClass='status-upcoming',statusText='Próxima';
-        if(nowTs>=r.startTime){statusClass='status-active';statusText='Activa';}
+        const isActive = nowTs>=r.startTime;
+        if(isActive){statusClass='status-active';statusText='Activa';}
         const progress=r.maxTickets>0n?Math.min(100,(Number(r.playerCount)/Number(r.maxTickets))*100):0;
         const progressColorClass = progress >= 90 ? 'full' : progress >= 70 ? 'almost-full' : '';
         const secsLeft = r.endTime - nowTs;
@@ -1428,7 +1428,16 @@
         const countdownText = nowTs < r.startTime
           ? `Inicia ${new Date(r.startTime*1000).toLocaleString('es-ES',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}`
           : fmtCountdown(secsLeft);
-        return `<div class="round-card ${selectedRoundId===r.id?'selected':''}" onclick="selectRound(${r.id})">
+        const canBuy = walletPubkey && isActive && r.playerCount < r.maxTickets && !busy;
+        const isFull = r.playerCount >= r.maxTickets;
+        let btnLabel = '🎟 Comprar ticket';
+        let btnClass = 'card-buy-btn';
+        let btnDisabled = '';
+        if (!walletPubkey) { btnLabel = 'Conecta tu wallet'; btnDisabled = 'disabled'; }
+        else if (isFull) { btnLabel = 'Sold out'; btnClass += ' full'; btnDisabled = 'disabled'; }
+        else if (!isActive) { btnLabel = '⏳ Aún no ha empezado'; btnDisabled = 'disabled'; }
+        else if (!canBuy) { btnDisabled = 'disabled'; }
+        return `<div class="round-card" onclick="">
           <div class="round-card-header">
             <span class="round-id">RONDA #${r.id}</span>
             <span class="round-status-badge ${statusClass}">${statusText}</span>
@@ -1440,6 +1449,7 @@
           </div>
           <div class="round-progress"><div class="round-progress-bar ${progressColorClass}" style="width:${progress}%;"></div></div>
           <div class="round-countdown ${countdownUrgent}">⏱ ${countdownText}</div>
+          <button class="${btnClass}" ${btnDisabled} onclick="event.stopPropagation();handleBuyDirect(${r.id})">${btnLabel}</button>
         </div>`;
       }).join('');
     }
@@ -1538,6 +1548,22 @@
     async function handleBuy(){
       if(!walletPubkey||selectedRoundId===null||busy)return;
       const round=rounds.find(r=>r.id===selectedRoundId);
+      if(!round||round.isFinalized)return;
+      busy=true; openTxModal(`Comprando ticket...`);
+      try{
+        const disc=await discriminator("buy_ticket"); const data=concat(disc,u64LE(BigInt(round.id)));
+        const rPda=roundPDA(round.id); const nextTicketNum=BigInt(round.playerCount)+1n;
+        const tPda=ticketPDA(round.id,nextTicketNum);
+        const ix=new TransactionInstruction({programId:PROGRAM_ID,keys:[{pubkey:rPda,isSigner:false,isWritable:true},{pubkey:tPda,isSigner:false,isWritable:true},{pubkey:walletPubkey,isSigner:true,isWritable:true},{pubkey:SystemProgram.programId,isSigner:false,isWritable:false}],data});
+        const sig=await sendTx([ix]); txSuccess(sig);
+        addActivity("🎟","t",`Ticket ronda ${round.id}`,`${short(walletPubkey,6)}`,fmtSOL(round.ticketPrice,2));
+        await fetchAll();
+      }catch(e){txError(e.message);}
+      busy=false;
+    }
+    async function handleBuyDirect(roundId){
+      if(!walletPubkey||busy)return;
+      const round=rounds.find(r=>r.id===roundId);
       if(!round||round.isFinalized)return;
       busy=true; openTxModal(`Comprando ticket...`);
       try{

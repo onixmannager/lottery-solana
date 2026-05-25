@@ -47,7 +47,6 @@
     #root { position: relative; z-index: 1; }
     .wrap { max-width: 1000px; margin: 0 auto; padding: 0 24px; }
 
-    /* HEADER */
     header {
       border-bottom: 1px solid var(--border); backdrop-filter: blur(12px);
       position: sticky; top: 0; z-index: 100; background: rgba(6,9,16,.85);
@@ -72,7 +71,6 @@
     .net-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: blink 2s ease-in-out infinite; }
     @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
 
-    /* WELCOME */
     #welcome {
       min-height: calc(100vh - 64px); display: flex; flex-direction: column;
       align-items: center; justify-content: center; text-align: center; padding: 60px 24px;
@@ -88,10 +86,8 @@
     #no-phantom-msg { display: none; margin-top: 20px; background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.2); border-radius: 8px; padding: 12px 20px; font-size: .82rem; color: var(--red-hi); }
     #no-phantom-msg a { color: var(--red-hi); }
 
-    /* DASHBOARD */
     #dashboard { display: none; padding-bottom: 80px; }
 
-    /* GLOBAL HERO */
     .global-hero {
       text-align: center; padding: 48px 0 40px; border-bottom: 1px solid var(--border); position: relative;
     }
@@ -100,7 +96,6 @@
     .global-admin-line { font-size: .78rem; color: var(--muted-hi); margin-top: 8px; }
     .global-admin-line span { font-family: var(--mono); color: var(--gold); }
 
-    /* RONDAS SECTION */
     .rounds-section { margin-top: 28px; }
     .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
     .section-title { font-size: .7rem; font-weight: 700; letter-spacing: .2em; color: var(--muted); }
@@ -122,7 +117,6 @@
     .status-upcoming { background: rgba(99,102,241,.1); color: var(--primary-hi); border: 1px solid rgba(99,102,241,.25); }
     .status-finished { background: rgba(239,68,68,.1); color: var(--red-hi); border: 1px solid rgba(239,68,68,.25); }
 
-    /* ACTIONS PANEL */
     .actions-panel {
       background: var(--card); border: 1px solid var(--border); border-radius: 16px;
       padding: 28px; margin-top: 20px;
@@ -142,7 +136,6 @@
     .btn-outline { background: transparent; border: 1px solid var(--border-hi); color: var(--muted-hi); width: 100%; }
     .btn-outline:hover:not(:disabled) { background: var(--surface); color: var(--text); }
 
-    /* ADMIN CREATE FORM */
     .admin-create-form {
       display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px;
       background: var(--surface); border-radius: 12px; padding: 16px;
@@ -153,7 +146,6 @@
     }
     .admin-create-form input::placeholder { color: var(--muted); }
 
-    /* FINISHED ROUNDS HISTORY */
     .finished-section { margin-top: 28px; }
     .finished-list { display: flex; flex-direction: column; gap: 12px; }
     .finished-item {
@@ -167,7 +159,6 @@
     .finished-details .winner { color: var(--primary-hi); font-family: var(--mono); }
     .finished-details .prize { color: var(--gold-hi); font-weight: 700; }
 
-    /* HALL OF FAME & ACTIVITY */
     .full-card { margin-top: 20px; }
     .hof-tabs { display: flex; gap: 4px; background: var(--surface); border-radius: 10px; padding: 4px; margin-bottom: 20px; }
     .hof-tab { flex: 1; font-family: var(--font); font-size: .72rem; font-weight: 700; letter-spacing: .1em; padding: 9px; border-radius: 7px; border: none; cursor: pointer; transition: all .2s; color: var(--muted); background: transparent; }
@@ -196,7 +187,6 @@
     .history-d { font-size: .7rem; color: var(--muted); font-family: var(--mono); }
     .history-amt { font-size: .82rem; font-weight: 700; font-family: var(--mono); color: var(--gold); }
 
-    /* MODAL */
     .modal-overlay { display: none; position: fixed; inset: 0; z-index: 999; background: rgba(6,9,16,.85); backdrop-filter: blur(10px); align-items: center; justify-content: center; }
     .modal-overlay.flex { display: flex; }
     .modal-box { background: var(--card); border: 1px solid var(--border-hi); border-radius: 20px; padding: 40px; width: 90%; max-width: 480px; text-align: center; animation: scaleIn .2s ease-out; }
@@ -214,6 +204,7 @@
     .mbtn-secondary { background: var(--surface); color: var(--muted-hi); border: 1px solid var(--border-hi); }
     .mbtn-secondary:hover { background: var(--card); color: var(--text); }
     .mbtn-primary { background: linear-gradient(135deg, var(--primary), #8b5cf6); color: #fff; }
+
     @media (max-width: 768px) {
       .admin-create-form { flex-direction: column; }
       .rounds-grid { grid-template-columns: 1fr; }
@@ -296,7 +287,6 @@
           <button class="btn btn-outline" id="btn-claim" style="margin-top:10px; display:none;" onclick="handleClaim()">💰 RECLAMAR PREMIO</button>
         </div>
 
-        <!-- Historial de rondas finalizadas -->
         <div class="finished-section" id="finished-rounds-section" style="display:none;">
           <div class="section-header">
             <div class="section-title">📜 HISTORIAL DE RONDAS FINALIZADAS</div>
@@ -327,7 +317,8 @@
 
 <script>
 const { Connection, PublicKey, SystemProgram, Transaction, TransactionInstruction } = solanaWeb3;
-const PROGRAM_ID = new PublicKey("8HjujGXK2K1hj4ogKhGa5ez2mvsaapgqU9kWLubnRJTS");
+// ⚠️ REEMPLAZA ESTA CLAVE CON TU NUEVO PROGRAM ID
+const PROGRAM_ID = new PublicKey("AZFvRwhuBiUbj4wvLu1EbZVdLgcYrYpHm3nRttDS4Vx3");
 const RPC = "https://api.devnet.solana.com";
 const EXPLORER = "https://solscan.io";
 const MAX_PLAYERS = 10;
@@ -336,7 +327,7 @@ const HOF_KEY = "sollotto_winners_v2";
 const conn = new Connection(RPC, "confirmed");
 let walletPubkey = null;
 let globalState = null;
-let rounds = [];            // todas las rondas (fetchAll)
+let rounds = [];
 let selectedRoundId = null;
 let busy = false;
 let currentTab = 'hof';
@@ -449,7 +440,6 @@ async function fetchAll(){
       }catch(e){console.warn("fetch round error",i,e);}
     }
 
-    // Si la ronda seleccionada fue finalizada, la deseleccionamos
     if(selectedRoundId !== null){
       const sel = rounds.find(r=>r.id===selectedRoundId);
       if(!sel || sel.isFinalized) selectedRoundId = null;
@@ -516,7 +506,6 @@ function renderFinishedRounds(){
 }
 
 function selectRound(id){
-  // Solo permitir seleccionar rondas no finalizadas
   const round = rounds.find(r=>r.id===id);
   if(!round || round.isFinalized) return;
   selectedRoundId = id;
@@ -626,35 +615,51 @@ async function handleFinalize(){
   if(!walletPubkey||selectedRoundId===null||busy)return;
   const round=rounds.find(r=>r.id===selectedRoundId);
   if(!round||round.isFinalized||!round.admin.equals(walletPubkey)){alert("No eres el admin de esta ronda o ya está finalizada.");return;}
+  
+  const roundId = round.id;   // ✅ guardar el ID antes de finalizar
+  
   busy=true;
   openTxModal(`Finalizando ronda ${round.id}...`);
   try{
     const rPda=roundPDA(round.id);
+    // 1) Finalizar
     const disc1=await discriminator("finalize_round");
     const data1=concat(disc1,u64LE(BigInt(round.id)));
     const ix1=new TransactionInstruction({programId:PROGRAM_ID,keys:[{pubkey:rPda,isSigner:false,isWritable:true},{pubkey:walletPubkey,isSigner:true,isWritable:false}],data:data1});
     await sendTx([ix1]);
-    await fetchAll(); // obtiene el ganador y el estado actualizado
-    const updated=rounds.find(r=>r.id===selectedRoundId);
-    if(!updated||!updated.isFinalized) throw new Error("No se finalizó correctamente");
-    if(updated.totalPrize>0n&&!updated.winner.equals(SystemProgram.programId)){
-      const disc2=await discriminator("claim_prize");
-      const data2=concat(disc2,u64LE(BigInt(round.id)));
-      const ix2=new TransactionInstruction({programId:PROGRAM_ID,keys:[{pubkey:rPda,isSigner:false,isWritable:true},{pubkey:updated.winner,isSigner:false,isWritable:true},{pubkey:SystemProgram.programId,isSigner:false,isWritable:false}],data:data2});
-      const sig=await sendTx([ix2]);txSuccess(sig);
-      saveWinner({address:updated.winner.toBase58(),prize:fmtSOL(updated.totalPrize,4),round:updated.id,date:new Date().toLocaleDateString("es-ES"),sig});
+    
+    await fetchAll();
+    const updated = rounds.find(r => r.id === roundId);
+    if(!updated || !updated.isFinalized) throw new Error("No se finalizó correctamente");
+    
+    // 2) Reclamar premio automáticamente
+    if(updated.totalPrize > 0n && !updated.winner.equals(SystemProgram.programId)){
+      const disc2 = await discriminator("claim_prize");
+      const data2 = concat(disc2, u64LE(BigInt(roundId)));
+      const ix2 = new TransactionInstruction({programId:PROGRAM_ID,keys:[{pubkey: rPda, isSigner: false, isWritable: true},{pubkey: updated.winner, isSigner: false, isWritable: true},{pubkey: SystemProgram.programId, isSigner: false, isWritable: false}], data: data2});
+      const sig = await sendTx([ix2]);
+      txSuccess(sig);
+      saveWinner({
+        address: updated.winner.toBase58(),
+        prize: fmtSOL(updated.totalPrize,4),
+        round: updated.id,
+        date: new Date().toLocaleDateString("es-ES"),
+        sig
+      });
       addActivity("🏆","w",`Ganador ronda ${updated.id}`,`${short(updated.winner,8)}`,fmtSOL(updated.totalPrize,4));
     } else {
       txSuccess("Ronda finalizada sin premio.");
     }
-    // Deseleccionamos la ronda (ya está finalizada)
+    
     selectedRoundId = null;
     renderActiveRounds();
     renderFinishedRounds();
     updateSelectedRoundUI();
     renderWinners();
-  }catch(e){txError(e.message);}
-  busy=false;
+  } catch(e) {
+    txError(e.message);
+  }
+  busy = false;
 }
 
 async function handleClaim(){

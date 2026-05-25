@@ -9,6 +9,7 @@
   <script src="https://unpkg.com/@solana/web3.js@1.91.8/lib/index.iife.min.js">
   </script>
   <style>
+    /* ... exactamente el mismo CSS que antes ... */
     :root {
       --bg: #060910;
       --surface: #0c1120;
@@ -321,11 +322,10 @@
 
 <script>
 const { Connection, PublicKey, SystemProgram, Transaction, TransactionInstruction } = solanaWeb3;
-// ⚠️ REEMPLAZA ESTA CLAVE CON TU NUEVO PROGRAM ID
 const PROGRAM_ID = new PublicKey("AZFvRwhuBiUbj4wvLu1EbZVdLgcYrYpHm3nRttDS4Vx3");
 const RPC = "https://api.devnet.solana.com";
 const EXPLORER = "https://solscan.io";
-const MAX_PLAYERS = 2000; // debe coincidir con MAX_PLAYERS_PER_ROUND en Rust
+const MAX_PLAYERS = 10;
 const HOF_KEY = "sollotto_winners_v2";
 
 const conn = new Connection(RPC, "confirmed");
@@ -461,7 +461,6 @@ async function fetchAll(){
 function renderActiveRounds(){
   const container=el("rounds-container");
   const nowTs=Math.floor(Date.now()/1000);
-  // Solo rondas no finalizadas cuyo tiempo de fin aún no ha pasado (activas o próximas)
   const activeRounds = rounds.filter(r => !r.isFinalized && r.endTime >= nowTs);
   if(activeRounds.length===0){
     container.innerHTML="<p style='color:var(--muted);text-align:center;padding:20px;'>No hay rondas activas o próximas.</p>";
@@ -544,7 +543,6 @@ function renderFinishedRounds(){
 function selectRound(id){
   const nowTs=Math.floor(Date.now()/1000);
   const round = rounds.find(r=>r.id===id);
-  // No permitir seleccionar si está finalizada o si su tiempo terminó
   if(!round || round.isFinalized || round.endTime < nowTs) return;
   selectedRoundId = id;
   renderActiveRounds();
@@ -564,10 +562,9 @@ function updateSelectedRoundUI(){
   const canBuy=isActive&&round.playerCount<round.maxTickets;
   el("selected-round-info").innerHTML=`Ronda #${round.id} · ${fmtSOL(round.ticketPrice,2)} · ${round.playerCount}/${round.maxTickets} · Bote: ${fmtSOL(round.totalPrize,2)}<br>Estado: ${isActive?'ACTIVA':'PRÓXIMA'}`;
   el("btn-buy").disabled=!canBuy;
-  // El botón de finalizar ya no aparece en la vista activa (solo en historial)
+  // Los botones de finalizar/reclamar aquí solo se muestran si la ronda seleccionada está activa, no aplica
   el("btn-finalize").style.display="none";
-  const isWinner=walletPubkey&&round.isFinalized&&round.winner.equals(walletPubkey);
-  el("btn-claim").style.display=(isWinner&&round.totalPrize>0n)?"inline-flex":"none";
+  el("btn-claim").style.display="none";
 }
 
 /* ---------- TRANSACTION ---------- */
@@ -652,85 +649,15 @@ async function finalizeRound(roundId){
   const round = rounds.find(r=>r.id===roundId);
   if(!round || round.isFinalized || !round.admin.equals(walletPubkey)) throw new Error("No puedes finalizar esta ronda.");
   const rPda = roundPDA(round.id);
-
-  // 1) Enviar finalize_round
+  // Solo finalizar, NO reclamar el premio
   const disc1 = await discriminator("finalize_round");
   const data1 = concat(disc1, u64LE(BigInt(round.id)));
-  const ix1 = new TransactionInstruction({
-    programId: PROGRAM_ID,
-    keys: [
-      {pubkey: rPda, isSigner: false, isWritable: true},
-      {pubkey: walletPubkey, isSigner: true, isWritable: false}
-    ],
-    data: data1
-  });
-  await sendTx([ix1]);
-
-  // 2) Esperar con reintentos hasta que la cuenta on-chain refleje isFinalized
-  let updated = null;
-  for(let attempt = 0; attempt < 10; attempt++){
-    await new Promise(r => setTimeout(r, 1500));
-    try {
-      const raw = await conn.getAccountInfo(rPda, "confirmed");
-      if(raw && raw.data){
-        // Leer isFinalized directamente del account data (offset fijo según struct)
-        // Layout: discriminator(8) + id(8) + ticket_price(8) + start_time(8) + end_time(8)
-        //         + max_tickets(8) + players(32*2000=64000) + player_count(8)
-        //         + winner(32) + is_finalized(1) + total_prize(8) + admin(32) + bump(1)
-        const IS_FINALIZED_OFFSET = 8 + 8 + 8 + 8 + 8 + 8 + (32 * 2000) + 8 + 32;
-        const WINNER_OFFSET       = 8 + 8 + 8 + 8 + 8 + 8 + (32 * 2000) + 8;
-        const TOTAL_PRIZE_OFFSET  = IS_FINALIZED_OFFSET + 1;
-
-        const isFinalized = raw.data[IS_FINALIZED_OFFSET] === 1;
-        if(isFinalized){
-          const winnerBytes = raw.data.slice(WINNER_OFFSET, WINNER_OFFSET + 32);
-          const winnerPk = new PublicKey(winnerBytes);
-          const prizeLo = raw.data.slice(TOTAL_PRIZE_OFFSET, TOTAL_PRIZE_OFFSET + 8);
-          const prizeVal = new DataView(prizeLo.buffer, prizeLo.byteOffset).getBigUint64(0, true);
-          updated = { ...round, isFinalized: true, winner: winnerPk, totalPrize: prizeVal };
-          console.log(`[finalize] intento ${attempt+1}: ganador=${winnerPk.toBase58()} premio=${prizeVal}`);
-          break;
-        }
-      }
-    } catch(e) {
-      console.warn(`[finalize] intento ${attempt+1} error lectura:`, e);
-    }
-    console.log(`[finalize] intento ${attempt+1}: cuenta aún no finalizada, reintentando...`);
-  }
-
-  if(!updated || !updated.isFinalized){
-    throw new Error("La ronda se finalizó en blockchain pero los datos no se propagaron a tiempo. El ganador puede reclamar su premio desde el historial.");
-  }
-
-  // 3) Enviar claim_prize automáticamente al ganador
-  const noWinner = updated.winner.equals(SystemProgram.programId) ||
-                   updated.winner.toBase58() === "11111111111111111111111111111111";
-  if(updated.totalPrize > 0n && !noWinner){
-    console.log(`[claim] enviando claim para ganador ${updated.winner.toBase58()}, premio ${updated.totalPrize}`);
-    const disc2 = await discriminator("claim_prize");
-    const data2 = concat(disc2, u64LE(BigInt(roundId)));
-    const ix2 = new TransactionInstruction({
-      programId: PROGRAM_ID,
-      keys: [
-        {pubkey: rPda,                        isSigner: false, isWritable: true},
-        {pubkey: updated.winner,              isSigner: false, isWritable: true},
-        {pubkey: SystemProgram.programId,     isSigner: false, isWritable: false}
-      ],
-      data: data2
-    });
-    const sig = await sendTx([ix2]);
-    saveWinner({
-      address: updated.winner.toBase58(),
-      prize: fmtSOL(updated.totalPrize, 4),
-      round: updated.id,
-      date: new Date().toLocaleDateString("es-ES"),
-      sig
-    });
-    addActivity("🏆","w",`Ganador ronda ${updated.id}`,`${short(updated.winner,8)}`,fmtSOL(updated.totalPrize,4));
-    txSuccess(sig);
-  } else {
-    txSuccess("Ronda finalizada sin ganador o sin premio.");
-  }
+  const ix1 = new TransactionInstruction({programId:PROGRAM_ID,keys:[{pubkey:rPda,isSigner:false,isWritable:true},{pubkey:walletPubkey,isSigner:true,isWritable:false}],data:data1});
+  const sig = await sendTx([ix1]);
+  addActivity("🎯","f",`Ronda ${roundId} finalizada`,"",null);
+  txSuccess(sig);
+  // Ya no reclamamos automáticamente; el ganador lo hará manualmente
+  await fetchAll(); // refresca para mostrar el botón de "Reclamar" al ganador
 }
 
 async function handleFinalize(roundIdParam = null){
@@ -751,12 +678,12 @@ async function handleFinalize(roundIdParam = null){
   busy = false;
 }
 
-// Llamada desde el botón del historial
 async function handleFinalizeFromHistory(roundId){
   await handleFinalize(roundId);
 }
 
 async function handleClaim(){
+  // Este método ya no se usa porque la ronda finalizada no se puede seleccionar, pero lo dejamos por si acaso
   if(!walletPubkey||selectedRoundId===null||busy)return;
   const round=rounds.find(r=>r.id===selectedRoundId);
   if(!round||!round.isFinalized||round.totalPrize<=0n)return;

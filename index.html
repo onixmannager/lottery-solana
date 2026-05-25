@@ -135,6 +135,12 @@
 
     #dashboard { display: none; padding-bottom: 80px; }
 
+    .init-section {
+      text-align: center; padding: 60px 0;
+    }
+    .init-section h2 { font-size: 1.8rem; margin-bottom: 12px; }
+    .init-section p { color: var(--muted-hi); margin-bottom: 28px; }
+
     .rounds-list {
       display: grid; gap: 20px; margin: 30px 0;
       grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -265,7 +271,7 @@
     <div class="wrap">
       <div class="w-badge">MULTI‑RONDA · TRANSPARENTE</div>
       <h1 class="w-title">Elige tu ronda<br/><span>y prueba suerte</span></h1>
-      <p class="w-desc">Crea rondas con diferentes precios y horarios. Cualquiera puede finalizar y reclamar el premio automáticamente.</p>
+      <p class="w-desc">Crea rondas con diferentes precios y horarios. Solo el admin finaliza la ronda; cualquiera puede reclamar el premio.</p>
       <button class="btn-connect-main" onclick="handleWalletBtn()">CONECTAR WALLET</button>
       <div id="no-phantom-msg">No se detectó Phantom Wallet. <a href="https://phantom.app/" target="_blank">Instálala aquí</a>.</div>
     </div>
@@ -273,15 +279,22 @@
 
   <div id="dashboard">
     <div class="wrap" style="padding-top:24px;">
+      <!-- Sección de inicialización (si no existe cuenta global) -->
+      <div id="init-section" class="init-section" style="display:none;">
+        <h2>🎰 Lotería no inicializada</h2>
+        <p>La cuenta global aún no existe en la blockchain.<br>Conéctate con la wallet que será administradora y crea la lotería.</p>
+        <button class="btn btn-primary" style="max-width:300px;margin:0 auto;" onclick="handleInitialize()">🚀 INICIALIZAR LOTERÍA</button>
+      </div>
+
       <div id="rounds-container" class="rounds-list"></div>
       <div id="actions-container" class="actions-panel" style="display:none;">
         <h3>ACCIÓN PARA RONDA SELECCIONADA</h3>
         <div id="selected-round-info" style="margin-bottom:16px; font-size:.85rem;"></div>
         <button class="btn btn-primary" id="btn-buy" onclick="handleBuy()">COMPRAR TICKET</button>
-        <button class="btn btn-gold" id="btn-finalize" style="margin-top:10px;" onclick="handleFinalize()">🎯 FINALIZAR RONDA Y PAGAR</button>
+        <button class="btn btn-gold" id="btn-finalize" style="margin-top:10px; display:none;" onclick="handleFinalize()">🎯 FINALIZAR RONDA Y PAGAR</button>
         <button class="btn btn-outline" id="btn-claim" style="margin-top:10px; display:none;" onclick="handleClaim()">💰 RECLAMAR PREMIO</button>
 
-        <!-- Admin create round -->
+        <!-- Admin create round (solo admin global) -->
         <div id="admin-create" style="display:none; margin-top:20px; border-top:1px solid var(--border); padding-top:20px;">
           <h3 style="color:var(--gold);">CREAR NUEVA RONDA (ADMIN)</h3>
           <div class="admin-create-form">
@@ -346,10 +359,12 @@ async function fetchAll() {
     if (!gInfo) {
       globalState = null;
       rounds = [];
-      el("rounds-container").innerHTML = "<p style='color:var(--muted);'>Lotería no inicializada. Conecta como admin para crearla.</p>";
+      el("rounds-container").innerHTML = "";
       el("actions-container").style.display = "none";
+      el("init-section").style.display = walletPubkey ? "block" : "none";
       return;
     }
+    el("init-section").style.display = "none";
     const gData = gInfo.data;
     globalState = {
       admin: new PublicKey(gData.slice(8,40)),
@@ -363,7 +378,6 @@ async function fetchAll() {
         const rInfo = await conn.getAccountInfo(rPDA);
         if (!rInfo) continue;
         const data = rInfo.data;
-        // Deserializar Round (estructura fija)
         let offset = 8; // skip discriminator
         const id = Number(new DataView(data.buffer, data.byteOffset+offset, 8).getBigUint64(0, true)); offset+=8;
         const ticketPrice = new DataView(data.buffer, data.byteOffset+offset, 8).getBigUint64(0, true); offset+=8;
@@ -437,25 +451,31 @@ function updateSelectedRoundUI() {
   if (!round) { actions.style.display = "none"; return; }
   actions.style.display = "block";
 
+  const nowTs = Math.floor(Date.now()/1000);
+  const isActive = !round.isFinalized && nowTs >= round.startTime && nowTs <= round.endTime;
+  const isFinished = !round.isFinalized && nowTs >= round.endTime;
+  const canBuy = isActive && round.playerCount < round.maxTickets;
+
   el("selected-round-info").innerHTML = `
     Ronda #${round.id} · ${fmtSOL(round.ticketPrice,2)} por ticket · ${round.playerCount}/${round.maxTickets} boletos · Bote: ${fmtSOL(round.totalPrize,2)}<br>
-    Estado: ${round.isFinalized ? 'FINALIZADA' : (Date.now()/1000 >= round.startTime && Date.now()/1000 <= round.endTime ? 'ACTIVA' : (Date.now()/1000 > round.endTime ? 'FINALIZABLE' : 'PRÓXIMA'))}
+    Estado: ${round.isFinalized ? 'FINALIZADA' : (isActive ? 'ACTIVA' : (isFinished ? 'FINALIZABLE' : 'PRÓXIMA'))}
   `;
 
-  const nowTs = Math.floor(Date.now()/1000);
-  const canBuy = !round.isFinalized && nowTs >= round.startTime && nowTs <= round.endTime && round.playerCount < round.maxTickets;
   el("btn-buy").disabled = !canBuy;
 
-  const canFinalize = !round.isFinalized && nowTs >= round.endTime && round.playerCount > 0;
+  // Solo el admin de esta ronda puede finalizar
+  const isRoundAdmin = walletPubkey && round.admin.equals(walletPubkey);
+  const canFinalize = isRoundAdmin && isFinished && round.playerCount > 0;
   el("btn-finalize").style.display = canFinalize ? "inline-flex" : "none";
 
+  // Cualquiera puede reclamar si es el ganador y hay premio
   const isWinner = walletPubkey && round.isFinalized && round.winner.equals(walletPubkey);
   const prizeUnclaimed = round.totalPrize > 0n;
   el("btn-claim").style.display = (isWinner && prizeUnclaimed) ? "inline-flex" : "none";
 
-  // Admin panel
-  const isAdmin = walletPubkey && globalState && globalState.admin.equals(walletPubkey);
-  el("admin-create").style.display = isAdmin ? "block" : "none";
+  // Panel de creación de rondas (solo admin global)
+  const isGlobalAdmin = walletPubkey && globalState && globalState.admin.equals(walletPubkey);
+  el("admin-create").style.display = isGlobalAdmin ? "block" : "none";
 }
 
 /* ---------- TRANSACTION HELPER ---------- */
@@ -492,6 +512,29 @@ function txError(msg) {
 function closeTxModal() { el("tx-modal").classList.remove("flex"); }
 
 /* ---------- ACTIONS ---------- */
+async function handleInitialize() {
+  if (!walletPubkey || busy) return;
+  busy = true;
+  openTxModal("Inicializando lotería", "Creando cuenta global...");
+  try {
+    const disc = await discriminator("initialize");
+    const gPda = globalPDA();
+    const ix = new TransactionInstruction({
+      programId: PROGRAM_ID,
+      keys: [
+        { pubkey: gPda, isSigner: false, isWritable: true },
+        { pubkey: walletPubkey, isSigner: true, isWritable: true },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ],
+      data: disc
+    });
+    const sig = await sendTx([ix]);
+    txSuccess(sig);
+    await fetchAll();
+  } catch(e) { txError(e.message); console.error(e); }
+  busy = false;
+}
+
 async function handleBuy() {
   if (!walletPubkey || !selectedRoundId || busy) return;
   const round = rounds.find(r => r.id === selectedRoundId);
@@ -525,27 +568,34 @@ async function handleFinalize() {
   if (!walletPubkey || !selectedRoundId || busy) return;
   const round = rounds.find(r => r.id === selectedRoundId);
   if (!round) return;
+  // Verificar que el usuario es el admin de esta ronda
+  if (!round.admin.equals(walletPubkey)) {
+    alert("Solo el admin de esta ronda puede finalizarla.");
+    return;
+  }
   busy = true;
   openTxModal("Finalizando ronda", `Calculando ganador de ronda ${round.id}...`);
   try {
-    // 1) finalize_round
+    const roundPda = roundPDA(round.id);
+    // 1) finalize_round (admin firma)
     const disc1 = await discriminator("finalize_round");
     const data1 = concat(disc1, u64LE(BigInt(round.id)));
-    const roundPda = roundPDA(round.id);
     const ix1 = new TransactionInstruction({
       programId: PROGRAM_ID,
       keys: [
         { pubkey: roundPda, isSigner: false, isWritable: true },
+        { pubkey: walletPubkey, isSigner: true, isWritable: false },  // admin firma
       ],
       data: data1
     });
     await sendTx([ix1]);
+
     // Refrescar para obtener winner
     await fetchAll();
     const updatedRound = rounds.find(r => r.id === selectedRoundId);
     if (!updatedRound || !updatedRound.isFinalized) throw new Error("La ronda no se finalizó correctamente");
-    
-    // 2) claim_prize (automático)
+
+    // 2) claim_prize (automático, cualquiera puede enviarlo)
     if (updatedRound.totalPrize > 0n && !updatedRound.winner.equals(SystemProgram.programId)) {
       const disc2 = await discriminator("claim_prize");
       const data2 = concat(disc2, u64LE(BigInt(round.id)));

@@ -598,9 +598,17 @@
             <span style="font-size:.85rem;font-weight:600;color:var(--red-hi)">Panel de Administrador</span>
           </div>
           <p class="admin-desc">
-            Cierra la lotería y elige un ganador aleatorio usando el timestamp del bloque de Solana.<br/>
-            <strong style="color:var(--red-hi);font-size:.78rem">⚠️ Esta acción es irreversible. El bote se transfiere al ganador automáticamente.</strong>
+            Introduce la wallet pública del ganador y cierra la lotería. El bote se transfiere automáticamente.<br/>
+            <strong style="color:var(--red-hi);font-size:.78rem">⚠️ Esta acción es irreversible.</strong>
           </p>
+          <!-- FIX: input para la wallet del ganador — evita duplicar admin como winner -->
+          <div id="winner-input-wrap" style="margin-bottom:16px">
+            <label for="winner-address-input" style="display:block;font-size:.68rem;letter-spacing:.12em;color:var(--muted);margin-bottom:6px">WALLET DEL GANADOR</label>
+            <input id="winner-address-input" type="text"
+              placeholder="Dirección pública Solana del ganador"
+              style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--border-hi);background:var(--surface,#0c1120);color:var(--text);font-family:var(--mono);font-size:.72rem;outline:none;transition:border-color .2s"
+              onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='var(--border-hi)'"/>
+          </div>
           <button class="btn-pick" id="btn-pick" onclick="handlePickWinner()">
             CERRAR LOTERÍA Y ELEGIR GANADOR
           </button>
@@ -654,7 +662,7 @@ const {
   SystemProgram, LAMPORTS_PER_SOL, clusterApiUrl
 } = solanaWeb3;
 
-const PROGRAM_ID   = new PublicKey("27WmZciMu23KeTEmtYQxKtAMc4TUjZ3BT6853M5rB8g5");
+const PROGRAM_ID   = new PublicKey("4pbj6TqvWYxHcMDGr2fYck7BDudVtzgtSWj1iGmJr7gH"); // FIX: coincide con declare_id! del contrato
 const EXPLORER_URL = (sig) => `https://explorer.solana.com/tx/${sig}?cluster=devnet`;
 const ADDR_URL     = (addr) => `https://explorer.solana.com/address/${addr}?cluster=devnet`;
 const connection   = new Connection(clusterApiUrl("devnet"), "confirmed");
@@ -712,9 +720,10 @@ function lotteryPDA() {
   const [pda] = PublicKey.findProgramAddressSync([enc("lottery")], PROGRAM_ID);
   return pda;
 }
-function ticketPDA(id, buyer) {
+// FIX: el contrato usa seeds = [b"ticket", next_id_as_u64_le] — sin buyer
+function ticketPDA(id) {
   const [pda] = PublicKey.findProgramAddressSync(
-    [enc("ticket"), u64LE(id), buyer.toBytes()], PROGRAM_ID
+    [enc("ticket"), u64LE(id)], PROGRAM_ID
   );
   return pda;
 }
@@ -765,7 +774,7 @@ function renderDashboard() {
     el("not-init-section").style.display = "block";
     el("lottery-data").style.display     = "none";
     el("buy-wrap").style.display         = "none";
-    el("inactive-wrap").style.display    = "block";
+    el("inactive-wrap").style.display    = "none";   // FIX: ocultar cuando no está inicializada
     el("admin-wrap").style.display       = "none";
     el("hero-prize").textContent         = "0.0000";
     el("hero-tickets").textContent       = "0";
@@ -926,12 +935,13 @@ async function handleInit() {
 async function handleBuy() {
   if (!walletPubkey || !lotteryState || busy) return;
   busy = true; setBusy("btn-buy", true);
-  const num = Number(lotteryState.totalTickets) + 1;
-  openTxModal(`Comprando ticket #${num}`, `Precio: ${fmtSOL(lotteryState.ticketPrice, 2)}`);
+  // FIX: el próximo ID es totalTickets+1 (no totalTickets), y ticketPDA ya no recibe buyer
+  const nextId = Number(lotteryState.totalTickets) + 1;
+  openTxModal(`Comprando ticket #${nextId}`, `Precio: ${fmtSOL(lotteryState.ticketPrice, 2)}`);
   try {
     const disc  = await discriminator("buy_ticket");
     const pda   = lotteryPDA();
-    const tPda  = ticketPDA(lotteryState.totalTickets, walletPubkey);
+    const tPda  = ticketPDA(nextId);
     const ix    = new TransactionInstruction({
       programId: PROGRAM_ID,
       keys: [
@@ -946,7 +956,7 @@ async function handleBuy() {
     txSuccess(sig);
     myTickets++;
     el("my-tickets-count").textContent = myTickets;
-    toast("s", `TICKET #${num} COMPRADO`, `¡Ya tienes ${myTickets} ticket${myTickets > 1 ? "s" : ""} en esta ronda! 🎟`);
+    toast("s", `TICKET #${nextId} COMPRADO`, `¡Ya tienes ${myTickets} ticket${myTickets > 1 ? "s" : ""} en esta ronda! 🎟`);
     await fetchState();
   } catch (e) {
     console.error(e);
@@ -992,25 +1002,44 @@ async function handleRestart() {
 
 async function handlePickWinner() {
   if (!walletPubkey || !lotteryState || busy) return;
-  if (!confirm("¿Cerrar la lotería y elegir ganador?\n\nEsta acción es irreversible.")) return;
+
+  // FIX: leer y validar la wallet del ganador desde el input
+  const rawInput = el("winner-address-input").value.trim();
+  if (!rawInput) {
+    toast("e", "FALTA EL GANADOR", "Introduce la dirección pública del ganador antes de continuar.");
+    return;
+  }
+  let winnerPubkey;
+  try {
+    winnerPubkey = new PublicKey(rawInput);
+  } catch {
+    toast("e", "DIRECCIÓN INVÁLIDA", "La wallet introducida no es una clave pública Solana válida.");
+    return;
+  }
+
+  if (!confirm(`¿Cerrar la lotería y enviar el bote a:\n${winnerPubkey.toBase58()}\n\nEsta acción es irreversible.`)) return;
   busy = true; setBusy("btn-pick", true);
   openTxModal("Eligiendo ganador", "Cerrando la lotería y transfiriendo el bote...");
   try {
     const disc = await discriminator("pick_winner");
     const pda  = lotteryPDA();
-    const ix   = new TransactionInstruction({
+    // FIX CRÍTICO: admin y winner son cuentas DISTINTAS.
+    // Mandar walletPubkey dos veces (una isSigner:true, otra isSigner:false)
+    // hace que Solana colapse las entradas y el runtime rechace la tx.
+    const ix = new TransactionInstruction({
       programId: PROGRAM_ID,
       keys: [
         { pubkey: pda,                     isSigner: false, isWritable: true  },
-        { pubkey: walletPubkey,            isSigner: true,  isWritable: true  },
-        { pubkey: walletPubkey,            isSigner: false, isWritable: true  },
+        { pubkey: walletPubkey,            isSigner: true,  isWritable: true  }, // admin
+        { pubkey: winnerPubkey,            isSigner: false, isWritable: true  }, // winner ≠ admin
         { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
       ],
       data: disc,
     });
     const sig = await sendTx([ix]);
     txSuccess(sig);
-    toast("s", "¡GANADOR ELEGIDO! 🏆", "El bote ha sido transferido.");
+    el("winner-address-input").value = "";
+    toast("s", "¡GANADOR ELEGIDO! 🏆", `Bote enviado a ${short(winnerPubkey)}`);
     await fetchState();
   } catch (e) {
     console.error(e);

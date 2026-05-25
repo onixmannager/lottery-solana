@@ -1141,25 +1141,43 @@
     }
 
     // ── Activity ──
+    function getActivityIcon(icon) {
+      if (icon === 'sol') return SOL_ICON_MED;
+      if (icon === 'ticket') return '🎟';
+      // legacy or already an emoji — return as-is only if it's short (emoji, not SVG code)
+      if (icon && icon.length < 10) return icon;
+      return SOL_ICON_MED;
+    }
+    function fmtSOLStore(lam, dec=4) { return (Number(lam)/1e9).toFixed(dec) + ' SOL'; }
+    function fmtSOLDisplay(str) {
+      // Convert stored "X.XXXX SOL" to display with SVG icon
+      if (!str) return '';
+      return str.replace(' SOL', SOL_ICON);
+    }
+
     function addActivity(icon,cls,title,detail,amount){
-      activityLog.unshift({icon,cls,title,detail,amount,time:new Date().toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"})});
+      // Normalize icon to a key
+      const iconKey = (icon === SOL_ICON_MED) ? 'sol' : (icon === '🎟' ? 'ticket' : icon);
+      // Store amount as plain text
+      const amountStore = amount ? amount.replace(/<[^>]*>/g, '').trim() : null;
+      activityLog.unshift({icon:iconKey,cls,title,detail,amount:amountStore,time:new Date().toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"})});
       if(activityLog.length>100) activityLog.pop();
       localStorage.setItem("sollotto_activity",JSON.stringify(activityLog));
       renderActivity();
     }
     function renderActivity(){
-      // already newest-first (unshift used on add)
-      renderPaged('activity-paged', activityLog, activityPage, a =>
-        `<div class="history-item">
-          <div class="history-ico ${a.cls}">${a.icon}</div>
+      renderPaged('activity-paged', activityLog, activityPage, a => {
+        const iconHtml = getActivityIcon(a.icon);
+        const amountHtml = a.amount ? `<div class="prize-amount">${fmtSOLDisplay(a.amount)}</div>` : '';
+        return `<div class="history-item">
+          <div class="history-ico ${a.cls}">${iconHtml}</div>
           <div class="history-info">
             <div class="history-t">${a.title}</div>
             <div class="history-d">${a.detail} · ${a.time}</div>
           </div>
-          ${a.amount ? `<div class="prize-amount">${a.amount}</div>` : ""}
-        </div>`,
-        'goActivityPage'
-      );
+          ${amountHtml}
+        </div>`;
+      }, 'goActivityPage');
     }
     function goActivityPage(p) { activityPage = p; renderActivity(); }
 
@@ -1188,7 +1206,7 @@
               <div class="winner-meta">Ronda ${w.round} · ${w.date}</div>
             </div>
             <div class="prize-amount" style="text-align:right;">
-              ${w.prize}
+              ${fmtSOLDisplay(w.prize)}
               <div class="winner-meta" style="margin-top:3px;"><a href="${EXPLORER}/tx/${w.sig}?cluster=devnet" target="_blank" style="color:var(--primary-glow);text-decoration:none;">ver tx ↗</a></div>
             </div>
           </div>`;
@@ -1575,7 +1593,7 @@
         const tPda=ticketPDA(round.id,nextTicketNum);
         const ix=new TransactionInstruction({programId:PROGRAM_ID,keys:[{pubkey:rPda,isSigner:false,isWritable:true},{pubkey:tPda,isSigner:false,isWritable:true},{pubkey:walletPubkey,isSigner:true,isWritable:true},{pubkey:SystemProgram.programId,isSigner:false,isWritable:false}],data});
         const sig=await sendTx([ix]); txSuccess(sig);
-        addActivity("🎟","t",`Ticket ronda ${round.id}`,`${short(walletPubkey,6)}`,fmtSOL(round.ticketPrice,2));
+        addActivity("ticket","t",`Ticket ronda ${round.id}`,`${short(walletPubkey,6)}`,fmtSOLStore(round.ticketPrice,2));
         await fetchAll();
       }catch(e){txError(e.message);}
       busy=false;
@@ -1591,7 +1609,7 @@
         const tPda=ticketPDA(round.id,nextTicketNum);
         const ix=new TransactionInstruction({programId:PROGRAM_ID,keys:[{pubkey:rPda,isSigner:false,isWritable:true},{pubkey:tPda,isSigner:false,isWritable:true},{pubkey:walletPubkey,isSigner:true,isWritable:true},{pubkey:SystemProgram.programId,isSigner:false,isWritable:false}],data});
         const sig=await sendTx([ix]); txSuccess(sig);
-        addActivity("🎟","t",`Ticket ronda ${round.id}`,`${short(walletPubkey,6)}`,fmtSOL(round.ticketPrice,2));
+        addActivity("ticket","t",`Ticket ronda ${round.id}`,`${short(walletPubkey,6)}`,fmtSOLStore(round.ticketPrice,2));
         busy=false;
         await fetchAll();
       }catch(e){txError(e.message); busy=false;}
@@ -1618,8 +1636,8 @@
             {pubkey: SystemProgram.programId, isSigner: false, isWritable: false}
           ], data});
           const sig = await sendTx([ix]);
-          saveWinner({address: winnerPubkey.toBase58(), prize: fmtSOL(round.totalPrize, 4), round: round.id, date: new Date().toLocaleDateString("es-ES"), sig});
-          addActivity(SOL_ICON_MED,"w",`Ganador ronda ${round.id}`,`${short(winnerPubkey,8)}`,fmtSOL(round.totalPrize,4));
+          saveWinner({address: winnerPubkey.toBase58(), prize: fmtSOLStore(round.totalPrize, 4), round: round.id, date: new Date().toLocaleDateString("es-ES"), sig});
+          addActivity("sol","w",`Ganador ronda ${round.id}`,`${short(winnerPubkey,8)}`,fmtSOLStore(round.totalPrize,4));
           txSuccess(sig);
           return;
         } catch(e) {
@@ -1653,7 +1671,7 @@
         const rPda=roundPDA(round.id);
         const ix=new TransactionInstruction({programId:PROGRAM_ID,keys:[{pubkey:rPda,isSigner:false,isWritable:true},{pubkey:round.winner,isSigner:false,isWritable:true},{pubkey:SystemProgram.programId,isSigner:false,isWritable:false}],data});
         const sig=await sendTx([ix]); txSuccess(sig);
-        addActivity(SOL_ICON_MED,"w",`Premio reclamado ronda ${round.id}`,`${short(round.winner,8)}`,fmtSOL(round.totalPrize,4));
+        addActivity("sol","w",`Premio reclamado ronda ${round.id}`,`${short(round.winner,8)}`,fmtSOLStore(round.totalPrize,4));
         await fetchAll();
       }catch(e){txError(e.message);}
       busy=false;
@@ -1673,7 +1691,7 @@
           {pubkey: SystemProgram.programId, isSigner: false, isWritable: false}
         ], data});
         const sig = await sendTx([ix]); txSuccess(sig);
-        addActivity(SOL_ICON_MED,"w",`Premio reclamado ${roundId}`,`${short(round.winner,8)}`,fmtSOL(round.totalPrize,4));
+        addActivity("sol","w",`Premio reclamado ${roundId}`,`${short(round.winner,8)}`,fmtSOLStore(round.totalPrize,4));
         await fetchAll(); renderWinnersFixed();
       } catch(e) { txError(e.message); }
       busy = false;

@@ -444,6 +444,30 @@
     .tst.i { border-left: 4px solid var(--primary); }
     .tst.i .tst-lbl { color: var(--primary-hi); }
 
+    /* ══ MOBILE NOTICE ══ */
+    .mobile-notice {
+      display: none;
+      background: var(--gold);
+      color: #000;
+      text-align: center;
+      padding: 12px 20px;
+      font-weight: 700;
+      font-size: 0.8rem;
+      letter-spacing: 0.05em;
+      position: relative;
+    }
+    .mobile-notice button {
+      background: #000;
+      color: var(--gold-hi);
+      border: none;
+      padding: 6px 14px;
+      margin-left: 10px;
+      border-radius: 6px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: var(--font);
+    }
+
     /* ══ RESPONSIVE ══ */
     @media (max-width: 768px) {
       .main-grid { grid-template-columns: 1fr; }
@@ -453,11 +477,19 @@
       .tst { min-width: 0; max-width: none; }
       .modal-btns { flex-direction: column; }
       .mbtn { width: 100%; }
+      .modal-box { padding: 30px; }
+      .prize-hero { padding: 40px 0 32px; }
+      .header-inner { height: 56px; }
     }
   </style>
 </head>
 <body>
 <div id="root">
+  <!-- Mobile notice: appears only if Phantom is NOT detected on a mobile device -->
+  <div class="mobile-notice" id="mobile-notice">
+    📱 Para usar la lotería, copia la URL y pégala en el navegador de Phantom.
+    <button onclick="copyWindowUrl()">Copiar URL</button>
+  </div>
 
   <!-- ═══════ HEADER ═══════ -->
   <header>
@@ -505,8 +537,6 @@
 
   <!-- ═══════ DASHBOARD ═══════ -->
   <div id="dashboard">
-
-    <!-- Not Initialized (cuenta nunca creada on-chain) -->
     <div id="not-initialized">
       <div class="ni-icon">🎰</div>
       <h2 id="ni-title">Lotería no inicializada</h2>
@@ -515,43 +545,24 @@
       <button class="btn-initialize" id="ni-btn" onclick="handleInitialize()">🚀 INICIALIZAR LOTERÍA</button>
     </div>
 
-    <!-- Main Content -->
     <div id="main-content" style="display:none;">
-
-      <!-- HERO -->
       <div class="prize-hero">
         <div class="wrap">
           <div class="prize-label">BOTE ACTUAL</div>
           <div class="prize-amount" id="prize-amount">0.00 ◎</div>
           <div class="prize-usd" id="prize-usd">~$0.00 USD</div>
           <div class="prize-meta">
-            <div class="prize-meta-item">
-              <span>Precio ticket:</span>
-              <strong id="ticket-price">0.0 ◎</strong>
-            </div>
-            <div class="prize-meta-item">
-              <span>Tickets vendidos:</span>
-              <strong id="total-tickets">0</strong>
-            </div>
-            <div class="prize-meta-item">
-              <span class="prize-status active" id="lottery-status">
-                <span class="pdot"></span>ACTIVA
-              </span>
-            </div>
+            <div class="prize-meta-item"><span>Precio ticket:</span><strong id="ticket-price">0.0 ◎</strong></div>
+            <div class="prize-meta-item"><span>Tickets vendidos:</span><strong id="total-tickets">0</strong></div>
+            <div class="prize-meta-item"><span class="prize-status active" id="lottery-status"><span class="pdot"></span>ACTIVA</span></div>
           </div>
         </div>
       </div>
 
-      <!-- GRID -->
       <div class="wrap">
         <div class="main-grid">
-
-          <!-- USER CARD -->
           <div class="card">
-            <div class="card-head">
-              <div class="card-title">TU CUENTA</div>
-              <div id="user-role-badge" style="display:none;" class="card-badge">⚙ ADMIN</div>
-            </div>
+            <div class="card-head"><div class="card-title">TU CUENTA</div><div id="user-role-badge" style="display:none;" class="card-badge">⚙ ADMIN</div></div>
             <div class="user-panel">
               <div class="user-avatar" id="user-avatar">👤</div>
               <div class="user-info">
@@ -565,189 +576,94 @@
             </div>
           </div>
 
-          <!-- ACTION CARD -->
           <div class="card">
-            <div class="card-head">
-              <div class="card-title">ACCIONES</div>
-              <div class="card-badge">DEVNET</div>
-            </div>
-
-            <button class="btn-buy" id="btn-buy" onclick="handleBuy()">
-              COMPRAR TICKET · 0.0 ◎
-            </button>
-
-            <!-- ADMIN PANEL -->
+            <div class="card-head"><div class="card-title">ACCIONES</div><div class="card-badge">DEVNET</div></div>
+            <button class="btn-buy" id="btn-buy" onclick="handleBuy()">COMPRAR TICKET · 0.0 ◎</button>
             <div id="admin-panel" style="display:none;">
               <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
-                <div style="font-size:.65rem;font-weight:700;letter-spacing:.2em;color:var(--gold);margin-bottom:12px;display:flex;align-items:center;gap:6px;">
-                  ⚙️ PANEL ADMINISTRADOR
-                </div>
+                <div style="font-size:.65rem;font-weight:700;letter-spacing:.2em;color:var(--gold);margin-bottom:12px;display:flex;align-items:center;gap:6px;">⚙️ PANEL ADMINISTRADOR</div>
                 <div class="admin-actions">
-                  <button class="btn-admin" id="btn-pick" onclick="handlePickWinner()">
-                    🏆 ELEGIR GANADOR
-                  </button>
-                  <button class="btn-admin" id="btn-restart" onclick="handleRestart()">
-                    🔄 NUEVA RONDA
-                  </button>
+                  <button class="btn-admin" id="btn-pick" onclick="handlePickWinner()">🏆 ELEGIR GANADOR</button>
+                  <button class="btn-admin" id="btn-restart" onclick="handleRestart()">🔄 NUEVA RONDA</button>
                 </div>
                 <div id="admin-hint" style="font-size:.7rem;color:var(--muted);margin-top:10px;text-align:center;line-height:1.5;"></div>
               </div>
             </div>
           </div>
 
-          <!-- HALL OF FAME + ACTIVITY -->
           <div class="card full-card">
             <div class="card-head">
               <div class="card-title" id="tab-section-title">HALL OF FAME</div>
-              <div style="font-size:.7rem;color:var(--muted);">
-                <span id="countdown">10s</span>
-              </div>
+              <div style="font-size:.7rem;color:var(--muted);"><span id="countdown">10s</span></div>
             </div>
-
             <div class="hof-tabs">
               <button class="hof-tab active" id="tab-hof" onclick="switchTab('hof')">🏆 GANADORES</button>
               <button class="hof-tab" id="tab-activity" onclick="switchTab('activity')">📋 ACTIVIDAD</button>
             </div>
-
-            <!-- Hall of Fame tab -->
-            <div id="panel-hof">
-              <div class="winners-list" id="winners-list">
-                <div class="empty-state">
-                  <div class="es-icon">🏆</div>
-                  <div>Aún no hay ganadores registrados.<br>¡Sé el primero!</div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Activity tab -->
-            <div id="panel-activity" style="display:none;">
-              <div class="history-list" id="history-list">
-                <div class="empty-state">
-                  <div class="es-icon">📋</div>
-                  <div>No hay actividad reciente</div>
-                </div>
-              </div>
-            </div>
+            <div id="panel-hof"><div class="winners-list" id="winners-list"></div></div>
+            <div id="panel-activity" style="display:none;"><div class="history-list" id="history-list"></div></div>
           </div>
-
         </div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ════════════════════════════════
-     TX MODAL (loading / success / error)
-════════════════════════════════ -->
+<!-- MODALS (identical to previous version) -->
 <div id="tx-modal" class="modal-overlay" onclick="closeTxModal()">
   <div class="modal-box" onclick="event.stopPropagation()">
-    <div id="tx-loading" style="display:none;">
-      <div class="tx-loader"></div>
-      <div class="modal-title" id="tx-title-loading">Procesando...</div>
-      <div class="modal-desc" id="tx-desc-loading">Esperando confirmación...</div>
-    </div>
-    <div id="tx-success" style="display:none;">
-      <div class="tx-icon success">✓</div>
-      <div class="modal-title">¡Transacción exitosa!</div>
-      <div class="modal-desc" id="tx-desc-success"></div>
-      <a id="tx-link" class="tx-link" href="#" target="_blank">Ver en Solscan ↗</a>
-      <div class="modal-btns" style="margin-top:16px;">
-        <button class="mbtn mbtn-secondary" onclick="closeTxModal()">CERRAR</button>
-      </div>
-    </div>
-    <div id="tx-error" style="display:none;">
-      <div class="tx-icon error">✕</div>
-      <div class="modal-title">Error en la transacción</div>
-      <div class="modal-desc" id="tx-desc-error"></div>
-      <div class="modal-btns">
-        <button class="mbtn mbtn-secondary" onclick="closeTxModal()">CERRAR</button>
-      </div>
-    </div>
+    <div id="tx-loading" style="display:none;"><div class="tx-loader"></div><div class="modal-title" id="tx-title-loading">Procesando...</div><div class="modal-desc" id="tx-desc-loading">Esperando confirmación...</div></div>
+    <div id="tx-success" style="display:none;"><div class="tx-icon success">✓</div><div class="modal-title">¡Transacción exitosa!</div><div class="modal-desc" id="tx-desc-success"></div><a id="tx-link" class="tx-link" href="#" target="_blank">Ver en Solscan ↗</a><div class="modal-btns" style="margin-top:16px;"><button class="mbtn mbtn-secondary" onclick="closeTxModal()">CERRAR</button></div></div>
+    <div id="tx-error" style="display:none;"><div class="tx-icon error">✕</div><div class="modal-title">Error en la transacción</div><div class="modal-desc" id="tx-desc-error"></div><div class="modal-btns"><button class="mbtn mbtn-secondary" onclick="closeTxModal()">CERRAR</button></div></div>
   </div>
 </div>
 
-<!-- ════════════════════════════════
-     CONFIRM MODAL
-════════════════════════════════ -->
 <div id="confirm-modal" class="modal-overlay" onclick="_confirmReject()">
   <div class="modal-box" onclick="event.stopPropagation()">
-    <div class="tx-icon warn" id="confirm-icon">⚠️</div>
-    <div class="modal-title" id="confirm-title">¿Confirmar acción?</div>
-    <div class="modal-desc" id="confirm-desc"></div>
-    <div id="confirm-details-slot"></div>
-    <div class="modal-btns">
-      <button class="mbtn mbtn-secondary" onclick="_confirmReject()">CANCELAR</button>
-      <button class="mbtn mbtn-danger" id="confirm-ok-btn" onclick="_confirmAccept()">CONFIRMAR</button>
-    </div>
+    <div class="tx-icon warn" id="confirm-icon">⚠️</div><div class="modal-title" id="confirm-title">¿Confirmar acción?</div><div class="modal-desc" id="confirm-desc"></div><div id="confirm-details-slot"></div>
+    <div class="modal-btns"><button class="mbtn mbtn-secondary" onclick="_confirmReject()">CANCELAR</button><button class="mbtn mbtn-danger" id="confirm-ok-btn" onclick="_confirmAccept()">CONFIRMAR</button></div>
   </div>
 </div>
 
-<!-- ════════════════════════════════
-     INPUT MODAL
-════════════════════════════════ -->
 <div id="input-modal" class="modal-overlay" onclick="_inputCancel()">
   <div class="modal-box" onclick="event.stopPropagation()">
-    <div class="tx-icon info" id="input-icon">✏️</div>
-    <div class="modal-title" id="input-title">Introduce un valor</div>
-    <div class="modal-desc" id="input-desc"></div>
-    <div class="modal-input-group">
-      <label class="modal-input-label" id="input-label">VALOR</label>
-      <input class="modal-input" id="input-field" type="number" step="0.001" min="0.001" placeholder="0.1"/>
-      <div class="modal-note" id="input-note"></div>
-    </div>
-    <div class="modal-btns">
-      <button class="mbtn mbtn-secondary" onclick="_inputCancel()">CANCELAR</button>
-      <button class="mbtn mbtn-primary" onclick="_inputAccept()">CONTINUAR</button>
-    </div>
+    <div class="tx-icon info" id="input-icon">✏️</div><div class="modal-title" id="input-title">Introduce un valor</div><div class="modal-desc" id="input-desc"></div>
+    <div class="modal-input-group"><label class="modal-input-label" id="input-label">VALOR</label><input class="modal-input" id="input-field" type="number" step="0.001" min="0.001" placeholder="0.1"/><div class="modal-note" id="input-note"></div></div>
+    <div class="modal-btns"><button class="mbtn mbtn-secondary" onclick="_inputCancel()">CANCELAR</button><button class="mbtn mbtn-primary" onclick="_inputAccept()">CONTINUAR</button></div>
   </div>
 </div>
 
-<!-- ════════════════════════════════
-     WINNER CELEBRATION MODAL
-════════════════════════════════ -->
 <div id="winner-modal" class="modal-overlay" onclick="closeWinnerModal()">
   <div class="modal-box wide" onclick="event.stopPropagation()">
     <div class="winner-celebration">
-      <div class="confetti-row">🎉🏆🎉</div>
-      <div class="modal-title" style="font-size:1.6rem;color:var(--gold-hi);">¡TENEMOS GANADOR!</div>
-      <div class="modal-desc">El sorteo ha finalizado. El bote ha sido transferido on-chain.</div>
-      <div class="winner-prize-big" id="wm-prize">0.0000 ◎</div>
-      <div style="font-size:.72rem;color:var(--muted);margin-bottom:4px;">WALLET GANADORA</div>
-      <div class="winner-addr-box" id="wm-addr" onclick="copyWinnerAddr()" title="Clic para copiar">...</div>
-      <div style="font-size:.7rem;color:var(--muted);">Clic en la dirección para copiar · Verificable on-chain</div>
+      <div class="confetti-row">🎉🏆🎉</div><div class="modal-title" style="font-size:1.6rem;color:var(--gold-hi);">¡TENEMOS GANADOR!</div><div class="modal-desc">El sorteo ha finalizado. El bote ha sido transferido on-chain.</div>
+      <div class="winner-prize-big" id="wm-prize">0.0000 ◎</div><div style="font-size:.72rem;color:var(--muted);margin-bottom:4px;">WALLET GANADORA</div><div class="winner-addr-box" id="wm-addr" onclick="copyWinnerAddr()" title="Clic para copiar">...</div><div style="font-size:.7rem;color:var(--muted);">Clic en la dirección para copiar · Verificable on-chain</div>
     </div>
-    <div class="modal-btns" style="margin-top:20px;">
-      <a id="wm-link" class="tx-link" href="#" target="_blank">Ver transacción ↗</a>
-      <button class="mbtn mbtn-gold" onclick="closeWinnerModal()">¡ENTENDIDO! 🎊</button>
-    </div>
+    <div class="modal-btns" style="margin-top:20px;"><a id="wm-link" class="tx-link" href="#" target="_blank">Ver transacción ↗</a><button class="mbtn mbtn-gold" onclick="closeWinnerModal()">¡ENTENDIDO! 🎊</button></div>
   </div>
 </div>
 
-<!-- TOASTS -->
 <div id="toasts"></div>
 
 <script>
 const { Connection, PublicKey, SystemProgram, Transaction, TransactionInstruction } = solanaWeb3;
-
 const PROGRAM_ID = new PublicKey("AZFvRwhuBiUbj4wvLu1EbZVdLgcYrYpHm3nRttDS4Vx3");
-const RPC        = "https://api.devnet.solana.com";
-const EXPLORER   = "https://solscan.io";
-const HOF_KEY    = "sollotto_winners_devnet";
+const RPC = "https://api.devnet.solana.com";
+const EXPLORER = "https://solscan.io";
+const HOF_KEY = "sollotto_winners_devnet";
 
 const conn = new Connection(RPC, "confirmed");
 let walletPubkey = null;
 let lotteryState = null;
-let myTickets    = 0;
-let busy         = false;
+let myTickets = 0;
+let busy = false;
 let refreshTimer = null;
 let countdownInt = null;
 let countdownVal = 10;
-let currentTab   = 'hof';
-let activityLog  = [];
+let currentTab = 'hof';
+let activityLog = [];
 
-/* ══════════════════════════════════════════════
-   HELPERS
-══════════════════════════════════════════════ */
+/* ---------- HELPERS ---------- */
 const el = id => document.getElementById(id);
 function utf8(s) { return new TextEncoder().encode(s); }
 function u64LE(n) { const b = new ArrayBuffer(8); new DataView(b).setBigUint64(0, n, true); return new Uint8Array(b); }
@@ -759,9 +675,7 @@ function setBusy(id,state){const b=el(id);if(b)b.disabled=state;}
 function toast(type,lbl,msg){const d=document.createElement("div");d.className=`tst ${type}`;d.innerHTML=`<div class="tst-lbl">${lbl}</div><div class="tst-msg">${msg}</div>`;el("toasts").prepend(d);setTimeout(()=>d.remove(),6000);}
 function copyAddr(){if(!walletPubkey)return;navigator.clipboard.writeText(walletPubkey.toBase58()).then(()=>toast("i","COPIADO","Dirección copiada al portapapeles"));}
 
-/* ══════════════════════════════════════════════
-   HALL OF FAME
-══════════════════════════════════════════════ */
+/* ---------- HALL OF FAME ---------- */
 function loadWinners(){try{return JSON.parse(localStorage.getItem(HOF_KEY)||"[]");}catch{return[];}}
 function saveWinner(entry){const list=loadWinners();list.unshift(entry);localStorage.setItem(HOF_KEY,JSON.stringify(list.slice(0,50)));}
 function renderWinners(){
@@ -771,108 +685,57 @@ function renderWinners(){
   container.innerHTML=list.map((w,i)=>{
     const medal=i===0?"🥇":i===1?"🥈":i===2?"🥉":`#${i+1}`;
     const rankClass=i===0?"r1":"";
-    return `<div class="winner-item">
-      <div class="winner-rank ${rankClass}">${medal}</div>
-      <div class="winner-info">
-        <div class="winner-addr" onclick="copyText('${w.address}')" title="${w.address}">${w.address}</div>
-        <div class="winner-meta">Ronda ${w.round} · ${w.date}</div>
-      </div>
-      <div style="text-align:right;flex-shrink:0;">
-        <div class="winner-prize">${w.prize}</div>
-        <div class="winner-round"><a href="${EXPLORER}/tx/${w.sig}?cluster=devnet" target="_blank" style="color:var(--muted);text-decoration:none;">ver tx ↗</a></div>
-      </div>
-    </div>`;
+    return `<div class="winner-item"><div class="winner-rank ${rankClass}">${medal}</div><div class="winner-info"><div class="winner-addr" onclick="copyText('${w.address}')" title="${w.address}">${w.address}</div><div class="winner-meta">Ronda ${w.round} · ${w.date}</div></div><div style="text-align:right;flex-shrink:0;"><div class="winner-prize">${w.prize}</div><div class="winner-round"><a href="${EXPLORER}/tx/${w.sig}?cluster=devnet" target="_blank" style="color:var(--muted);text-decoration:none;">ver tx ↗</a></div></div></div>`;
   }).join("");
 }
 function copyText(text){navigator.clipboard.writeText(text).then(()=>toast("i","COPIADO",text.slice(0,20)+"..."));}
 
-/* ══════════════════════════════════════════════
-   ACTIVITY LOG
-══════════════════════════════════════════════ */
+/* ---------- ACTIVITY LOG ---------- */
 function addActivity(icon,cls,title,detail,amount){activityLog.unshift({icon,cls,title,detail,amount,time:now()});if(activityLog.length>30)activityLog.pop();renderActivity();}
 function renderActivity(){
   const container=el("history-list");
   if(activityLog.length===0){container.innerHTML=`<div class="empty-state"><div class="es-icon">📋</div><div>No hay actividad reciente</div></div>`;return;}
-  container.innerHTML=activityLog.map(a=>`<div class="history-item">
-    <div class="history-ico ${a.cls}">${a.icon}</div>
-    <div class="history-info"><div class="history-t">${a.title}</div><div class="history-d">${a.detail} · ${a.time}</div></div>
-    ${a.amount?`<div class="history-amt">${a.amount}</div>`:""}
-  </div>`).join("");
+  container.innerHTML=activityLog.map(a=>`<div class="history-item"><div class="history-ico ${a.cls}">${a.icon}</div><div class="history-info"><div class="history-t">${a.title}</div><div class="history-d">${a.detail} · ${a.time}</div></div>${a.amount?`<div class="history-amt">${a.amount}</div>`:""}</div>`).join("");
 }
 
-/* ══════════════════════════════════════════════
-   TABS
-══════════════════════════════════════════════ */
+/* ---------- TABS ---------- */
 function switchTab(tab){currentTab=tab;el("tab-hof").classList.toggle("active",tab==="hof");el("tab-activity").classList.toggle("active",tab==="activity");el("panel-hof").style.display=tab==="hof"?"block":"none";el("panel-activity").style.display=tab==="activity"?"block":"none";}
 
-/* ══════════════════════════════════════════════
-   MODALS
-══════════════════════════════════════════════ */
+/* ---------- MODALS ---------- */
 let _confirmResolve=null;
 function showConfirm({title,desc,details,iconEmoji,okLabel,okClass}){
-  return new Promise(resolve=>{
-    _confirmResolve=resolve;
-    el("confirm-icon").textContent=iconEmoji||"⚠️";
-    el("confirm-title").textContent=title;
-    el("confirm-desc").innerHTML=desc||"";
-    el("confirm-details-slot").innerHTML=details||"";
-    const okBtn=el("confirm-ok-btn");
-    okBtn.textContent=okLabel||"CONFIRMAR";
-    okBtn.className=`mbtn ${okClass||"mbtn-danger"}`;
-    el("confirm-modal").classList.add("flex");
-  });
+  return new Promise(resolve=>{_confirmResolve=resolve;el("confirm-icon").textContent=iconEmoji||"⚠️";el("confirm-title").textContent=title;el("confirm-desc").innerHTML=desc||"";el("confirm-details-slot").innerHTML=details||"";const okBtn=el("confirm-ok-btn");okBtn.textContent=okLabel||"CONFIRMAR";okBtn.className=`mbtn ${okClass||"mbtn-danger"}`;el("confirm-modal").classList.add("flex");});
 }
 function _confirmAccept(){el("confirm-modal").classList.remove("flex");_confirmResolve&&_confirmResolve(true);}
 function _confirmReject(){el("confirm-modal").classList.remove("flex");_confirmResolve&&_confirmResolve(false);}
 
 let _inputResolve=null;
 function showInput({title,desc,label,note,defaultValue,icon}){
-  return new Promise(resolve=>{
-    _inputResolve=resolve;
-    el("input-icon").textContent=icon||"✏️";
-    el("input-title").textContent=title;
-    el("input-desc").textContent=desc||"";
-    el("input-label").textContent=label||"VALOR";
-    el("input-note").textContent=note||"";
-    el("input-field").value=defaultValue||"";
-    el("input-modal").classList.add("flex");
-    setTimeout(()=>el("input-field").focus(),100);
-  });
+  return new Promise(resolve=>{_inputResolve=resolve;el("input-icon").textContent=icon||"✏️";el("input-title").textContent=title;el("input-desc").textContent=desc||"";el("input-label").textContent=label||"VALOR";el("input-note").textContent=note||"";el("input-field").value=defaultValue||"";el("input-modal").classList.add("flex");setTimeout(()=>el("input-field").focus(),100);});
 }
 function _inputAccept(){const val=el("input-field").value.trim();el("input-modal").classList.remove("flex");_inputResolve&&_inputResolve(val);}
 function _inputCancel(){el("input-modal").classList.remove("flex");_inputResolve&&_inputResolve(null);}
 
-/* ══════════════════════════════════════════════
-   PDA FUNCTIONS
-══════════════════════════════════════════════ */
+/* ---------- PDA FUNCTIONS ---------- */
 function lotteryPDA(){return PublicKey.findProgramAddressSync([utf8("lottery")],PROGRAM_ID)[0];}
 function ticketPDA(ticketId){return PublicKey.findProgramAddressSync([utf8("ticket"),u64LE(BigInt(ticketId))],PROGRAM_ID)[0];}
 
-/* ══════════════════════════════════════════════
-   DISCRIMINATOR
-══════════════════════════════════════════════ */
+/* ---------- DISCRIMINATOR ---------- */
 async function discriminator(name){const hash=await crypto.subtle.digest("SHA-256",utf8(`global:${name}`));return new Uint8Array(hash).slice(0,8);}
 
-/* ══════════════════════════════════════════════
-   FETCH STATE
-══════════════════════════════════════════════ */
+/* ---------- FETCH STATE ---------- */
 async function fetchState(){
   try{
     const pda=lotteryPDA();
     const info=await conn.getAccountInfo(pda);
     if(!info){
-      el("not-initialized").style.display="block";
-      el("main-content").style.display="none";
-      lotteryState=null;
+      el("not-initialized").style.display="block";el("main-content").style.display="none";lotteryState=null;
       el("ni-title").textContent="Lotería no inicializada";
       el("ni-desc").innerHTML="La cuenta de la lotería aún no existe en la blockchain.<br>Conecta la wallet de administrador para crearla.";
-      el("ni-btn").style.display="inline-flex";
-      el("ni-btn").textContent="🚀 INICIALIZAR LOTERÍA";
-      el("ni-btn").onclick=handleInitialize;
+      el("ni-btn").style.display="inline-flex";el("ni-btn").textContent="🚀 INICIALIZAR LOTERÍA";el("ni-btn").onclick=handleInitialize;
       return;
     }
-    el("not-initialized").style.display="none";
-    el("main-content").style.display="block";
+    el("not-initialized").style.display="none";el("main-content").style.display="block";
     const data=info.data;
     lotteryState={
       admin:        new PublicKey(data.slice(8,40)),
@@ -896,8 +759,7 @@ async function fetchState(){
     el("admin-panel").style.display=isAdmin?"block":"none";
     el("user-role-badge").style.display=isAdmin?"block":"none";
     if(isAdmin){
-      el("user-avatar").classList.add("is-admin");
-      el("user-avatar").textContent="⚙️";
+      el("user-avatar").classList.add("is-admin");el("user-avatar").textContent="⚙️";
       el("user-name").innerHTML=`ADMIN <span class="admin-badge-small">✓</span>`;
       const btnPick=el("btn-pick"),btnRestart=el("btn-restart"),hint=el("admin-hint");
       if(lotteryState.isActive){
@@ -923,9 +785,7 @@ async function fetchState(){
   }catch(e){console.error("fetchState error:",e);}
 }
 
-/* ══════════════════════════════════════════════
-   SEND TX
-══════════════════════════════════════════════ */
+/* ---------- SEND TX ---------- */
 async function sendTx(ixs){
   const{blockhash}=await conn.getLatestBlockhash();
   const tx=new Transaction();tx.recentBlockhash=blockhash;tx.feePayer=walletPubkey;
@@ -936,26 +796,19 @@ async function sendTx(ixs){
   return sig;
 }
 
-/* ══════════════════════════════════════════════
-   TX MODAL
-══════════════════════════════════════════════ */
+/* ---------- TX MODAL ---------- */
 function openTxModal(title,desc){el("tx-title-loading").textContent=title;el("tx-desc-loading").textContent=desc;el("tx-loading").style.display="block";el("tx-success").style.display="none";el("tx-error").style.display="none";el("tx-modal").classList.add("flex");}
 function txSuccess(sig){el("tx-desc-success").textContent=`Firma: ${short(sig,8)}`;el("tx-link").href=`${EXPLORER}/tx/${sig}?cluster=devnet`;el("tx-loading").style.display="none";el("tx-success").style.display="block";}
 function txError(msg){console.error("TX ERROR FULL:",msg);const display=msg.length>200?msg.slice(0,200)+"…":msg;el("tx-desc-error").textContent=display;el("tx-loading").style.display="none";el("tx-error").style.display="block";}
 function closeTxModal(){el("tx-modal").classList.remove("flex");}
 
-/* ══════════════════════════════════════════════
-   WINNER MODAL
-══════════════════════════════════════════════ */
+/* ---------- WINNER MODAL ---------- */
 let _winnerAddrFull="";
 function showWinnerModal(pubkey,prize,sig){_winnerAddrFull=pubkey.toBase58?pubkey.toBase58():pubkey.toString();el("wm-prize").textContent=fmtSOL(prize,4);el("wm-addr").textContent=_winnerAddrFull;el("wm-link").href=`${EXPLORER}/tx/${sig}?cluster=devnet`;el("winner-modal").classList.add("flex");}
 function closeWinnerModal(){el("winner-modal").classList.remove("flex");}
 function copyWinnerAddr(){navigator.clipboard.writeText(_winnerAddrFull).then(()=>toast("i","COPIADO","Dirección del ganador copiada"));}
 
-/* ══════════════════════════════════════════════
-   ACTIONS
-══════════════════════════════════════════════ */
-
+/* ---------- ACTIONS ---------- */
 async function handleInitialize(){
   if(!walletPubkey||busy)return;
   const existingInfo=await conn.getAccountInfo(lotteryPDA());
@@ -969,19 +822,13 @@ async function handleInitialize(){
   if(!priceStr)return;
   const ticketPrice=parseFloat(priceStr);
   if(isNaN(ticketPrice)||ticketPrice<=0){toast("e","ERROR","Precio inválido. Usa un número positivo.");return;}
-  busy=true;
-  openTxModal("Inicializando lotería","Creando cuenta en la blockchain por primera vez...");
+  busy=true;openTxModal("Inicializando lotería","Creando cuenta en la blockchain por primera vez...");
   try{
-    const disc=await discriminator("initialize");
-    const priceLamports=Math.floor(ticketPrice*1e9);
-    const data=concat(disc,u64LE(BigInt(priceLamports)));
-    const pda=lotteryPDA();
+    const disc=await discriminator("initialize");const priceLamports=Math.floor(ticketPrice*1e9);
+    const data=concat(disc,u64LE(BigInt(priceLamports)));const pda=lotteryPDA();
     const ix=new TransactionInstruction({programId:PROGRAM_ID,keys:[{pubkey:pda,isSigner:false,isWritable:true},{pubkey:walletPubkey,isSigner:true,isWritable:true},{pubkey:SystemProgram.programId,isSigner:false,isWritable:false}],data});
-    const sig=await sendTx([ix]);
-    txSuccess(sig);
-    addActivity("🚀","t","Lotería inicializada",`Precio: ${ticketPrice} SOL`,null);
-    toast("s","¡LOTERÍA INICIALIZADA! 🎉",`Tickets a ${ticketPrice} SOL`);
-    await fetchState();
+    const sig=await sendTx([ix]);txSuccess(sig);addActivity("🚀","t","Lotería inicializada",`Precio: ${ticketPrice} SOL`,null);
+    toast("s","¡LOTERÍA INICIALIZADA! 🎉",`Tickets a ${ticketPrice} SOL`);await fetchState();
   }catch(e){console.error(e);txError(e.message);toast("e","ERROR AL INICIALIZAR",e.message.slice(0,80));}
   busy=false;
 }
@@ -994,21 +841,14 @@ async function handleBuy(){
   const nextNum=Number(lotteryState.totalTickets)+1;
   openTxModal(`Comprando ticket ronda #${ticketInRound} (global #${nextNum})`,`Precio: ${fmtSOL(lotteryState.ticketPrice,2)}`);
   try{
-    const disc=await discriminator("buy_ticket");
-    const pda=lotteryPDA();
-    const tPda=ticketPDA(lotteryState.totalTickets+1n);
+    const disc=await discriminator("buy_ticket");const pda=lotteryPDA();const tPda=ticketPDA(lotteryState.totalTickets+1n);
     const ix=new TransactionInstruction({programId:PROGRAM_ID,keys:[{pubkey:pda,isSigner:false,isWritable:true},{pubkey:tPda,isSigner:false,isWritable:true},{pubkey:walletPubkey,isSigner:true,isWritable:true},{pubkey:SystemProgram.programId,isSigner:false,isWritable:false}],data:disc});
-    const sig=await sendTx([ix]);
-    txSuccess(sig);
-    myTickets++;
-    el("my-tickets-count").textContent=myTickets;
+    const sig=await sendTx([ix]);txSuccess(sig);myTickets++;el("my-tickets-count").textContent=myTickets;
     addActivity("🎟","t",`Ticket ronda #${ticketInRound} (global #${nextNum})`,`${short(walletPubkey,6)}`,fmtSOL(lotteryState.ticketPrice,2));
     toast("s",`TICKET RONDA #${ticketInRound}`,`¡Compraste el ticket #${ticketInRound} de esta ronda! (ID global: ${nextNum})`);
     await fetchState();
   }catch(e){console.error(e);txError(e.message);toast("e","ERROR AL COMPRAR",e.message.slice(0,80));}
-  busy=false;
-  if(lotteryState)el("btn-buy").textContent=`COMPRAR TICKET · ${fmtSOL(lotteryState.ticketPrice,2)}`;
-  setBusy("btn-buy",false);
+  busy=false;if(lotteryState)el("btn-buy").textContent=`COMPRAR TICKET · ${fmtSOL(lotteryState.ticketPrice,2)}`;setBusy("btn-buy",false);
 }
 
 async function handleRestart(){
@@ -1024,17 +864,12 @@ async function handleRestart(){
     details:`<div class="confirm-details"><div class="confirm-row"><span>Precio ticket</span><span>${ticketPrice} SOL</span></div><div class="confirm-row"><span>Bote actual</span><span>${fmtSOL(lotteryState.totalPrize,4)}</span></div><div class="confirm-row"><span>Tickets en la ronda finalizada</span><span>${finishedRoundTickets}</span></div><div class="confirm-warn">⚠️ La nueva ronda empieza desde cero. Los tickets de la ronda anterior NO participan.</div></div>`,
     okLabel:"NUEVA RONDA",okClass:"mbtn-primary"});
   if(!ok)return;
-  busy=true;setBusy("btn-restart",true);
-  openTxModal("Iniciando nueva ronda","Reiniciando la lotería...");
+  busy=true;setBusy("btn-restart",true);openTxModal("Iniciando nueva ronda","Reiniciando la lotería...");
   try{
-    const priceLamports=Math.floor(ticketPrice*1e9);
-    const disc=await discriminator("restart");
-    const data=concat(disc,u64LE(BigInt(priceLamports)));
-    const pda=lotteryPDA();
+    const priceLamports=Math.floor(ticketPrice*1e9);const disc=await discriminator("restart");
+    const data=concat(disc,u64LE(BigInt(priceLamports)));const pda=lotteryPDA();
     const ix=new TransactionInstruction({programId:PROGRAM_ID,keys:[{pubkey:pda,isSigner:false,isWritable:true},{pubkey:walletPubkey,isSigner:true,isWritable:true},{pubkey:SystemProgram.programId,isSigner:false,isWritable:false}],data});
-    const sig=await sendTx([ix]);
-    txSuccess(sig);
-    myTickets=0;el("my-tickets-count").textContent=0;
+    const sig=await sendTx([ix]);txSuccess(sig);myTickets=0;el("my-tickets-count").textContent=0;
     addActivity("🔄","t","Nueva ronda iniciada",`Precio: ${ticketPrice} SOL`,null);
     toast("s","NUEVA RONDA INICIADA 🎲",`Tickets a ${ticketPrice} SOL — ¡empieza de cero!`);
     await fetchState();
@@ -1050,42 +885,31 @@ async function handlePickWinner(){
     details:`<div class="confirm-details"><div class="confirm-row"><span>Tickets en juego (ronda)</span><span>${roundTicketCount}</span></div><div class="confirm-row"><span>Bote total</span><span>${fmtSOL(lotteryState.totalPrize,4)}</span></div></div><div class="confirm-warn">⚠️ Esta acción es IRREVERSIBLE.</div>`,
     okLabel:"🏆 SORTEAR",okClass:"mbtn-gold"});
   if(!ok)return;
-  busy=true;setBusy("btn-pick",true);
-  openTxModal("Sorteando ganador","Recopilando tickets on-chain...");
+  busy=true;setBusy("btn-pick",true);openTxModal("Sorteando ganador","Recopilando tickets on-chain...");
   try{
-    const owners=[];
-    const startId=lotteryState.roundStartId+1n;
+    const owners=[];const startId=lotteryState.roundStartId+1n;
     for(let i=startId;i<=lotteryState.totalTickets;i++){
       try{const tInfo=await conn.getAccountInfo(ticketPDA(i));if(tInfo)owners.push(new PublicKey(tInfo.data.slice(8,40)));}catch(_){}
       if(i%5n===0n){const checked=i-startId+1n;el("tx-desc-loading").textContent=`Leyendo tickets... ${checked}/${roundTicketCount}`;}
     }
     if(owners.length===0){txError("No se encontraron tickets válidos.");busy=false;setBusy("btn-pick",false);return;}
-    el("tx-desc-loading").textContent="Calculando ganador...";
-    const slotInfo=await conn.getSlot();
-    const seed=Math.abs(slotInfo^Date.now());
-    const winnerPubkey=owners[seed%owners.length];
+    el("tx-desc-loading").textContent="Calculando ganador...";const slotInfo=await conn.getSlot();
+    const seed=Math.abs(slotInfo^Date.now());const winnerPubkey=owners[seed%owners.length];
     el("tx-desc-loading").textContent=`Ganador: ${short(winnerPubkey,6)} — enviando tx...`;
-    const disc=await discriminator("pick_winner");
-    const pda=lotteryPDA();
+    const disc=await discriminator("pick_winner");const pda=lotteryPDA();
     const ix=new TransactionInstruction({programId:PROGRAM_ID,keys:[{pubkey:pda,isSigner:false,isWritable:true},{pubkey:walletPubkey,isSigner:true,isWritable:true},{pubkey:winnerPubkey,isSigner:false,isWritable:true},{pubkey:SystemProgram.programId,isSigner:false,isWritable:false}],data:disc});
-    const prizeBeforeTx=lotteryState.totalPrize;
-    const sig=await sendTx([ix]);
-    const currentWinners=loadWinners();
-    const roundNumber=currentWinners.length+1;
+    const prizeBeforeTx=lotteryState.totalPrize;const sig=await sendTx([ix]);
+    const currentWinners=loadWinners();const roundNumber=currentWinners.length+1;
     const winnerEntry={address:winnerPubkey.toBase58(),prize:fmtSOL(prizeBeforeTx,4),prizeLamports:prizeBeforeTx.toString(),round:roundNumber,date:new Date().toLocaleDateString("es-ES",{day:"2-digit",month:"short",year:"numeric"}),sig};
-    saveWinner(winnerEntry);
-    addActivity("🏆","w",`Ganador ronda ${roundNumber}`,`${short(winnerPubkey,8)}`,fmtSOL(prizeBeforeTx,4));
-    closeTxModal();
-    showWinnerModal(winnerPubkey,prizeBeforeTx,sig);
+    saveWinner(winnerEntry);addActivity("🏆","w",`Ganador ronda ${roundNumber}`,`${short(winnerPubkey,8)}`,fmtSOL(prizeBeforeTx,4));
+    closeTxModal();showWinnerModal(winnerPubkey,prizeBeforeTx,sig);
     toast("s",`¡GANADOR RONDA ${roundNumber}!`,`${short(winnerPubkey,6)} recibe ${fmtSOL(prizeBeforeTx,4)}`);
     await fetchState();
   }catch(e){console.error(e);txError(e.message);toast("e","ERROR",e.message.slice(0,80));}
   busy=false;setBusy("btn-pick",false);
 }
 
-/* ══════════════════════════════════════════════
-   WALLET
-══════════════════════════════════════════════ */
+/* ---------- WALLET ---------- */
 async function handleWalletBtn(){walletPubkey?disconnectWallet():await connectWallet();}
 async function connectWallet(){
   if(!window.solana?.isPhantom){el("no-phantom-msg").style.display="block";return;}
@@ -1104,17 +928,26 @@ function disconnectWallet(){
   el("net-status").style.display="none";el("welcome").style.display="flex";el("dashboard").style.display="none";
 }
 
-/* ══════════════════════════════════════════════
-   AUTO-REFRESH
-══════════════════════════════════════════════ */
+/* ---------- AUTO-REFRESH ---------- */
 function startRefresh(){stopRefresh();refreshTimer=setInterval(fetchState,10000);resetCountdown();}
 function stopRefresh(){clearInterval(refreshTimer);clearInterval(countdownInt);}
 function resetCountdown(){clearInterval(countdownInt);countdownVal=10;el("countdown").textContent="10s";countdownInt=setInterval(()=>{countdownVal--;el("countdown").textContent=countdownVal+"s";if(countdownVal<=0){countdownVal=10;el("countdown").textContent="10s";}},1000);}
 
-/* ══════════════════════════════════════════════
-   INIT
-══════════════════════════════════════════════ */
+/* ---------- MOBILE NOTICE ---------- */
+function copyWindowUrl(){
+  navigator.clipboard.writeText(window.location.href).then(()=>toast("i","URL COPIADA","Pégala en el navegador de Phantom 📱"));
+}
+function checkMobileAndPhantom(){
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const hasPhantom = !!window.solana?.isPhantom;
+  if (isMobile && !hasPhantom) {
+    el("mobile-notice").style.display = "block";
+  }
+}
+
+/* ---------- INIT ---------- */
 window.addEventListener("load",()=>{
+  checkMobileAndPhantom();
   const inputField=el("input-field");
   if(inputField){inputField.addEventListener("keydown",e=>{if(e.key==="Enter")_inputAccept();if(e.key==="Escape")_inputCancel();});}
   renderWinners();

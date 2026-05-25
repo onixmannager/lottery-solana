@@ -548,13 +548,19 @@
             </button>
 
             <div id="admin-panel" style="display: none;">
-              <div class="admin-actions">
-                <button class="btn-admin" id="btn-restart" onclick="handleRestart()">
-                  🔄 REINICIAR
-                </button>
-                <button class="btn-admin" id="btn-pick" onclick="handlePickWinner()">
-                  🏆 GANADOR
-                </button>
+              <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
+                <div style="font-size: .65rem; font-weight: 700; letter-spacing: .2em; color: var(--gold); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+                  <span>⚙️</span> PANEL ADMINISTRADOR
+                </div>
+                <div class="admin-actions">
+                  <button class="btn-admin" id="btn-pick" onclick="handlePickWinner()" title="Sortear ganador y cerrar ronda">
+                    🏆 ELEGIR GANADOR
+                  </button>
+                  <button class="btn-admin" id="btn-restart" onclick="handleRestart()" title="Reiniciar para nueva ronda">
+                    🔄 NUEVA RONDA
+                  </button>
+                </div>
+                <div id="admin-hint" style="font-size: .7rem; color: var(--muted); margin-top: 10px; text-align: center; line-height: 1.5;"></div>
               </div>
             </div>
           </div>
@@ -726,11 +732,35 @@ async function fetchState() {
       status.innerHTML = '<span class="pdot"></span>CERRADA';
     }
 
-    el("btn-buy").textContent = `COMPRAR TICKET · ${fmtSOL(lotteryState.ticketPrice, 2)}`;
+    el("btn-buy").textContent = lotteryState.isActive
+      ? `COMPRAR TICKET · ${fmtSOL(lotteryState.ticketPrice, 2)}`
+      : "LOTERÍA CERRADA";
+    el("btn-buy").disabled = !lotteryState.isActive;
 
     // Show admin panel if current wallet is admin
     if (walletPubkey && lotteryState.admin.equals(walletPubkey)) {
       el("admin-panel").style.display = "block";
+      // Enable/disable buttons based on lottery state
+      const btnPick    = el("btn-pick");
+      const btnRestart = el("btn-restart");
+      const hint       = el("admin-hint");
+      if (lotteryState.isActive) {
+        btnPick.disabled    = false;
+        btnRestart.disabled = true;
+        btnRestart.style.opacity = "0.35";
+        hint.textContent = "Lotería activa · Elige ganador para cerrar la ronda, luego podrás reiniciar.";
+      } else {
+        btnPick.disabled    = true;
+        btnPick.style.opacity = "0.35";
+        btnRestart.disabled = false;
+        btnRestart.style.opacity = "";
+        // Show winner info
+        const w = lotteryState.winner.toBase58();
+        const isDefault = w === "11111111111111111111111111111111";
+        hint.innerHTML = isDefault
+          ? "Lotería cerrada · Inicia una nueva ronda cuando quieras."
+          : `Lotería cerrada · Ganador: <span style="font-family:var(--mono);color:var(--gold)">${short(lotteryState.winner, 6)}</span>`;
+      }
     } else {
       el("admin-panel").style.display = "none";
     }
@@ -891,55 +921,101 @@ async function handleBuy() {
 
 async function handleRestart() {
   if (!walletPubkey || !lotteryState || busy) return;
-  if (!confirm("¿Iniciar nueva ronda? El precio del ticket se mantiene igual.")) return;
-  
+  if (lotteryState.isActive) {
+    toast("e", "LOTERÍA ACTIVA", "Primero elige un ganador para cerrar la ronda actual.");
+    return;
+  }
+
+  const currentSOL = (Number(lotteryState.ticketPrice) / 1e9).toFixed(4);
+  const priceInput = prompt(
+    `Nueva ronda — ¿precio del ticket en SOL?\n(actual: ${currentSOL} SOL)`,
+    currentSOL
+  );
+  if (!priceInput) return;
+
+  const ticketPrice = parseFloat(priceInput);
+  if (isNaN(ticketPrice) || ticketPrice <= 0) {
+    toast("e", "PRECIO INVÁLIDO", "Introduce un número positivo.");
+    return;
+  }
+
+  if (!confirm(`¿Iniciar nueva ronda con tickets a ${ticketPrice} SOL?`)) return;
+
   busy = true; setBusy("btn-restart", true);
   openTxModal("Iniciando nueva ronda", "Reiniciando la lotería...");
-  
+
   try {
+    const priceLamports = Math.floor(ticketPrice * 1e9);
     const disc = await discriminator("restart");
-    const data = concat(disc, u64LE(BigInt(lotteryState.ticketPrice)));
+    const data = concat(disc, u64LE(BigInt(priceLamports)));
     const pda  = lotteryPDA();
-    
+
     const ix = new TransactionInstruction({
       programId: PROGRAM_ID,
       keys: [
-        { pubkey: pda,                     isSigner: false, isWritable: true  },
-        { pubkey: walletPubkey,            isSigner: true,  isWritable: true  },
+        { pubkey: pda,          isSigner: false, isWritable: true },
+        { pubkey: walletPubkey, isSigner: true,  isWritable: true },
       ],
       data,
     });
-    
+
     const sig = await sendTx([ix]);
     txSuccess(sig);
     myTickets = 0;
     el("my-tickets-count").textContent = 0;
-    toast("s", "NUEVA RONDA INICIADA 🎲", "¡La lotería está activa!");
+    toast("s", "NUEVA RONDA INICIADA 🎲", `Tickets a ${ticketPrice} SOL — ¡la lotería está activa!`);
     await fetchState();
   } catch (e) {
     console.error(e);
     txError(e.message);
     toast("e", "ERROR", e.message.slice(0, 80));
   }
-  
+
   busy = false; setBusy("btn-restart", false);
 }
 
 async function handlePickWinner() {
   if (!walletPubkey || !lotteryState || busy) return;
-  if (!confirm("¿Cerrar la lotería y elegir ganador?\n\nEsta acción es irreversible.")) return;
-  
-  // For demo purposes, we're using the admin as winner
-  // In production, you'd implement proper random winner selection
-  const winnerPubkey = walletPubkey;
-  
+  if (lotteryState.totalTickets === 0n) {
+    toast("e", "SIN TICKETS", "No hay tickets vendidos en esta ronda.");
+    return;
+  }
+  if (!confirm(`¿Cerrar la lotería y elegir ganador?\n\n🎟 Tickets vendidos: ${lotteryState.totalTickets}\n💰 Bote: ${fmtSOL(lotteryState.totalPrize, 4)}\n\nEsta acción es IRREVERSIBLE.`)) return;
+
   busy = true; setBusy("btn-pick", true);
-  openTxModal("Eligiendo ganador", "Cerrando la lotería y transfiriendo el bote...");
-  
+  openTxModal("Eligiendo ganador", "Recopilando tickets y eligiendo al azar...");
+
   try {
+    // Gather all ticket owners
+    const owners = [];
+    for (let i = 1n; i <= lotteryState.totalTickets; i++) {
+      try {
+        const tPda  = ticketPDA(i);
+        const tInfo = await conn.getAccountInfo(tPda);
+        if (tInfo) {
+          const owner = new PublicKey(tInfo.data.slice(8, 40));
+          owners.push(owner);
+        }
+      } catch (_) {}
+    }
+
+    if (owners.length === 0) {
+      txError("No se encontraron tickets válidos on-chain.");
+      busy = false; setBusy("btn-pick", false);
+      return;
+    }
+
+    // Pick a random winner using a mix of slot + timestamp for entropy
+    const slotInfo = await conn.getSlot();
+    const seed = slotInfo ^ Date.now();
+    const idx  = seed % owners.length;
+    const winnerPubkey = owners[idx < 0 ? -idx : idx];
+
+    el("tx-desc-loading").textContent = `Ganador sorteado: ${short(winnerPubkey, 6)} — enviando tx...`;
+
     const disc = await discriminator("pick_winner");
     const pda  = lotteryPDA();
-    
+
     const ix = new TransactionInstruction({
       programId: PROGRAM_ID,
       keys: [
@@ -950,18 +1026,38 @@ async function handlePickWinner() {
       ],
       data: disc,
     });
-    
+
     const sig = await sendTx([ix]);
     txSuccess(sig);
-    toast("s", "¡GANADOR ELEGIDO! 🏆", "El bote ha sido transferido.");
+    toast("s", "¡GANADOR ELEGIDO! 🏆", `${short(winnerPubkey, 6)} recibe ${fmtSOL(lotteryState.totalPrize, 4)}`);
+
+    // Show winner banner
+    showWinnerBanner(winnerPubkey, lotteryState.totalPrize);
     await fetchState();
   } catch (e) {
     console.error(e);
     txError(e.message);
     toast("e", "ERROR", e.message.slice(0, 80));
   }
-  
+
   busy = false; setBusy("btn-pick", false);
+}
+
+function showWinnerBanner(pubkey, prize) {
+  const existing = document.getElementById("winner-banner");
+  if (existing) existing.remove();
+  const banner = document.createElement("div");
+  banner.id = "winner-banner";
+  banner.style.cssText = `
+    position: fixed; top: 74px; left: 50%; transform: translateX(-50%);
+    background: linear-gradient(135deg, #f59e0b 0%, #fcd34d 100%);
+    color: #000; padding: 12px 28px; border-radius: 12px;
+    font-family: var(--mono); font-size: .85rem; font-weight: 700;
+    box-shadow: 0 0 40px rgba(245,158,11,.5); z-index: 200;
+    text-align: center; animation: fadein .3s;
+  `;
+  banner.innerHTML = `🏆 GANADOR: ${short(pubkey, 8)} · ${fmtSOL(prize, 4)} <button onclick="this.parentElement.remove()" style="background:none;border:none;cursor:pointer;margin-left:12px;font-size:1rem;">✕</button>`;
+  document.body.appendChild(banner);
 }
 
 // ══════════════════════════════════════════════

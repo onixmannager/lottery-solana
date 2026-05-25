@@ -6,8 +6,7 @@
   <title>SolLotto Multi‑Ronda — Devnet</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
-  <script src="https://unpkg.com/@solana/web3.js@1.91.8/lib/index.iife.min.js">
-  </script>
+  <script src="https://unpkg.com/@solana/web3.js@1.91.8/lib/index.iife.min.js"></script>
   <style>
     :root {
       --bg: #060910;
@@ -288,7 +287,6 @@
           <button class="btn btn-outline" id="btn-claim" style="margin-top:10px; display:none;" onclick="handleClaim()">💰 RECLAMAR PREMIO</button>
         </div>
 
-
         <div class="full-card">
           <div class="hof-tabs">
             <button class="hof-tab active" id="tab-hof" onclick="switchTab('hof')">🏆 GANADORES</button>
@@ -305,7 +303,6 @@
           <div class="finished-list" id="finished-rounds-list"></div>
         </div>
 
-        
       </div>
     </div>
   </div>
@@ -336,6 +333,7 @@ let selectedRoundId = null;
 let busy = false;
 let currentTab = 'hof';
 let activityLog = JSON.parse(localStorage.getItem("sollotto_activity")||"[]");
+let refreshTimer = null; // Para el polling automático
 
 /* ---------- UTILS ---------- */
 const el = id => document.getElementById(id);
@@ -461,7 +459,6 @@ async function fetchAll(){
 function renderActiveRounds(){
   const container=el("rounds-container");
   const nowTs=Math.floor(Date.now()/1000);
-  // Solo rondas no finalizadas cuyo tiempo de fin aún no ha pasado (activas o próximas)
   const activeRounds = rounds.filter(r => !r.isFinalized && r.endTime >= nowTs);
   if(activeRounds.length===0){
     container.innerHTML="<p style='color:var(--muted);text-align:center;padding:20px;'>No hay rondas activas o próximas.</p>";
@@ -543,7 +540,6 @@ function renderFinishedRounds(){
 function selectRound(id){
   const nowTs=Math.floor(Date.now()/1000);
   const round = rounds.find(r=>r.id===id);
-  // No permitir seleccionar si está finalizada o si su tiempo terminó
   if(!round || round.isFinalized || round.endTime < nowTs) return;
   selectedRoundId = id;
   renderActiveRounds();
@@ -563,7 +559,6 @@ function updateSelectedRoundUI(){
   const canBuy=isActive&&round.playerCount<round.maxTickets;
   el("selected-round-info").innerHTML=`Ronda #${round.id} · ${fmtSOL(round.ticketPrice,2)} · ${round.playerCount}/${round.maxTickets} · Bote: ${fmtSOL(round.totalPrize,2)}<br>Estado: ${isActive?'ACTIVA':'PRÓXIMA'}`;
   el("btn-buy").disabled=!canBuy;
-  // El botón de finalizar ya no aparece en la vista activa (solo en historial)
   el("btn-finalize").style.display="none";
   const isWinner=walletPubkey&&round.isFinalized&&round.winner.equals(walletPubkey);
   el("btn-claim").style.display=(isWinner&&round.totalPrize>0n)?"inline-flex":"none";
@@ -583,6 +578,22 @@ function openTxModal(desc){el("tx-desc-loading").textContent=desc;el("tx-loading
 function txSuccess(sig){el("tx-desc-success").textContent=`Firma: ${short(sig,8)}`;el("tx-link").href=`${EXPLORER}/tx/${sig}?cluster=devnet`;el("tx-loading").style.display="none";el("tx-success").style.display="block";}
 function txError(msg){el("tx-desc-error").textContent=msg.slice(0,200);el("tx-loading").style.display="none";el("tx-error").style.display="block";}
 function closeTxModal(){el("tx-modal").classList.remove("flex");}
+
+/* ---------- POLLING ---------- */
+function startPolling() {
+  if (refreshTimer) clearInterval(refreshTimer);
+  refreshTimer = setInterval(() => {
+    if (!busy && walletPubkey) {
+      fetchAll();
+    }
+  }, 15000); // cada 15 segundos
+}
+function stopPolling() {
+  if (refreshTimer) {
+    clearInterval(refreshTimer);
+    refreshTimer = null;
+  }
+}
 
 /* ---------- ACTIONS ---------- */
 async function handleInitialize(){
@@ -653,9 +664,6 @@ async function finalizeRound(roundId){
   if(round.playerCount === 0) throw new Error("No hay tickets vendidos en esta ronda.");
 
   const rPda = roundPDA(round.id);
-
-  // Calcular el ganador igual que el contrato: players[slot % playerCount]
-  // Intentamos varias veces por si el slot cambia entre el cálculo y la ejecución
   const MAX_ATTEMPTS = 5;
   let lastError = null;
 
@@ -667,8 +675,7 @@ async function finalizeRound(roundId){
 
       if(!winnerPubkey) throw new Error(`No se encontró jugador en índice ${winnerIndex}`);
 
-      el("tx-desc-loading").textContent =
-        `Intento ${attempt+1}: ganador estimado ${short(winnerPubkey,6)}, enviando tx...`;
+      el("tx-desc-loading").textContent = `Intento ${attempt+1}: ganador estimado ${short(winnerPubkey,6)}, enviando tx...`;
 
       const disc = await discriminator("finalize_round");
       const data = concat(disc, u64LE(BigInt(round.id)));
@@ -683,7 +690,6 @@ async function finalizeRound(roundId){
         data
       });
 
-      // Una sola tx: finaliza Y paga al ganador en el mismo acto
       const sig = await sendTx([ix]);
 
       saveWinner({
@@ -698,12 +704,10 @@ async function finalizeRound(roundId){
       return; // éxito — salir
     } catch(e) {
       lastError = e;
-      // Si el error es WrongWinnerAccount el slot cambió — reintentamos
       if(e.message && e.message.includes("WrongWinnerAccount")){
         await new Promise(r => setTimeout(r, 500));
         continue;
       }
-      // Cualquier otro error: propagar inmediatamente
       throw e;
     }
   }
@@ -718,18 +722,15 @@ async function handleFinalize(roundIdParam = null){
   openTxModal(`Finalizando ronda ${targetRoundId}...`);
   try {
     await finalizeRound(targetRoundId);
+    // IMPORTANTE: refrescar estado completo desde la blockchain
+    await fetchAll();
     if (selectedRoundId === targetRoundId) selectedRoundId = null;
-    renderActiveRounds();
-    renderFinishedRounds();
-    updateSelectedRoundUI();
-    renderWinners();
   } catch(e) {
     txError(e.message);
   }
   busy = false;
 }
 
-// Llamada desde el botón del historial
 async function handleFinalizeFromHistory(roundId){
   await handleFinalize(roundId);
 }
@@ -751,6 +752,7 @@ async function handleClaim(){
   }catch(e){txError(e.message);}
   busy=false;
 }
+
 async function handleClaimFromHistory(roundId){
   if(!walletPubkey || busy) return;
   const round = rounds.find(r => r.id === roundId);
@@ -778,7 +780,7 @@ async function handleClaimFromHistory(roundId){
     txSuccess(sig);
     addActivity("💰","w",`Premio reclamado ronda ${roundId}`,`${short(round.winner,8)}`,fmtSOL(round.totalPrize,4));
     await fetchAll();
-    renderWinners();
+    renderWinners(); // por si acaso
   } catch(e) {
     txError(e.message);
   }
@@ -804,6 +806,7 @@ async function connectWallet(){
     el("welcome").style.display="none";
     el("dashboard").style.display="block";
     await fetchAll();
+    startPolling(); // Iniciar refresco automático
   }catch(e){}
 }
 function disconnectWallet(){
@@ -813,6 +816,7 @@ function disconnectWallet(){
   el("wallet-label").textContent="CONECTAR WALLET";
   el("welcome").style.display="flex";
   el("dashboard").style.display="none";
+  stopPolling(); // Detener refresco automático
 }
 
 window.addEventListener("load",()=>{
@@ -823,7 +827,7 @@ window.addEventListener("load",()=>{
   }
 });
 window.solana?.on?.("disconnect",disconnectWallet);
-window.solana?.on?.("accountChanged",pk=>{if(pk){walletPubkey=pk;fetchAll();}else disconnectWallet();});
+window.solana?.on?.("accountChanged",pk=>{if(pk){walletPubkey=pk;fetchAll();startPolling();}else disconnectWallet();});
 </script>
 </body>
 </html>

@@ -7,8 +7,6 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Syncopate:wght@400;700&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
 
-  <!-- Buffer polyfill (needed for Solana seeds & raw bytes) -->
-  <script src="https://cdn.jsdelivr.net/npm/buffer@6.0.3/index.min.js"></script>
   <!-- Solana web3.js IIFE -->
   <script src="https://unpkg.com/@solana/web3.js@1.91.8/lib/index.iife.min.js"></script>
 
@@ -480,10 +478,8 @@
 //  SETUP
 // ══════════════════════════════════════════════════
 
-// Ensure Buffer is globally available
-if (typeof window.Buffer === 'undefined') {
-  window.Buffer = buffer.Buffer;
-}
+// Helper: string → Uint8Array (replaces Buffer.from for seeds)
+const enc = (str) => new TextEncoder().encode(str);
 
 const {
   Connection, PublicKey, Transaction, TransactionInstruction,
@@ -548,7 +544,7 @@ function short(pk) { const s = pk.toBase58(); return s.slice(0,4)+"…"+s.slice(
 
 function lotteryPDA() {
   const [pda] = PublicKey.findProgramAddressSync(
-    [Buffer.from("lottery")],
+    [enc("lottery")],
     PROGRAM_ID
   );
   return pda;
@@ -556,7 +552,7 @@ function lotteryPDA() {
 
 function ticketPDA(ticketId, buyer) {
   const [pda] = PublicKey.findProgramAddressSync(
-    [Buffer.from("ticket"), u64LE(ticketId), buyer.toBytes()],
+    [enc("ticket"), u64LE(ticketId), buyer.toBytes()],
     PROGRAM_ID
   );
   return pda;

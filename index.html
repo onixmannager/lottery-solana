@@ -738,7 +738,7 @@ const {
 const PROGRAM_ID = new PublicKey("AZFvRwhuBiUbj4wvLu1EbZVdLgcYrYpHm3nRttDS4Vx3");
 const RPC        = "https://api.devnet.solana.com";
 const EXPLORER   = "https://solscan.io";
-const HOF_KEY    = "sollotto_winners_devnet"; // localStorage key for Hall of Fame
+const HOF_KEY    = "sollotto_winners_devnet";
 
 // ══════════════════════════════════════════════
 //  STATE
@@ -752,7 +752,7 @@ let refreshTimer = null;
 let countdownInt = null;
 let countdownVal = 10;
 let currentTab   = 'hof';
-let activityLog  = []; // in-memory activity feed
+let activityLog  = [];
 
 // ══════════════════════════════════════════════
 //  HELPERS
@@ -807,8 +807,8 @@ function loadWinners() {
 }
 function saveWinner(entry) {
   const list = loadWinners();
-  list.unshift(entry); // newest first
-  localStorage.setItem(HOF_KEY, JSON.stringify(list.slice(0, 50))); // cap at 50
+  list.unshift(entry);
+  localStorage.setItem(HOF_KEY, JSON.stringify(list.slice(0, 50)));
 }
 function renderWinners() {
   const list = loadWinners();
@@ -876,10 +876,8 @@ function switchTab(tab) {
 }
 
 // ══════════════════════════════════════════════
-//  CUSTOM MODAL SYSTEM (replaces confirm/prompt/alert)
+//  CUSTOM MODAL SYSTEM
 // ══════════════════════════════════════════════
-
-// — Confirm modal —
 let _confirmResolve = null;
 function showConfirm({ title, desc, details, iconEmoji, okLabel, okClass }) {
   return new Promise(resolve => {
@@ -887,8 +885,7 @@ function showConfirm({ title, desc, details, iconEmoji, okLabel, okClass }) {
     el("confirm-icon").textContent = iconEmoji || "⚠️";
     el("confirm-title").textContent = title;
     el("confirm-desc").innerHTML = desc || "";
-    const slot = el("confirm-details-slot");
-    slot.innerHTML = details || "";
+    el("confirm-details-slot").innerHTML = details || "";
     const okBtn = el("confirm-ok-btn");
     okBtn.textContent = okLabel || "CONFIRMAR";
     okBtn.className = `mbtn ${okClass || "mbtn-danger"}`;
@@ -898,7 +895,6 @@ function showConfirm({ title, desc, details, iconEmoji, okLabel, okClass }) {
 function _confirmAccept() { el("confirm-modal").classList.remove("flex"); _confirmResolve && _confirmResolve(true); }
 function _confirmReject() { el("confirm-modal").classList.remove("flex"); _confirmResolve && _confirmResolve(false); }
 
-// — Input modal —
 let _inputResolve = null;
 function showInput({ title, desc, label, note, defaultValue, icon }) {
   return new Promise(resolve => {
@@ -908,10 +904,9 @@ function showInput({ title, desc, label, note, defaultValue, icon }) {
     el("input-desc").textContent = desc || "";
     el("input-label").textContent = label || "VALOR";
     el("input-note").textContent = note || "";
-    const field = el("input-field");
-    field.value = defaultValue || "";
+    el("input-field").value = defaultValue || "";
     el("input-modal").classList.add("flex");
-    setTimeout(() => field.focus(), 100);
+    setTimeout(() => el("input-field").focus(), 100);
   });
 }
 function _inputAccept() {
@@ -923,7 +918,6 @@ function _inputCancel() {
   el("input-modal").classList.remove("flex");
   _inputResolve && _inputResolve(null);
 }
-// Enter key in input field — attached in the load handler below
 
 // ══════════════════════════════════════════════
 //  PDA FUNCTIONS
@@ -955,7 +949,6 @@ async function fetchState() {
     const info = await conn.getAccountInfo(pda);
 
     if (!info) {
-      // Cuenta nunca creada — solo el admin puede inicializar
       el("not-initialized").style.display = "block";
       el("main-content").style.display    = "none";
       lotteryState = null;
@@ -972,20 +965,20 @@ async function fetchState() {
 
     const data = info.data;
     lotteryState = {
-     admin:          new PublicKey(data.slice(8, 40)),
-     ticketPrice:    new DataView(data.buffer, data.byteOffset + 40, 8).getBigUint64(0, true),
-     totalTickets:   new DataView(data.buffer, data.byteOffset + 48, 8).getBigUint64(0, true),
-     totalPrize:     new DataView(data.buffer, data.byteOffset + 56, 8).getBigUint64(0, true),
-     isActive:       data[64] !== 0,
-     winner:         new PublicKey(data.slice(65, 97)),
-     roundStartId:   new DataView(data.buffer, data.byteOffset + 97, 8).getBigUint64(0, true),  // ← NUEVO
-   };
+      admin:          new PublicKey(data.slice(8, 40)),
+      ticketPrice:    new DataView(data.buffer, data.byteOffset + 40, 8).getBigUint64(0, true),
+      totalTickets:   new DataView(data.buffer, data.byteOffset + 48, 8).getBigUint64(0, true),
+      totalPrize:     new DataView(data.buffer, data.byteOffset + 56, 8).getBigUint64(0, true),
+      isActive:       data[64] !== 0,
+      winner:         new PublicKey(data.slice(65, 97)),
+      roundStartId:   new DataView(data.buffer, data.byteOffset + 97, 8).getBigUint64(0, true),
+    };
 
-   // Hero
-el("prize-amount").textContent  = fmtSOL(lotteryState.totalPrize, 2);
-el("ticket-price").textContent  = fmtSOL(lotteryState.ticketPrice, 2);
-const roundTickets = lotteryState.totalTickets - lotteryState.roundStartId;
-el("total-tickets").textContent = roundTickets.toString();   // ← ahora muestra los de la ronda actual
+    // Hero – mostrar solo tickets de la ronda actual
+    const roundTickets = lotteryState.totalTickets - lotteryState.roundStartId;
+    el("prize-amount").textContent  = fmtSOL(lotteryState.totalPrize, 2);
+    el("ticket-price").textContent  = fmtSOL(lotteryState.ticketPrice, 2);
+    el("total-tickets").textContent = roundTickets.toString();
 
     const status = el("lottery-status");
     if (lotteryState.isActive) {
@@ -996,7 +989,6 @@ el("total-tickets").textContent = roundTickets.toString();   // ← ahora muestr
       status.innerHTML = '<span class="pdot"></span>CERRADA';
     }
 
-    // Buy button
     el("btn-buy").textContent = lotteryState.isActive
       ? `COMPRAR TICKET · ${fmtSOL(lotteryState.ticketPrice, 2)}`
       : "LOTERÍA CERRADA";
@@ -1040,9 +1032,10 @@ el("total-tickets").textContent = roundTickets.toString();   // ← ahora muestr
       el("user-name").textContent   = "ANON";
     }
 
-    // Count my tickets
+    // Contar mis tickets solo de la ronda actual
     myTickets = 0;
-    const startId = lotteryState.roundStartId + 1n; for (let i = startId; i <= lotteryState.totalTickets; i++) {
+    const startId = lotteryState.roundStartId + 1n;
+    for (let i = startId; i <= lotteryState.totalTickets; i++) {
       try {
         const tInfo = await conn.getAccountInfo(ticketPDA(i));
         if (tInfo) {
@@ -1053,7 +1046,6 @@ el("total-tickets").textContent = roundTickets.toString();   // ← ahora muestr
     }
     el("my-tickets-count").textContent = myTickets;
 
-    // Render hall of fame
     renderWinners();
     resetCountdown();
   } catch (e) {
@@ -1126,21 +1118,15 @@ function copyWinnerAddr() {
 async function handleInitialize() {
   if (!walletPubkey || busy) return;
 
-  // IMPORTANTE: comprobar si la cuenta ya existe on-chain.
-  // Si existe pero está cerrada -> usar restart, no initialize.
-  // initialize solo funciona si la cuenta NUNCA ha existido.
   const existingInfo = await conn.getAccountInfo(lotteryPDA());
   if (existingInfo) {
-    // La cuenta ya existe — no podemos llamar a initialize de nuevo.
-    // Redirigir a restart si está cerrada.
     if (lotteryState && !lotteryState.isActive) {
       toast("i", "LOTERÍA YA EXISTE", "La cuenta ya está creada. Usa 'Nueva Ronda' para reiniciarla.");
-      await fetchState(); // refresca UI para mostrar el panel admin
+      await fetchState();
     } else if (lotteryState && lotteryState.isActive) {
       toast("i", "LOTERÍA YA ACTIVA", "La lotería ya está en marcha. Puedes comprar tickets.");
       await fetchState();
     } else {
-      // lotteryState aún null pero la cuenta existe — refrescar
       await fetchState();
     }
     return;
@@ -1289,7 +1275,7 @@ async function handleRestart() {
       keys: [
         { pubkey: pda,                     isSigner: false, isWritable: true  },
         { pubkey: walletPubkey,            isSigner: true,  isWritable: true  },
-        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },  // ← AÑADIDO
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
       ],
       data,
     });
@@ -1312,17 +1298,21 @@ async function handleRestart() {
   
 async function handlePickWinner() {
   if (!walletPubkey || !lotteryState || busy) return;
+
+  // Validar que haya tickets NUEVOS en esta ronda
   if (lotteryState.totalTickets <= lotteryState.roundStartId) {
     toast("e", "SIN TICKETS", "No hay tickets vendidos en esta ronda.");
     return;
-}
+  }
+
+  const roundTicketCount = lotteryState.totalTickets - lotteryState.roundStartId;
 
   const ok = await showConfirm({
     iconEmoji: "🏆",
     title: "¿Elegir ganador?",
-    desc: "Se sorteará aleatoriamente entre todos los tickets. El bote se transferirá al ganador on-chain.",
+    desc: "Se sorteará aleatoriamente entre todos los tickets de esta ronda. El bote se transferirá al ganador on-chain.",
     details: `<div class="confirm-details">
-      <div class="confirm-row"><span>Tickets en juego</span><span>${lotteryState.totalTickets}</span></div>
+      <div class="confirm-row"><span>Tickets en juego</span><span>${roundTicketCount}</span></div>
       <div class="confirm-row"><span>Bote total</span><span>${fmtSOL(lotteryState.totalPrize, 4)}</span></div>
     </div>
     <div class="confirm-warn">⚠️ Esta acción es IRREVERSIBLE. Una vez elegido el ganador, la ronda se cerrará definitivamente.</div>`,
@@ -1335,19 +1325,17 @@ async function handlePickWinner() {
   openTxModal("Sorteando ganador", "Recopilando tickets on-chain...");
 
   try {
-    // Gather all ticket owners
-    // Gather all ticket owners from the current round only
-const owners = [];
-const startId = lotteryState.roundStartId + 1n;
-const roundTicketCount = lotteryState.totalTickets - lotteryState.roundStartId;
-for (let i = startId; i <= lotteryState.totalTickets; i++) {
+    // Recolectar dueños SOLO de la ronda actual
+    const owners = [];
+    const startId = lotteryState.roundStartId + 1n;
+    for (let i = startId; i <= lotteryState.totalTickets; i++) {
       try {
         const tInfo = await conn.getAccountInfo(ticketPDA(i));
         if (tInfo) owners.push(new PublicKey(tInfo.data.slice(8, 40)));
       } catch (_) {}
-      // Update progress
       if (i % 5n === 0n) {
-        el("tx-desc-loading").textContent = `Leyendo tickets... ${i - startId + 1n}/${lotteryState.totalTickets - lotteryState.roundStartId}`;
+        const checked = i - startId + 1n;
+        el("tx-desc-loading").textContent = `Leyendo tickets... ${checked}/${roundTicketCount}`;
       }
     }
 
@@ -1357,7 +1345,6 @@ for (let i = startId; i <= lotteryState.totalTickets; i++) {
       return;
     }
 
-    // Random: slot XOR timestamp for entropy
     el("tx-desc-loading").textContent = "Calculando ganador...";
     const slotInfo = await conn.getSlot();
     const seed = Math.abs(slotInfo ^ Date.now());
@@ -1382,21 +1369,18 @@ for (let i = startId; i <= lotteryState.totalTickets; i++) {
     const prizeBeforeTx = lotteryState.totalPrize;
     const sig = await sendTx([ix]);
 
-    // Save to Hall of Fame
     const winnerEntry = {
       address: winnerPubkey.toBase58(),
       prize: fmtSOL(prizeBeforeTx, 4),
       prizeLamports: prizeBeforeTx.toString(),
-      round: Number(lotteryState.totalTickets), // use totalTickets as round marker
+      round: Number(lotteryState.totalTickets),
       date: new Date().toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" }),
       sig,
     };
     saveWinner(winnerEntry);
 
-    // Log activity
     addActivity("🏆", "w", `¡Ganador sorteado!`, `${short(winnerPubkey, 8)}`, fmtSOL(prizeBeforeTx, 4));
 
-    // Close TX modal, open winner celebration
     closeTxModal();
     showWinnerModal(winnerPubkey, prizeBeforeTx, sig);
 
@@ -1481,7 +1465,6 @@ function resetCountdown() {
 //  INIT
 // ══════════════════════════════════════════════
 window.addEventListener("load", () => {
-  // Attach input field keyboard shortcuts
   const inputField = el("input-field");
   if (inputField) {
     inputField.addEventListener("keydown", e => {
@@ -1490,7 +1473,7 @@ window.addEventListener("load", () => {
     });
   }
 
-  renderWinners(); // show HOF even before connecting
+  renderWinners();
   if (window.solana?.isPhantom && window.solana.isConnected) {
     window.solana.connect({ onlyIfTrusted: true }).then(r => {
       walletPubkey = r.publicKey;
@@ -1504,7 +1487,6 @@ window.solana?.on?.("accountChanged", pk => {
   else disconnectWallet();
 });
 
-// close modals on Escape
 document.addEventListener("keydown", e => {
   if (e.key === "Escape") {
     _confirmReject();

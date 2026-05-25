@@ -1399,7 +1399,7 @@
       );
       if (claimableRound) {
         banner.style.display = "block";
-        el("pcb-amount").textContent = fmtSOL(claimableRound.totalPrize, 4);
+        el("pcb-amount").innerHTML = fmtSOL(claimableRound.totalPrize, 4);
         pendingClaimRoundId = claimableRound.id;
       } else {
         banner.style.display = "none";

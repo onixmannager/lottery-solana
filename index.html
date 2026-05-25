@@ -35,6 +35,7 @@
       --shadow: 0 4px 24px rgba(0,0,0,0.3);
       --font: 'Inter', sans-serif;
       --mono: 'JetBrains Mono', monospace;
+      --sidebar-width: 260px;
     }
     body {
       font-family: var(--font);
@@ -42,6 +43,7 @@
       color: var(--text);
       min-height: 100vh;
       display: flex;
+      flex-direction: row-reverse; /* sidebar a la derecha */
     }
     body::before {
       content: '';
@@ -54,45 +56,47 @@
         radial-gradient(circle at 70% 60%, rgba(240,185,11,0.05) 0%, transparent 50%);
     }
 
-    /* ═══════ SIDEBAR ═══════ */
+    /* ═══════ SIDEBAR DERECHA ═══════ */
     #sidebar {
-      width: 260px;
-      background: rgba(10,15,26,0.9);
+      width: var(--sidebar-width);
+      background: rgba(10,15,26,0.95);
       backdrop-filter: blur(20px);
-      border-right: 1px solid var(--border);
+      border-left: 1px solid var(--border);
       display: flex;
       flex-direction: column;
       position: fixed;
       top: 0;
-      left: 0;
+      right: 0;
       height: 100vh;
       z-index: 100;
       transition: transform 0.3s ease;
       box-shadow: var(--shadow);
+      transform: translateX(0);
     }
     .sidebar-logo {
-      padding: 24px 20px;
+      padding: 20px 20px;
       border-bottom: 1px solid var(--border);
       display: flex;
       align-items: center;
       gap: 10px;
+      flex-shrink: 0;
     }
     .logo-icon {
-      width: 36px;
-      height: 36px;
+      width: 34px;
+      height: 34px;
       background: linear-gradient(135deg, var(--primary), #7c4dff);
       border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: 800;
-      font-size: 18px;
+      font-size: 16px;
       color: #fff;
       box-shadow: 0 0 20px rgba(91,108,240,0.4);
     }
     .logo-text {
       font-weight: 700;
-      font-size: 1rem;
+      font-size: 0.95rem;
       letter-spacing: 0.05em;
       color: var(--text);
     }
@@ -116,6 +120,7 @@
       display: flex;
       flex-direction: column;
       gap: 4px;
+      overflow-y: auto;
     }
     .nav-item {
       display: flex;
@@ -158,6 +163,7 @@
       display: flex;
       flex-direction: column;
       gap: 8px;
+      flex-shrink: 0;
     }
     .network-indicator {
       display: flex;
@@ -214,12 +220,12 @@
       flex-shrink: 0;
     }
 
-    /* Mobile toggle */
+    /* ═══════ SIDEBAR TOGGLE (mobile, ahora a la derecha) ═══════ */
     .sidebar-toggle {
       display: none;
       position: fixed;
       top: 16px;
-      left: 16px;
+      right: 16px;
       z-index: 200;
       background: var(--surface-light);
       border: 1px solid var(--border-light);
@@ -232,17 +238,22 @@
       align-items: center;
       justify-content: center;
       backdrop-filter: blur(10px);
+      transition: transform 0.3s ease;
+    }
+    .sidebar-toggle.open {
+      transform: translateX(calc(-1 * var(--sidebar-width) + 56px));
     }
 
     /* ═══════ MAIN ═══════ */
     #main-area {
-      margin-left: 260px;
+      margin-right: var(--sidebar-width);
       flex: 1;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       position: relative;
       z-index: 1;
+      transition: margin-right 0.3s ease;
     }
     #welcome {
       flex: 1;
@@ -339,7 +350,7 @@
       display: flex;
     }
 
-    /* ═══ PENDING CLAIMS BANNER (siempre visible si hay premios) ═══ */
+    /* Banner de premios (global) */
     #pending-claims-banner {
       display: none;
       background: linear-gradient(90deg, rgba(240,185,11,0.12), rgba(240,185,11,0.03));
@@ -412,6 +423,8 @@
       padding: 28px 0 20px;
       border-bottom: 1px solid var(--border);
       margin-bottom: 24px;
+      flex-wrap: wrap;
+      gap: 12px;
     }
     .section-header-left h2 {
       font-size: 1.6rem;
@@ -423,22 +436,8 @@
       font-size: 0.85rem;
       color: var(--text-muted);
     }
-    .admin-badge {
-      background: rgba(240,185,11,0.15);
-      color: var(--gold);
-      border: 1px solid rgba(240,185,11,0.3);
-      border-radius: 20px;
-      padding: 4px 14px;
-      font-size: 0.7rem;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      margin-left: 10px;
-    }
 
-    /* ═══ ROUND CARDS (grandes y atractivas) ═══ */
+    /* Rondas */
     .rounds-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -454,6 +453,8 @@
       transition: all 0.3s ease;
       position: relative;
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
     }
     .round-card::before {
       content: '';
@@ -470,9 +471,7 @@
       transform: translateY(-4px);
       box-shadow: 0 12px 32px rgba(0,0,0,0.5);
     }
-    .round-card:hover::before {
-      opacity: 1;
-    }
+    .round-card:hover::before { opacity: 1; }
     .round-card.selected {
       border-color: var(--primary);
       box-shadow: 0 0 0 2px var(--primary);
@@ -535,9 +534,13 @@
     .round-time {
       font-size: 0.8rem;
       color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+    .round-card .btn {
+      margin-top: auto;
     }
 
-    /* ═══ ACTIONS PANEL (bajo la grid) ═══ */
+    /* Acciones */
     #actions-container {
       background: var(--surface-light);
       border: 1px solid var(--border);
@@ -618,7 +621,6 @@
       border-color: var(--primary);
     }
 
-    /* ═══ ADMIN FORM ═══ */
     .admin-create-form {
       display: flex;
       flex-wrap: wrap;
@@ -640,7 +642,7 @@
       font-size: 0.8rem;
     }
 
-    /* ═══ WINNERS / ACTIVITY / HISTORY ═══ */
+    /* Listados con paginación */
     .list-container {
       margin-top: 8px;
     }
@@ -693,7 +695,38 @@
       color: var(--text-muted);
     }
 
-    /* ═══ MODAL ═══ */
+    .pagination {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 20px;
+    }
+    .page-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      padding: 8px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: var(--font);
+      font-weight: 500;
+      transition: 0.2s;
+    }
+    .page-btn:hover:not(:disabled) {
+      background: var(--surface-light);
+      color: #fff;
+    }
+    .page-btn.active {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+    .page-btn:disabled {
+      opacity: 0.3;
+      cursor: default;
+    }
+
+    /* Modal */
     .modal-overlay {
       display: none;
       position: fixed;
@@ -704,9 +737,7 @@
       align-items: center;
       justify-content: center;
     }
-    .modal-overlay.flex {
-      display: flex;
-    }
+    .modal-overlay.flex { display: flex; }
     .modal-box {
       background: var(--surface-light);
       border: 1px solid var(--border-light);
@@ -717,9 +748,7 @@
       text-align: center;
     }
     .tx-loader {
-      width: 60px;
-      height: 60px;
-      margin: 0 auto 24px;
+      width: 60px; height: 60px; margin: 0 auto 24px;
       border: 4px solid var(--border);
       border-top-color: var(--primary);
       border-radius: 50%;
@@ -727,13 +756,9 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
     .tx-icon {
-      width: 60px;
-      height: 60px;
-      border-radius: 50%;
+      width: 60px; height: 60px; border-radius: 50%;
       margin: 0 auto 24px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      display: flex; align-items: center; justify-content: center;
       font-size: 2rem;
     }
     .tx-icon.success { background: rgba(20,184,122,0.15); color: var(--green); }
@@ -741,36 +766,26 @@
     .modal-title { font-size: 1.3rem; font-weight: 700; margin-bottom: 8px; }
     .modal-desc { font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 20px; }
     .tx-link {
-      display: inline-block;
-      margin-top: 16px;
-      color: var(--primary-glow);
-      text-decoration: none;
-      font-weight: 600;
+      display: inline-block; margin-top: 16px;
+      color: var(--primary-glow); text-decoration: none; font-weight: 600;
     }
     .modal-btns { margin-top: 20px; display: flex; gap: 12px; justify-content: center; }
     .mbtn {
-      font-family: var(--font);
-      font-size: 0.8rem;
-      font-weight: 600;
-      padding: 10px 24px;
-      border-radius: 8px;
-      border: none;
-      cursor: pointer;
+      font-family: var(--font); font-size: 0.8rem; font-weight: 600;
+      padding: 10px 24px; border-radius: 8px; border: none; cursor: pointer;
     }
     .mbtn-secondary { background: var(--surface); color: var(--text-secondary); }
     .mbtn-primary { background: var(--primary); color: #fff; }
 
-    /* ═══ NOT INITIALIZED ═══ */
     #not-initialized {
       display: none;
       text-align: center;
       padding: 80px 24px;
     }
 
-    /* ═══ RESPONSIVE ═══ */
     @media (max-width: 900px) {
       #sidebar {
-        transform: translateX(-100%);
+        transform: translateX(100%);
       }
       #sidebar.open {
         transform: translateX(0);
@@ -779,18 +794,27 @@
         display: flex;
       }
       #main-area {
-        margin-left: 0;
+        margin-right: 0;
       }
       .rounds-grid {
         grid-template-columns: 1fr;
+      }
+      .content-section {
+        padding: 0 16px 24px;
+      }
+      .section-header {
+        padding: 20px 0 12px;
+      }
+      #pending-claims-banner {
+        padding: 12px 16px;
       }
     }
   </style>
 </head>
 <body>
-  <button class="sidebar-toggle" id="sidebar-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+  <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()">☰</button>
 
-  <!-- ═══ SIDEBAR ═══ -->
+  <!-- SIDEBAR DERECHA -->
   <aside id="sidebar">
     <div class="sidebar-logo">
       <div class="logo-icon">🎟</div>
@@ -821,7 +845,7 @@
     </div>
   </aside>
 
-  <!-- ═══ MAIN ═══ -->
+  <!-- MAIN -->
   <div id="main-area">
     <div id="welcome">
       <div class="welcome-badge">TRANSPARENTE · ON‑CHAIN</div>
@@ -832,12 +856,9 @@
     </div>
 
     <div id="dashboard">
-      <!-- Banner de premios por reclamar -->
       <div id="pending-claims-banner">
         <div class="pcb-inner">
-          <div class="pcb-text">
-            Tienes premios pendientes
-          </div>
+          <div class="pcb-text">Tienes premios pendientes</div>
           <div style="display:flex;align-items:center;gap:16px;">
             <span class="pcb-amount" id="pcb-amount">0.00 ◎</span>
             <button class="btn-claim-banner" onclick="claimFromBanner()">RECLAMAR AHORA</button>
@@ -846,26 +867,25 @@
       </div>
 
       <div id="not-initialized">
-        <div style="font-size:3rem;margin-bottom:20px;">—</div>
+        <div style="font-size:3rem;">—</div>
         <h2>Lotería no inicializada</h2>
-        <p style="color:var(--text-secondary);max-width:400px;margin:12px auto 24px;">La cuenta global aún no existe. Conéctate con la wallet administradora para crearla.</p>
-        <button class="btn-primary" style="max-width:260px;margin:0 auto;" onclick="handleInitialize()">INICIALIZAR LOTERÍA</button>
+        <p style="color:var(--text-secondary);">Conéctate con la wallet administradora para crearla.</p>
+        <button class="btn-primary" style="max-width:260px;margin:20px auto;" onclick="handleInitialize()">INICIALIZAR LOTERÍA</button>
       </div>
 
       <div id="main-content" style="display:none;flex:1;flex-direction:column;">
 
-        <!-- SECCIÓN RONDAS -->
+        <!-- RONDAS -->
         <div class="content-section active-section" id="section-rounds">
           <div class="section-header">
             <div class="section-header-left">
               <h2>Rondas activas</h2>
-              <div class="subtitle"><span id="total-rounds">0</span> rondas en total · Admin: <span id="global-admin">...</span></div>
+              <div class="subtitle"><span id="total-rounds">0</span> rondas · Admin: <span id="global-admin">...</span></div>
             </div>
             <div id="create-round-btn-container" style="display:none;">
               <button class="btn-outline" style="width:auto;padding:10px 20px;" onclick="toggleCreateForm()">+ Crear ronda</button>
             </div>
           </div>
-
           <div id="create-round-form" class="admin-create-form" style="display:none;">
             <input type="number" id="new-price" placeholder="Precio SOL" step="0.001" min="0.001">
             <input type="datetime-local" id="new-start">
@@ -873,19 +893,17 @@
             <input type="number" id="new-max" placeholder="Max tickets" min="1">
             <button class="btn-primary" style="width:auto;" onclick="handleCreateRound()">CREAR</button>
           </div>
-
           <div class="rounds-grid" id="rounds-container"></div>
-
           <div id="actions-container">
             <h3>Ronda seleccionada</h3>
-            <div id="selected-round-info" style="margin-bottom:16px;font-size:0.9rem;"></div>
+            <div id="selected-round-info" style="margin-bottom:16px;"></div>
             <button class="btn btn-primary" id="btn-buy" onclick="handleBuy()">Comprar ticket</button>
-            <button class="btn btn-gold" id="btn-finalize" style="margin-top:10px;display:none;" onclick="handleFinalize()">Finalizar ronda y pagar</button>
+            <button class="btn btn-gold" id="btn-finalize" style="margin-top:10px;display:none;" onclick="handleFinalize()">Finalizar y pagar</button>
             <button class="btn btn-claim-highlight" id="btn-claim" style="margin-top:10px;display:none;" onclick="handleClaim()">Reclamar premio</button>
           </div>
         </div>
 
-        <!-- SECCIÓN GANADORES -->
+        <!-- GANADORES -->
         <div class="content-section" id="section-winners">
           <div class="section-header">
             <div class="section-header-left">
@@ -894,9 +912,10 @@
             </div>
           </div>
           <div class="list-container" id="winners-list"></div>
+          <div class="pagination" id="winners-pagination"></div>
         </div>
 
-        <!-- SECCIÓN ACTIVIDAD -->
+        <!-- ACTIVIDAD -->
         <div class="content-section" id="section-activity">
           <div class="section-header">
             <div class="section-header-left">
@@ -905,9 +924,10 @@
             </div>
           </div>
           <div class="list-container" id="history-list"></div>
+          <div class="pagination" id="activity-pagination"></div>
         </div>
 
-        <!-- SECCIÓN HISTORIAL -->
+        <!-- HISTORIAL -->
         <div class="content-section" id="section-history">
           <div class="section-header">
             <div class="section-header-left">
@@ -917,8 +937,9 @@
           </div>
           <div id="finished-rounds-section" style="display:none;">
             <div class="list-container" id="finished-rounds-list"></div>
+            <div class="pagination" id="history-pagination"></div>
           </div>
-          <div id="no-finished-msg" class="empty-state" style="display:none;">No hay rondas finalizadas todavía.</div>
+          <div id="no-finished-msg" class="empty-state" style="display:none;">No hay rondas finalizadas.</div>
         </div>
       </div>
     </div>
@@ -927,23 +948,21 @@
   <!-- TX MODAL -->
   <div id="tx-modal" class="modal-overlay" onclick="closeTxModal()">
     <div class="modal-box" onclick="event.stopPropagation()">
-      <div id="tx-loading"><div class="tx-loader"></div><div class="modal-title">Procesando...</div><div class="modal-desc" id="tx-desc-loading">Esperando confirmación...</div></div>
+      <div id="tx-loading"><div class="tx-loader"></div><div class="modal-title">Procesando...</div><div class="modal-desc" id="tx-desc-loading"></div></div>
       <div id="tx-success" style="display:none;"><div class="tx-icon success">✓</div><div class="modal-title">¡Éxito!</div><div class="modal-desc" id="tx-desc-success"></div><a id="tx-link" class="tx-link" href="#" target="_blank">Ver en Solscan ↗</a><div class="modal-btns"><button class="mbtn mbtn-secondary" onclick="closeTxModal()">CERRAR</button></div></div>
       <div id="tx-error" style="display:none;"><div class="tx-icon error">✕</div><div class="modal-title">Error</div><div class="modal-desc" id="tx-desc-error"></div><div class="modal-btns"><button class="mbtn mbtn-secondary" onclick="closeTxModal()">CERRAR</button></div></div>
     </div>
   </div>
 
   <script>
-    // ══════════════════════════════════════
-    // LÓGICA EXACTAMENTE IGUAL A LA VERSIÓN FUNCIONAL
-    // (sin cambios en las funciones, IDs mantenidos)
-    // ══════════════════════════════════════
+    // ═══════════ LÓGICA BLOCKCHAIN (NO MODIFICADA) ═══════════
     const { Connection, PublicKey, SystemProgram, Transaction, TransactionInstruction } = solanaWeb3;
     const PROGRAM_ID = new PublicKey("AZFvRwhuBiUbj4wvLu1EbZVdLgcYrYpHm3nRttDS4Vx3");
     const RPC = "https://api.devnet.solana.com";
     const EXPLORER = "https://solscan.io";
     const MAX_PLAYERS = 10;
     const HOF_KEY = "sollotto_winners_v2";
+    const ITEMS_PER_PAGE = 10;
 
     const conn = new Connection(RPC, "confirmed");
     let walletPubkey = null;
@@ -955,6 +974,11 @@
     let activityLog = JSON.parse(localStorage.getItem("sollotto_activity")||"[]");
     let refreshTimer = null;
     let pendingClaimRoundId = null;
+
+    // Páginas actuales de cada lista
+    let winnersPage = 1;
+    let activityPage = 1;
+    let historyPage = 1;
 
     const el = id => document.getElementById(id);
     function utf8(s) { return new TextEncoder().encode(s); }
@@ -969,6 +993,15 @@
     function roundPDA(roundId){return PublicKey.findProgramAddressSync([utf8("round"),u64LE(BigInt(roundId))],PROGRAM_ID)[0];}
     function ticketPDA(roundId, ticketNumber){return PublicKey.findProgramAddressSync([utf8("ticket"),u64LE(BigInt(roundId)),u64LE(BigInt(ticketNumber))],PROGRAM_ID)[0];}
 
+    // ── Sidebar toggle ──
+    function toggleSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const toggle = document.getElementById('sidebar-toggle');
+      sidebar.classList.toggle('open');
+      toggle.classList.toggle('open');
+      toggle.textContent = sidebar.classList.contains('open') ? '✕' : '☰';
+    }
+
     function switchMainSection(section) {
       currentMainSection = section;
       document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active-section'));
@@ -976,9 +1009,39 @@
       document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
       document.querySelector(`.nav-item[data-section="${section}"]`).classList.add('active');
       if (section === 'rounds') updateSelectedRoundUI();
-      document.getElementById('sidebar').classList.remove('open');
+      // En móvil, cerrar sidebar
+      const sidebar = document.getElementById('sidebar');
+      const toggle = document.getElementById('sidebar-toggle');
+      if (sidebar.classList.contains('open')) {
+        sidebar.classList.remove('open');
+        toggle.classList.remove('open');
+        toggle.textContent = '☰';
+      }
     }
 
+    // ── Paginación genérica ──
+    function renderPagination(containerId, currentPage, totalItems, onPageChange) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE) || 1;
+      if (totalPages <= 1) {
+        container.innerHTML = '';
+        return;
+      }
+      let html = '';
+      for (let i = 1; i <= totalPages; i++) {
+        html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="${onPageChange}(${i})">${i}</button>`;
+      }
+      container.innerHTML = html;
+    }
+
+    function resetPages() {
+      winnersPage = 1;
+      activityPage = 1;
+      historyPage = 1;
+    }
+
+    // ── Actividad (más reciente primero) ──
     function addActivity(icon,cls,title,detail,amount){
       activityLog.unshift({icon,cls,title,detail,amount,time:new Date().toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"})});
       if(activityLog.length>30) activityLog.pop();
@@ -986,104 +1049,129 @@
       renderActivity();
     }
     function renderActivity(){
-      const c=el("history-list");
-      if(!c) return;
-      if(!activityLog.length){c.innerHTML='<div class="empty-state">No hay actividad reciente.</div>';return;}
-      c.innerHTML=activityLog.map(a=>`<div class="history-item"><div class="history-ico ${a.cls}">${a.icon}</div><div class="history-info"><div class="history-t">${a.title}</div><div class="history-d">${a.detail} · ${a.time}</div></div>${a.amount?`<div class="prize-amount">${a.amount}</div>`:""}</div>`).join("");
+      const c = el("history-list");
+      if (!c) return;
+      if (!activityLog.length) {
+        c.innerHTML = '<div class="empty-state">No hay actividad reciente.</div>';
+        el("activity-pagination").innerHTML = '';
+        return;
+      }
+      const start = (activityPage - 1) * ITEMS_PER_PAGE;
+      const pageItems = activityLog.slice(start, start + ITEMS_PER_PAGE);
+      c.innerHTML = pageItems.map(a => 
+        `<div class="history-item"><div class="history-ico ${a.cls}">${a.icon}</div><div class="history-info"><div class="history-t">${a.title}</div><div class="history-d">${a.detail} · ${a.time}</div></div>${a.amount?`<div class="prize-amount">${a.amount}</div>`:""}</div>`
+      ).join('');
+      renderPagination("activity-pagination", activityPage, activityLog.length, 'goToActivityPage');
+    }
+    function goToActivityPage(page) {
+      activityPage = page;
+      renderActivity();
     }
 
-    function loadWinners(){try{return JSON.parse(localStorage.getItem(HOF_KEY)||"[]");}catch{return[];}}
-    function saveWinner(entry){const list=loadWinners();list.unshift(entry);localStorage.setItem(HOF_KEY,JSON.stringify(list.slice(0,50)));}
+    // ── Ganadores (más reciente primero) ──
+    function loadWinners(){ try { return JSON.parse(localStorage.getItem(HOF_KEY)||"[]"); } catch { return []; } }
+    function saveWinner(entry){ const list = loadWinners(); list.unshift(entry); localStorage.setItem(HOF_KEY, JSON.stringify(list.slice(0,50))); }
     function renderWinners(){
-      const list=loadWinners();
-      const c=el("winners-list");
-      if(!c) return;
-      if(!list.length){c.innerHTML='<div class="empty-state">Aún no hay ganadores.</div>';return;}
-      c.innerHTML=list.map((w,i)=>{
-        const medal=i===0?"1":i===1?"2":i===2?"3":"·";
-        const rankClass=i===0?"r1":"";
+      const list = loadWinners();
+      const c = el("winners-list");
+      if (!c) return;
+      if (!list.length) {
+        c.innerHTML = '<div class="empty-state">Aún no hay ganadores.</div>';
+        el("winners-pagination").innerHTML = '';
+        return;
+      }
+      const start = (winnersPage - 1) * ITEMS_PER_PAGE;
+      const pageItems = list.slice(start, start + ITEMS_PER_PAGE);
+      c.innerHTML = pageItems.map((w, i) => {
+        const globalIndex = start + i;
+        const medal = globalIndex === 0 ? "1" : (globalIndex === 1 ? "2" : (globalIndex === 2 ? "3" : "·"));
+        const rankClass = globalIndex === 0 ? "r1" : "";
         return `<div class="winner-item"><div class="winner-rank ${rankClass}">${medal}</div><div class="winner-info"><div class="winner-addr" onclick="copyText('${w.address}')">${w.address}</div><div class="winner-meta">Ronda ${w.round} · ${w.date}</div></div><div class="prize-amount">${w.prize}<div class="winner-meta"><a href="${EXPLORER}/tx/${w.sig}?cluster=devnet" target="_blank">ver tx ↗</a></div></div></div>`;
-      }).join("");
+      }).join('');
+      renderPagination("winners-pagination", winnersPage, list.length, 'goToWinnersPage');
     }
-    function copyText(t){navigator.clipboard.writeText(t).then(()=>{});}
+    function goToWinnersPage(page) {
+      winnersPage = page;
+      renderWinners();
+    }
+    function copyText(t) { navigator.clipboard.writeText(t).then(()=>{}); }
 
+    // ── Fetch principal (sin cambios en lógica) ──
     async function fetchAll(){
       try{
-        const gPDA=globalPDA();
-        const gInfo=await conn.getAccountInfo(gPDA);
+        const gPDA = globalPDA();
+        const gInfo = await conn.getAccountInfo(gPDA);
         if(!gInfo){
-          globalState=null; rounds=[];
-          el("rounds-container").innerHTML="";
-          el("actions-container").style.display="none";
-          el("create-round-btn-container").style.display="none";
-          el("finished-rounds-section").style.display="none";
-          el("no-finished-msg").style.display="none";
-          el("not-initialized").style.display=walletPubkey?"block":"none";
-          el("main-content").style.display="none";
-          el("pending-claims-banner").style.display="none";
+          globalState = null; rounds = [];
+          el("rounds-container").innerHTML = "";
+          el("actions-container").style.display = "none";
+          el("create-round-btn-container").style.display = "none";
+          el("finished-rounds-section").style.display = "none";
+          el("no-finished-msg").style.display = "none";
+          el("not-initialized").style.display = walletPubkey ? "block" : "none";
+          el("main-content").style.display = "none";
+          el("pending-claims-banner").style.display = "none";
           return;
         }
-        el("not-initialized").style.display="none";
-        el("main-content").style.display="flex";
-        const gData=gInfo.data;
-        globalState={
+        el("not-initialized").style.display = "none";
+        el("main-content").style.display = "flex";
+        const gData = gInfo.data;
+        globalState = {
           admin: new PublicKey(gData.slice(8,40)),
-          roundCount: Number(new DataView(gData.buffer,gData.byteOffset+40,8).getBigUint64(0,true))
+          roundCount: Number(new DataView(gData.buffer, gData.byteOffset+40, 8).getBigUint64(0, true))
         };
-        el("total-rounds").textContent=globalState.roundCount;
-        el("global-admin").textContent=short(globalState.admin,6);
+        el("total-rounds").textContent = globalState.roundCount;
+        el("global-admin").textContent = short(globalState.admin,6);
+        const isGlobalAdmin = walletPubkey && globalState.admin.equals(walletPubkey);
+        el("create-round-btn-container").style.display = isGlobalAdmin ? "block" : "none";
 
-        const isGlobalAdmin=walletPubkey&&globalState.admin.equals(walletPubkey);
-        el("create-round-btn-container").style.display=isGlobalAdmin?"block":"none";
-
-        rounds=[];
-        for(let i=0;i<globalState.roundCount;i++){
+        rounds = [];
+        for(let i = 0; i < globalState.roundCount; i++){
           try{
-            const rPDA=roundPDA(i);
-            const rInfo=await conn.getAccountInfo(rPDA);
+            const rPDA = roundPDA(i);
+            const rInfo = await conn.getAccountInfo(rPDA);
             if(!rInfo) continue;
-            const data=rInfo.data;
-            const MIN_DATA_LEN=8+8+8+8+8+MAX_PLAYERS*32+8+32+1+8+32+1;
-            if(data.length<MIN_DATA_LEN) continue;
-            let offset=8;
-            const id=Number(new DataView(data.buffer,data.byteOffset+offset,8).getBigUint64(0,true)); offset+=8;
-            const ticketPrice=new DataView(data.buffer,data.byteOffset+offset,8).getBigUint64(0,true); offset+=8;
-            const startTime=Number(new DataView(data.buffer,data.byteOffset+offset,8).getBigInt64(0,true)); offset+=8;
-            const endTime=Number(new DataView(data.buffer,data.byteOffset+offset,8).getBigInt64(0,true)); offset+=8;
-            const maxTickets=new DataView(data.buffer,data.byteOffset+offset,8).getBigUint64(0,true); offset+=8;
-            const players=[];
-            for(let j=0;j<MAX_PLAYERS;j++){ players.push(new PublicKey(data.slice(offset,offset+32))); offset+=32; }
-            const playerCount=Number(new DataView(data.buffer,data.byteOffset+offset,8).getBigUint64(0,true)); offset+=8;
-            const winner=new PublicKey(data.slice(offset,offset+32)); offset+=32;
-            const isFinalized=data[offset]!==0; offset+=1;
-            const totalPrize=new DataView(data.buffer,data.byteOffset+offset,8).getBigUint64(0,true); offset+=8;
-            const admin=new PublicKey(data.slice(offset,offset+32)); offset+=32;
-            const bump=data[offset];
-            rounds.push({id,ticketPrice,startTime,endTime,maxTickets,players,playerCount,winner,isFinalized,totalPrize,admin,bump});
-          }catch(e){console.warn("fetch round error",i,e);}
+            const data = rInfo.data;
+            const MIN_DATA_LEN = 8+8+8+8+8+MAX_PLAYERS*32+8+32+1+8+32+1;
+            if(data.length < MIN_DATA_LEN) continue;
+            let offset = 8;
+            const id = Number(new DataView(data.buffer, data.byteOffset+offset, 8).getBigUint64(0, true)); offset+=8;
+            const ticketPrice = new DataView(data.buffer, data.byteOffset+offset, 8).getBigUint64(0, true); offset+=8;
+            const startTime = Number(new DataView(data.buffer, data.byteOffset+offset, 8).getBigInt64(0, true)); offset+=8;
+            const endTime = Number(new DataView(data.buffer, data.byteOffset+offset, 8).getBigInt64(0, true)); offset+=8;
+            const maxTickets = new DataView(data.buffer, data.byteOffset+offset, 8).getBigUint64(0, true); offset+=8;
+            const players = [];
+            for(let j = 0; j < MAX_PLAYERS; j++){ players.push(new PublicKey(data.slice(offset, offset+32))); offset+=32; }
+            const playerCount = Number(new DataView(data.buffer, data.byteOffset+offset, 8).getBigUint64(0, true)); offset+=8;
+            const winner = new PublicKey(data.slice(offset, offset+32)); offset+=32;
+            const isFinalized = data[offset] !== 0; offset+=1;
+            const totalPrize = new DataView(data.buffer, data.byteOffset+offset, 8).getBigUint64(0, true); offset+=8;
+            const admin = new PublicKey(data.slice(offset, offset+32)); offset+=32;
+            const bump = data[offset];
+            rounds.push({id, ticketPrice, startTime, endTime, maxTickets, players, playerCount, winner, isFinalized, totalPrize, admin, bump});
+          }catch(e){ console.warn("fetch round error", i, e); }
         }
 
         if(selectedRoundId !== null){
           const nowTs = Math.floor(Date.now()/1000);
-          const sel = rounds.find(r=>r.id===selectedRoundId);
+          const sel = rounds.find(r => r.id === selectedRoundId);
           if(!sel || sel.isFinalized || sel.endTime < nowTs) selectedRoundId = null;
         }
 
+        resetPages();
         updatePendingClaimsBanner();
         renderActiveRounds();
         renderFinishedRounds();
         updateSelectedRoundUI();
         renderWinners();
         renderActivity();
-      }catch(e){console.error("fetchAll",e);}
+      }catch(e){ console.error("fetchAll", e); }
     }
 
     function updatePendingClaimsBanner() {
       const banner = el("pending-claims-banner");
       if (!walletPubkey) { banner.style.display = "none"; pendingClaimRoundId = null; return; }
-      const claimableRound = rounds.find(r =>
-        r.isFinalized && r.totalPrize > 0n && r.winner.equals(walletPubkey)
-      );
+      const claimableRound = rounds.find(r => r.isFinalized && r.totalPrize > 0n && r.winner.equals(walletPubkey));
       if (claimableRound) {
         banner.style.display = "block";
         el("pcb-amount").textContent = fmtSOL(claimableRound.totalPrize, 4);
@@ -1098,30 +1186,43 @@
       if (pendingClaimRoundId !== null) handleClaimFromHistory(pendingClaimRoundId);
     }
 
+    function buyFromCard(roundId) {
+      if (busy) return;
+      const nowTs = Math.floor(Date.now()/1000);
+      const round = rounds.find(r => r.id === roundId);
+      if (!round || round.isFinalized || nowTs < round.startTime || round.playerCount >= round.maxTickets) return;
+      selectedRoundId = roundId;
+      handleBuy();
+    }
+
     function renderActiveRounds(){
-      const container=el("rounds-container");
-      const nowTs=Math.floor(Date.now()/1000);
+      const container = el("rounds-container");
+      const nowTs = Math.floor(Date.now()/1000);
       const activeRounds = rounds.filter(r => !r.isFinalized && r.endTime >= nowTs);
-      if(activeRounds.length===0){
-        container.innerHTML="<p style='color:var(--text-muted);text-align:center;padding:40px;'>No hay rondas activas en este momento.</p>";
+      if(activeRounds.length === 0){
+        container.innerHTML = "<p style='color:var(--text-muted);text-align:center;padding:40px;'>No hay rondas activas en este momento.</p>";
         return;
       }
-      container.innerHTML=activeRounds.map(r=>{
-        let statusClass='status-upcoming',statusText='Próxima';
-        if(nowTs>=r.startTime){statusClass='status-active';statusText='Activa';}
-        const progress=r.maxTickets>0n?Math.min(100,(Number(r.playerCount)/Number(r.maxTickets))*100):0;
+      container.innerHTML = activeRounds.map(r => {
+        let statusClass = 'status-upcoming', statusText = 'Próxima';
+        if(nowTs >= r.startTime){ statusClass = 'status-active'; statusText = 'Activa'; }
+        const progress = r.maxTickets > 0n ? Math.min(100, (Number(r.playerCount)/Number(r.maxTickets))*100) : 0;
+        const canBuy = nowTs >= r.startTime && r.playerCount < r.maxTickets;
+        let buyButtonHTML = '';
+        if (canBuy) {
+          buyButtonHTML = `<button class="btn btn-primary" onclick="event.stopPropagation(); buyFromCard(${r.id})">Comprar ticket</button>`;
+        } else if (nowTs < r.startTime) {
+          buyButtonHTML = `<button class="btn btn-primary" disabled>Próximamente</button>`;
+        } else {
+          buyButtonHTML = `<button class="btn btn-primary" disabled>Agotado</button>`;
+        }
         return `<div class="round-card ${selectedRoundId===r.id?'selected':''}" onclick="selectRound(${r.id})">
-          <div class="round-card-header">
-            <span class="round-id">RONDA #${r.id}</span>
-            <span class="round-status-badge ${statusClass}">${statusText}</span>
-          </div>
+          <div class="round-card-header"><span class="round-id">RONDA #${r.id}</span><span class="round-status-badge ${statusClass}">${statusText}</span></div>
           <div class="round-ticket-price">${fmtSOL(r.ticketPrice,2)}</div>
-          <div class="round-meta">
-            <span>👥 ${r.playerCount}/${r.maxTickets}</span>
-            <span>🏆 ${fmtSOL(r.totalPrize,2)}</span>
-          </div>
+          <div class="round-meta"><span>👥 ${r.playerCount}/${r.maxTickets}</span><span>🏆 ${fmtSOL(r.totalPrize,2)}</span></div>
           <div class="round-progress"><div class="round-progress-bar" style="width:${progress}%;"></div></div>
           <div class="round-time">${new Date(r.startTime*1000).toLocaleString()} → ${new Date(r.endTime*1000).toLocaleString()}</div>
+          ${buyButtonHTML}
         </div>`;
       }).join('');
     }
@@ -1135,56 +1236,47 @@
       if(finished.length === 0){
         if(section) section.style.display = "none";
         if(noMsg) noMsg.style.display = "block";
+        el("history-pagination").innerHTML = '';
         return;
       }
       if(section) section.style.display = "block";
       if(noMsg) noMsg.style.display = "none";
       if(!list) return;
-      list.innerHTML = finished.map(r => {
+
+      // Orden cronológico inverso: más reciente primero
+      const sorted = [...finished].reverse();
+      const totalItems = sorted.length;
+      const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+      if (historyPage > totalPages) historyPage = totalPages;
+      const startIdx = (historyPage - 1) * ITEMS_PER_PAGE;
+      const pageItems = sorted.slice(startIdx, startIdx + ITEMS_PER_PAGE);
+
+      list.innerHTML = pageItems.map(r => {
         if (r.isFinalized) {
           const winnerStr = r.winner.equals(SystemProgram.programId) ? "Sin ganador" : short(r.winner,6);
           const prizeStr = r.totalPrize > 0n ? fmtSOL(r.totalPrize,2) : "0.00 ◎";
           const isWinner = walletPubkey && r.winner.equals(walletPubkey);
           const canClaim = isWinner && r.totalPrize > 0n;
-          const claimBtn = canClaim
-            ? `<button class="btn-claim-highlight" style="padding:8px 16px;font-size:0.72rem;width:auto;" onclick="event.stopPropagation();handleClaimFromHistory(${r.id})">Reclamar</button>`
-            : '';
-          return `<div class="finished-item">
-            <div class="finished-left">
-              <span class="finished-round-num">#${r.id}</span>
-              <div class="finished-details">
-                <div>Precio: ${fmtSOL(r.ticketPrice,2)} · Tickets: ${r.playerCount}/${r.maxTickets}</div>
-                <div>Ganador: <span class="winner">${winnerStr}</span></div>
-              </div>
-            </div>
-            <div style="display:flex;align-items:center;gap:12px;">
-              <div class="prize-amount">${prizeStr}</div>
-              ${claimBtn}
-            </div>
-          </div>`;
+          const claimBtn = canClaim ? `<button class="btn-claim-highlight" style="padding:8px 16px;font-size:0.72rem;width:auto;" onclick="event.stopPropagation();handleClaimFromHistory(${r.id})">Reclamar</button>` : '';
+          return `<div class="finished-item"><div class="finished-left"><span class="finished-round-num">#${r.id}</span><div class="finished-details"><div>Precio: ${fmtSOL(r.ticketPrice,2)} · Tickets: ${r.playerCount}/${r.maxTickets}</div><div>Ganador: <span class="winner">${winnerStr}</span></div></div></div><div style="display:flex;align-items:center;gap:12px;"><div class="prize-amount">${prizeStr}</div>${claimBtn}</div></div>`;
         } else {
           const isAdmin = walletPubkey && r.admin.equals(walletPubkey);
           let actionBtn = '';
-          if (isAdmin) {
-            actionBtn = `<button class="btn-outline" style="padding:8px 16px;font-size:0.72rem;width:auto;" onclick="event.stopPropagation();handleFinalizeFromHistory(${r.id})">Finalizar</button>`;
-          }
-          return `<div class="finished-item">
-            <div class="finished-left">
-              <span class="finished-round-num">#${r.id}</span>
-              <div class="finished-details">
-                <div>Precio: ${fmtSOL(r.ticketPrice,2)} · Tickets: ${r.playerCount}/${r.maxTickets}</div>
-                <div>Estado: Pendiente de finalizar</div>
-              </div>
-            </div>
-            ${actionBtn}
-          </div>`;
+          if (isAdmin) actionBtn = `<button class="btn-outline" style="padding:8px 16px;font-size:0.72rem;width:auto;" onclick="event.stopPropagation();handleFinalizeFromHistory(${r.id})">Finalizar</button>`;
+          return `<div class="finished-item"><div class="finished-left"><span class="finished-round-num">#${r.id}</span><div class="finished-details"><div>Precio: ${fmtSOL(r.ticketPrice,2)} · Tickets: ${r.playerCount}/${r.maxTickets}</div><div>Estado: Pendiente de finalizar</div></div></div>${actionBtn}</div>`;
         }
-      }).join("");
+      }).join('');
+
+      renderPagination("history-pagination", historyPage, totalItems, 'goToHistoryPage');
+    }
+    function goToHistoryPage(page) {
+      historyPage = page;
+      renderFinishedRounds();
     }
 
     function selectRound(id){
-      const nowTs=Math.floor(Date.now()/1000);
-      const round = rounds.find(r=>r.id===id);
+      const nowTs = Math.floor(Date.now()/1000);
+      const round = rounds.find(r => r.id === id);
       if(!round || round.isFinalized || round.endTime < nowTs) return;
       selectedRoundId = id;
       renderActiveRounds();
@@ -1192,98 +1284,95 @@
     }
 
     function updateSelectedRoundUI(){
-      const nowTs=Math.floor(Date.now()/1000);
-      const round = rounds.find(r=>r.id===selectedRoundId);
+      const nowTs = Math.floor(Date.now()/1000);
+      const round = rounds.find(r => r.id === selectedRoundId);
       const actions = el("actions-container");
       if(!round || round.isFinalized || round.endTime < nowTs){
-        if(actions) actions.style.display="none";
+        if(actions) actions.style.display = "none";
         return;
       }
-      if(actions) actions.style.display="block";
-      const isActive=!round.isFinalized&&nowTs>=round.startTime&&nowTs<=round.endTime;
-      const canBuy=isActive&&round.playerCount<round.maxTickets;
-      el("selected-round-info").innerHTML=`Ronda #${round.id} · ${fmtSOL(round.ticketPrice,2)} · ${round.playerCount}/${round.maxTickets} · Bote: ${fmtSOL(round.totalPrize,2)}`;
-      el("btn-buy").disabled=!canBuy;
-      el("btn-finalize").style.display="none";
-      const isWinner=walletPubkey&&round.isFinalized&&round.winner.equals(walletPubkey);
-      el("btn-claim").style.display=(isWinner&&round.totalPrize>0n)?"inline-flex":"none";
+      if(actions) actions.style.display = "block";
+      const isActive = !round.isFinalized && nowTs >= round.startTime && nowTs <= round.endTime;
+      const canBuy = isActive && round.playerCount < round.maxTickets;
+      el("selected-round-info").innerHTML = `Ronda #${round.id} · ${fmtSOL(round.ticketPrice,2)} · ${round.playerCount}/${round.maxTickets} · Bote: ${fmtSOL(round.totalPrize,2)}`;
+      el("btn-buy").disabled = !canBuy;
+      el("btn-finalize").style.display = "none";
+      const isWinner = walletPubkey && round.isFinalized && round.winner.equals(walletPubkey);
+      el("btn-claim").style.display = (isWinner && round.totalPrize > 0n) ? "inline-flex" : "none";
     }
 
+    // ── Funciones de transacción (sin cambios) ──
     async function sendTx(ixs){
-      const{blockhash}=await conn.getLatestBlockhash();
-      const tx=new Transaction();tx.recentBlockhash=blockhash;tx.feePayer=walletPubkey;
-      ixs.forEach(ix=>tx.add(ix));
-      const signed=await window.solana.signTransaction(tx);
-      const sig=await conn.sendRawTransaction(signed.serialize());
-      await conn.confirmTransaction(sig,"confirmed");
+      const { blockhash } = await conn.getLatestBlockhash();
+      const tx = new Transaction(); tx.recentBlockhash = blockhash; tx.feePayer = walletPubkey;
+      ixs.forEach(ix => tx.add(ix));
+      const signed = await window.solana.signTransaction(tx);
+      const sig = await conn.sendRawTransaction(signed.serialize());
+      await conn.confirmTransaction(sig, "confirmed");
       return sig;
     }
-    function openTxModal(desc){el("tx-desc-loading").textContent=desc;el("tx-loading").style.display="block";el("tx-success").style.display="none";el("tx-error").style.display="none";el("tx-modal").classList.add("flex");}
-    function txSuccess(sig){el("tx-desc-success").textContent=`Firma: ${short(sig,8)}`;el("tx-link").href=`${EXPLORER}/tx/${sig}?cluster=devnet`;el("tx-loading").style.display="none";el("tx-success").style.display="block";}
-    function txError(msg){el("tx-desc-error").textContent=msg.slice(0,200);el("tx-loading").style.display="none";el("tx-error").style.display="block";}
-    function closeTxModal(){el("tx-modal").classList.remove("flex");}
+    function openTxModal(desc){ el("tx-desc-loading").textContent = desc; el("tx-loading").style.display = "block"; el("tx-success").style.display = "none"; el("tx-error").style.display = "none"; el("tx-modal").classList.add("flex"); }
+    function txSuccess(sig){ el("tx-desc-success").textContent = `Firma: ${short(sig,8)}`; el("tx-link").href = `${EXPLORER}/tx/${sig}?cluster=devnet`; el("tx-loading").style.display = "none"; el("tx-success").style.display = "block"; }
+    function txError(msg){ el("tx-desc-error").textContent = msg.slice(0,200); el("tx-loading").style.display = "none"; el("tx-error").style.display = "block"; }
+    function closeTxModal(){ el("tx-modal").classList.remove("flex"); }
 
     function startPolling() {
       if (refreshTimer) clearInterval(refreshTimer);
-      refreshTimer = setInterval(() => {
-        if (!busy && walletPubkey) fetchAll();
-      }, 15000);
+      refreshTimer = setInterval(() => { if (!busy && walletPubkey) fetchAll(); }, 15000);
     }
-    function stopPolling() {
-      if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
-    }
+    function stopPolling() { if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; } }
 
     async function handleInitialize(){
-      if(!walletPubkey||busy)return;
-      busy=true; openTxModal("Creando cuenta global...");
+      if(!walletPubkey || busy) return;
+      busy = true; openTxModal("Creando cuenta global...");
       try{
-        const disc=await discriminator("initialize"); const gPda=globalPDA();
-        const ix=new TransactionInstruction({programId:PROGRAM_ID,keys:[{pubkey:gPda,isSigner:false,isWritable:true},{pubkey:walletPubkey,isSigner:true,isWritable:true},{pubkey:SystemProgram.programId,isSigner:false,isWritable:false}],data:disc});
-        const sig=await sendTx([ix]); txSuccess(sig);
+        const disc = await discriminator("initialize"); const gPda = globalPDA();
+        const ix = new TransactionInstruction({ programId: PROGRAM_ID, keys: [{ pubkey: gPda, isSigner: false, isWritable: true }, { pubkey: walletPubkey, isSigner: true, isWritable: true }, { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }], data: disc });
+        const sig = await sendTx([ix]); txSuccess(sig);
         addActivity("✓","t","Lotería inicializada","",null);
         await fetchAll();
-      }catch(e){txError(e.message);}
-      busy=false;
+      }catch(e){ txError(e.message); }
+      busy = false;
     }
     async function handleCreateRound(){
-      if(!walletPubkey||!globalState||busy)return;
-      const price=parseFloat(el("new-price").value);
-      const startStr=el("new-start").value; const endStr=el("new-end").value; const max=parseInt(el("new-max").value);
-      if(isNaN(price)||price<=0||!startStr||!endStr||isNaN(max)||max<=0){alert("Completa todos los campos.");return;}
-      const startTs=Math.floor(new Date(startStr).getTime()/1000); const endTs=Math.floor(new Date(endStr).getTime()/1000);
-      if(endTs<=startTs){alert("La fecha de fin debe ser posterior.");return;}
-      busy=true; openTxModal(`Creando ronda...`);
+      if(!walletPubkey || !globalState || busy) return;
+      const price = parseFloat(el("new-price").value);
+      const startStr = el("new-start").value; const endStr = el("new-end").value; const max = parseInt(el("new-max").value);
+      if(isNaN(price)||price<=0||!startStr||!endStr||isNaN(max)||max<=0){ alert("Completa todos los campos."); return; }
+      const startTs = Math.floor(new Date(startStr).getTime()/1000); const endTs = Math.floor(new Date(endStr).getTime()/1000);
+      if(endTs <= startTs){ alert("La fecha de fin debe ser posterior."); return; }
+      busy = true; openTxModal(`Creando ronda...`);
       try{
-        const disc=await discriminator("create_round");
-        const data=concat(disc,u64LE(BigInt(Math.floor(price*1e9))),i64LE(BigInt(startTs)),i64LE(BigInt(endTs)),u64LE(BigInt(max)));
-        const gPda=globalPDA(); const rPda=roundPDA(globalState.roundCount);
-        const ix=new TransactionInstruction({programId:PROGRAM_ID,keys:[{pubkey:gPda,isSigner:false,isWritable:true},{pubkey:rPda,isSigner:false,isWritable:true},{pubkey:walletPubkey,isSigner:true,isWritable:true},{pubkey:SystemProgram.programId,isSigner:false,isWritable:false}],data});
-        const sig=await sendTx([ix]); txSuccess(sig);
+        const disc = await discriminator("create_round");
+        const data = concat(disc, u64LE(BigInt(Math.floor(price*1e9))), i64LE(BigInt(startTs)), i64LE(BigInt(endTs)), u64LE(BigInt(max)));
+        const gPda = globalPDA(); const rPda = roundPDA(globalState.roundCount);
+        const ix = new TransactionInstruction({ programId: PROGRAM_ID, keys: [{ pubkey: gPda, isSigner: false, isWritable: true }, { pubkey: rPda, isSigner: false, isWritable: true }, { pubkey: walletPubkey, isSigner: true, isWritable: true }, { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }], data });
+        const sig = await sendTx([ix]); txSuccess(sig);
         addActivity("+","t",`Ronda #${globalState.roundCount} creada`,`${price} SOL / max ${max}`,null);
-        el("new-price").value="";el("new-start").value="";el("new-end").value="";el("new-max").value="";
-        el("create-round-form").style.display="none";
+        el("new-price").value=""; el("new-start").value=""; el("new-end").value=""; el("new-max").value="";
+        el("create-round-form").style.display = "none";
         await fetchAll();
-      }catch(e){txError(e.message);}
-      busy=false;
+      }catch(e){ txError(e.message); }
+      busy = false;
     }
     async function handleBuy(){
-      if(!walletPubkey||selectedRoundId===null||busy)return;
-      const round=rounds.find(r=>r.id===selectedRoundId);
-      if(!round||round.isFinalized)return;
-      busy=true; openTxModal(`Comprando ticket...`);
+      if(!walletPubkey || selectedRoundId === null || busy) return;
+      const round = rounds.find(r => r.id === selectedRoundId);
+      if(!round || round.isFinalized) return;
+      busy = true; openTxModal(`Comprando ticket...`);
       try{
-        const disc=await discriminator("buy_ticket"); const data=concat(disc,u64LE(BigInt(round.id)));
-        const rPda=roundPDA(round.id); const nextTicketNum=BigInt(round.playerCount)+1n;
-        const tPda=ticketPDA(round.id,nextTicketNum);
-        const ix=new TransactionInstruction({programId:PROGRAM_ID,keys:[{pubkey:rPda,isSigner:false,isWritable:true},{pubkey:tPda,isSigner:false,isWritable:true},{pubkey:walletPubkey,isSigner:true,isWritable:true},{pubkey:SystemProgram.programId,isSigner:false,isWritable:false}],data});
-        const sig=await sendTx([ix]); txSuccess(sig);
+        const disc = await discriminator("buy_ticket"); const data = concat(disc, u64LE(BigInt(round.id)));
+        const rPda = roundPDA(round.id); const nextTicketNum = BigInt(round.playerCount) + 1n;
+        const tPda = ticketPDA(round.id, nextTicketNum);
+        const ix = new TransactionInstruction({ programId: PROGRAM_ID, keys: [{ pubkey: rPda, isSigner: false, isWritable: true }, { pubkey: tPda, isSigner: false, isWritable: true }, { pubkey: walletPubkey, isSigner: true, isWritable: true }, { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }], data });
+        const sig = await sendTx([ix]); txSuccess(sig);
         addActivity("🎟","t",`Ticket ronda ${round.id}`,`${short(walletPubkey,6)}`,fmtSOL(round.ticketPrice,2));
         await fetchAll();
-      }catch(e){txError(e.message);}
-      busy=false;
+      }catch(e){ txError(e.message); }
+      busy = false;
     }
     async function finalizeRound(roundId){
-      const round = rounds.find(r=>r.id===roundId);
+      const round = rounds.find(r => r.id === roundId);
       if(!round || round.isFinalized || !round.admin.equals(walletPubkey)) throw new Error("No puedes finalizar esta ronda.");
       if(round.playerCount === 0) throw new Error("No hay tickets vendidos.");
       const rPda = roundPDA(round.id);
@@ -1297,14 +1386,14 @@
           el("tx-desc-loading").textContent = `Intento ${attempt+1}: ganador ${short(winnerPubkey,6)}...`;
           const disc = await discriminator("finalize_round");
           const data = concat(disc, u64LE(BigInt(round.id)));
-          const ix = new TransactionInstruction({programId: PROGRAM_ID, keys: [
-            {pubkey: rPda, isSigner: false, isWritable: true},
-            {pubkey: walletPubkey, isSigner: true, isWritable: true},
-            {pubkey: winnerPubkey, isSigner: false, isWritable: true},
-            {pubkey: SystemProgram.programId, isSigner: false, isWritable: false}
-          ], data});
+          const ix = new TransactionInstruction({ programId: PROGRAM_ID, keys: [
+            { pubkey: rPda, isSigner: false, isWritable: true },
+            { pubkey: walletPubkey, isSigner: true, isWritable: true },
+            { pubkey: winnerPubkey, isSigner: false, isWritable: true },
+            { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }
+          ], data });
           const sig = await sendTx([ix]);
-          saveWinner({address: winnerPubkey.toBase58(), prize: fmtSOL(round.totalPrize, 4), round: round.id, date: new Date().toLocaleDateString("es-ES"), sig});
+          saveWinner({ address: winnerPubkey.toBase58(), prize: fmtSOL(round.totalPrize, 4), round: round.id, date: new Date().toLocaleDateString("es-ES"), sig });
           addActivity("🏆","w",`Ganador ronda ${round.id}`,`${short(winnerPubkey,8)}`,fmtSOL(round.totalPrize,4));
           txSuccess(sig);
           return;
@@ -1328,21 +1417,20 @@
       busy = false;
     }
     async function handleFinalizeFromHistory(roundId){ await handleFinalize(roundId); }
-
     async function handleClaim(){
-      if(!walletPubkey||selectedRoundId===null||busy)return;
-      const round=rounds.find(r=>r.id===selectedRoundId);
-      if(!round||!round.isFinalized||round.totalPrize<=0n)return;
-      busy=true; openTxModal(`Reclamando premio...`);
+      if(!walletPubkey || selectedRoundId === null || busy) return;
+      const round = rounds.find(r => r.id === selectedRoundId);
+      if(!round || !round.isFinalized || round.totalPrize <= 0n) return;
+      busy = true; openTxModal(`Reclamando premio...`);
       try{
-        const disc=await discriminator("claim_prize"); const data=concat(disc,u64LE(BigInt(round.id)));
-        const rPda=roundPDA(round.id);
-        const ix=new TransactionInstruction({programId:PROGRAM_ID,keys:[{pubkey:rPda,isSigner:false,isWritable:true},{pubkey:round.winner,isSigner:false,isWritable:true},{pubkey:SystemProgram.programId,isSigner:false,isWritable:false}],data});
-        const sig=await sendTx([ix]); txSuccess(sig);
+        const disc = await discriminator("claim_prize"); const data = concat(disc, u64LE(BigInt(round.id)));
+        const rPda = roundPDA(round.id);
+        const ix = new TransactionInstruction({ programId: PROGRAM_ID, keys: [{ pubkey: rPda, isSigner: false, isWritable: true }, { pubkey: round.winner, isSigner: false, isWritable: true }, { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }], data });
+        const sig = await sendTx([ix]); txSuccess(sig);
         addActivity("💰","w",`Premio reclamado ronda ${round.id}`,`${short(round.winner,8)}`,fmtSOL(round.totalPrize,4));
         await fetchAll();
-      }catch(e){txError(e.message);}
-      busy=false;
+      }catch(e){ txError(e.message); }
+      busy = false;
     }
     async function handleClaimFromHistory(roundId){
       if(!walletPubkey || busy) return;
@@ -1353,11 +1441,7 @@
       try {
         const disc = await discriminator("claim_prize"); const data = concat(disc, u64LE(BigInt(roundId)));
         const rPda = roundPDA(roundId);
-        const ix = new TransactionInstruction({programId: PROGRAM_ID, keys: [
-          {pubkey: rPda, isSigner: false, isWritable: true},
-          {pubkey: round.winner, isSigner: false, isWritable: true},
-          {pubkey: SystemProgram.programId, isSigner: false, isWritable: false}
-        ], data});
+        const ix = new TransactionInstruction({ programId: PROGRAM_ID, keys: [{ pubkey: rPda, isSigner: false, isWritable: true }, { pubkey: round.winner, isSigner: false, isWritable: true }, { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }], data });
         const sig = await sendTx([ix]); txSuccess(sig);
         addActivity("💰","w",`Premio reclamado ronda ${roundId}`,`${short(round.winner,8)}`,fmtSOL(round.totalPrize,4));
         await fetchAll(); renderWinners();
@@ -1366,45 +1450,45 @@
     }
 
     function toggleCreateForm(){
-      const form=el("create-round-form");
-      form.style.display=form.style.display==="none"?"flex":"none";
+      const form = el("create-round-form");
+      form.style.display = form.style.display === "none" ? "flex" : "none";
     }
 
-    async function handleWalletBtn(){walletPubkey?disconnectWallet():await connectWallet();}
+    async function handleWalletBtn(){ walletPubkey ? disconnectWallet() : await connectWallet(); }
     async function connectWallet(){
-      if(!window.solana?.isPhantom){el("no-phantom-msg").style.display="block";return;}
+      if(!window.solana?.isPhantom){ el("no-phantom-msg").style.display = "block"; return; }
       try{
-        const resp=await window.solana.connect(); walletPubkey=resp.publicKey;
+        const resp = await window.solana.connect(); walletPubkey = resp.publicKey;
         el("btn-wallet").classList.add("on");
-        el("wallet-label").textContent=`Desconectar · ${short(walletPubkey,4)}`;
-        el("wallet-dot").style.display="inline-block";
-        el("net-status").style.display="flex";
-        el("welcome").style.display="none";
+        el("wallet-label").textContent = `Desconectar · ${short(walletPubkey,4)}`;
+        el("wallet-dot").style.display = "inline-block";
+        el("net-status").style.display = "flex";
+        el("welcome").style.display = "none";
         el("dashboard").classList.add("active-db");
         await fetchAll(); startPolling();
       }catch(e){}
     }
     function disconnectWallet(){
       window.solana?.disconnect();
-      walletPubkey=null;globalState=null;rounds=[];selectedRoundId=null;
+      walletPubkey = null; globalState = null; rounds = []; selectedRoundId = null;
       el("btn-wallet").classList.remove("on");
-      el("wallet-label").textContent="CONECTAR WALLET";
-      el("wallet-dot").style.display="none";
-      el("net-status").style.display="none";
-      el("welcome").style.display="flex";
+      el("wallet-label").textContent = "CONECTAR WALLET";
+      el("wallet-dot").style.display = "none";
+      el("net-status").style.display = "none";
+      el("welcome").style.display = "flex";
       el("dashboard").classList.remove("active-db");
-      el("pending-claims-banner").style.display="none";
+      el("pending-claims-banner").style.display = "none";
       stopPolling();
     }
 
-    window.addEventListener("load",()=>{
+    window.addEventListener("load", ()=>{
       renderWinners(); renderActivity();
-      if(window.solana?.isPhantom&&window.solana.isConnected){
-        window.solana.connect({onlyIfTrusted:true}).then(r=>{walletPubkey=r.publicKey;connectWallet();}).catch(()=>{});
+      if(window.solana?.isPhantom && window.solana.isConnected){
+        window.solana.connect({ onlyIfTrusted: true }).then(r => { walletPubkey = r.publicKey; connectWallet(); }).catch(()=>{});
       }
     });
-    window.solana?.on?.("disconnect",disconnectWallet);
-    window.solana?.on?.("accountChanged",pk=>{if(pk){walletPubkey=pk;fetchAll();startPolling();}else disconnectWallet();});
+    window.solana?.on?.("disconnect", disconnectWallet);
+    window.solana?.on?.("accountChanged", pk => { if(pk){ walletPubkey = pk; fetchAll(); startPolling(); } else disconnectWallet(); });
   </script>
 </body>
 </html>

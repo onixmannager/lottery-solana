@@ -27,6 +27,7 @@
       --muted-hi: #94a3b8;
       --font: 'Josefin Sans', sans-serif;
       --mono: 'Space Mono', monospace;
+      --sidebar-w: 260px;
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html { scroll-behavior: smooth; }
@@ -36,6 +37,7 @@
       color: var(--text);
       min-height: 100vh;
       letter-spacing: 0.02em;
+      display: flex;
     }
     body::before {
       content: '';
@@ -44,35 +46,100 @@
         radial-gradient(ellipse 900px 500px at 60% -100px, rgba(99,102,241,.12) 0%, transparent 70%),
         radial-gradient(ellipse 600px 400px at -100px 80%, rgba(245,158,11,.06) 0%, transparent 60%);
     }
-    #root { position: relative; z-index: 1; }
-    .wrap { max-width: 1000px; margin: 0 auto; padding: 0 24px; }
+    #root { position: relative; z-index: 1; display: flex; width: 100%; min-height: 100vh; }
 
-    header {
-      border-bottom: 1px solid var(--border); backdrop-filter: blur(12px);
-      position: sticky; top: 0; z-index: 100; background: rgba(6,9,16,.85);
+    /* ═══════ SIDEBAR ═══════ */
+    #sidebar {
+      width: var(--sidebar-w);
+      background: rgba(6,9,16,.95);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      top: 0; left: 0;
+      height: 100vh;
+      z-index: 200;
+      backdrop-filter: blur(12px);
+      transition: transform .3s;
     }
-    .header-inner { display: flex; align-items: center; justify-content: space-between; height: 64px; }
-    .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
-    .logo-mark { width: 34px; height: 34px; border-radius: 8px; background: linear-gradient(135deg, var(--primary) 0%, #a78bfa 100%); display: grid; place-items: center; font-size: 16px; box-shadow: 0 0 20px rgba(99,102,241,.4); flex-shrink: 0; }
-    .logo-name { font-size: .95rem; font-weight: 700; letter-spacing: .15em; color: var(--text); }
-    .logo-name em { color: var(--primary-hi); font-style: normal; }
-    .devnet-pill { font-size: .6rem; font-weight: 700; letter-spacing: .2em; background: rgba(99,102,241,.15); color: var(--primary-hi); border: 1px solid rgba(99,102,241,.3); border-radius: 20px; padding: 2px 8px; margin-left: 6px; }
+    .sidebar-logo {
+      display: flex; align-items: center; gap: 10px;
+      padding: 20px 24px; border-bottom: 1px solid var(--border);
+      height: 64px; flex-shrink: 0;
+    }
+    .sidebar-logo .logo-mark {
+      width: 34px; height: 34px; border-radius: 8px;
+      background: linear-gradient(135deg, var(--primary) 0%, #a78bfa 100%);
+      display: grid; place-items: center; font-size: 16px;
+      box-shadow: 0 0 20px rgba(99,102,241,.4); flex-shrink: 0;
+    }
+    .sidebar-logo .logo-name { font-size: .9rem; font-weight: 700; letter-spacing: .1em; color: var(--text); }
+    .sidebar-logo .logo-name em { color: var(--primary-hi); font-style: normal; }
+    .sidebar-logo .devnet-pill {
+      font-size: .55rem; font-weight: 700; letter-spacing: .2em;
+      background: rgba(99,102,241,.15); color: var(--primary-hi);
+      border: 1px solid rgba(99,102,241,.3); border-radius: 20px;
+      padding: 2px 6px; margin-left: 4px;
+    }
+    .sidebar-nav { flex: 1; padding: 16px 12px; display: flex; flex-direction: column; gap: 4px; }
+    .sidebar-nav .nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 11px 14px; border-radius: 10px;
+      font-size: .8rem; font-weight: 600; letter-spacing: .06em;
+      color: var(--muted); cursor: pointer; transition: all .2s;
+      border: none; background: transparent; text-align: left;
+      font-family: var(--font); width: 100%;
+      position: relative;
+    }
+    .nav-item:hover { background: var(--surface); color: var(--text); }
+    .nav-item.active {
+      background: var(--card); color: var(--text);
+      box-shadow: 0 2px 12px rgba(0,0,0,.2);
+      border: 1px solid var(--border-hi);
+    }
+    .nav-item .nav-badge {
+      margin-left: auto; font-size: .65rem; font-weight: 700;
+      background: var(--gold); color: #000; border-radius: 10px;
+      padding: 2px 8px; animation: pulse-badge 2s ease-in-out infinite;
+    }
+    @keyframes pulse-badge { 0%,100%{opacity:1} 50%{opacity:.7} }
+    .nav-item .nav-icon { font-size: 1.1rem; width: 22px; text-align: center; flex-shrink: 0; }
+    .sidebar-footer {
+      padding: 12px; border-top: 1px solid var(--border);
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .sidebar-footer .net-status {
+      display: flex; align-items: center; gap: 6px;
+      font-size: .7rem; color: var(--muted); padding: 0 8px;
+    }
+    .net-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: blink 2s ease-in-out infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
     #btn-wallet {
-      font-family: var(--font); font-size: .8rem; font-weight: 600; letter-spacing: .08em;
-      padding: 9px 20px; border-radius: 8px; border: 1px solid var(--border-hi);
+      font-family: var(--font); font-size: .75rem; font-weight: 600; letter-spacing: .08em;
+      padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border-hi);
       background: transparent; color: var(--muted-hi); cursor: pointer; transition: all .2s;
-      display: flex; align-items: center; gap: 8px;
+      display: flex; align-items: center; gap: 8px; width: 100%;
     }
     #btn-wallet:hover { border-color: var(--primary); color: var(--primary-hi); background: rgba(99,102,241,.08); }
     #btn-wallet.on { border-color: rgba(16,185,129,.4); color: var(--green-hi); background: rgba(16,185,129,.06); }
     #btn-wallet.on:hover { border-color: var(--red); color: var(--red-hi); background: rgba(239,68,68,.06); }
     .wallet-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
-    .net-status { display: flex; align-items: center; gap: 6px; font-size: .72rem; color: var(--muted); }
-    .net-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: blink 2s ease-in-out infinite; }
-    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+    .sidebar-toggle {
+      display: none; position: fixed; top: 16px; left: 16px; z-index: 300;
+      background: var(--card); border: 1px solid var(--border-hi); border-radius: 8px;
+      width: 36px; height: 36px; cursor: pointer; color: var(--text); font-size: 1.2rem;
+      align-items: center; justify-content: center;
+    }
+
+    /* ═══════ MAIN ═══════ */
+    #main-area {
+      margin-left: var(--sidebar-w);
+      flex: 1; min-height: 100vh;
+      display: flex; flex-direction: column;
+    }
 
     #welcome {
-      min-height: calc(100vh - 64px); display: flex; flex-direction: column;
+      flex: 1; display: flex; flex-direction: column;
       align-items: center; justify-content: center; text-align: center; padding: 60px 24px;
     }
     .w-badge { display: inline-block; font-size: .68rem; font-weight: 700; letter-spacing: .25em; color: var(--gold); background: rgba(245,158,11,.1); border: 1px solid rgba(245,158,11,.25); border-radius: 20px; padding: 4px 14px; margin-bottom: 28px; }
@@ -86,99 +153,105 @@
     #no-phantom-msg { display: none; margin-top: 20px; background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.2); border-radius: 8px; padding: 12px 20px; font-size: .82rem; color: var(--red-hi); }
     #no-phantom-msg a { color: var(--red-hi); }
 
-    #dashboard { display: none; padding-bottom: 80px; }
+    #dashboard { display: none; flex: 1; flex-direction: column; }
+    #dashboard.active-db { display: flex; }
 
-    .global-hero {
-      text-align: center; padding: 48px 0 40px; border-bottom: 1px solid var(--border); position: relative;
+    /* ── PENDING CLAIMS BANNER ── */
+    #pending-claims-banner {
+      display: none;
+      background: linear-gradient(135deg, rgba(245,158,11,.15), rgba(245,158,11,.05));
+      border-bottom: 1px solid rgba(245,158,11,.3);
+      padding: 16px 32px;
+      animation: slideDown .3s ease-out;
     }
-    .global-label { font-size: .7rem; font-weight: 700; letter-spacing: .3em; color: var(--muted); margin-bottom: 12px; }
-    .global-rounds { font-size: 2.4rem; font-weight: 700; font-family: var(--mono); color: var(--primary-hi); margin-bottom: 6px; }
-    .global-admin-line { font-size: .78rem; color: var(--muted-hi); margin-top: 8px; }
-    .global-admin-line span { font-family: var(--mono); color: var(--gold); }
+    @keyframes slideDown { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .pcb-inner { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; justify-content: space-between; }
+    .pcb-text { display: flex; align-items: center; gap: 10px; }
+    .pcb-icon { font-size: 1.5rem; }
+    .pcb-title { font-weight: 700; color: var(--gold-hi); font-size: .9rem; }
+    .pcb-amount { font-family: var(--mono); font-weight: 700; color: var(--gold); font-size: 1.1rem; }
 
-    .rounds-section { margin-top: 28px; }
-    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-    .section-title { font-size: .7rem; font-weight: 700; letter-spacing: .2em; color: var(--muted); }
-    .rounds-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+    /* ── CONTENT SECTIONS ── */
+    .content-section { display: none; flex: 1; padding: 0 32px 32px; }
+    .content-section.active-section { display: block; }
+    .section-top-bar { display: flex; align-items: center; justify-content: space-between; padding: 24px 0 16px; flex-wrap: wrap; gap: 12px; }
+    .section-label { font-size: .68rem; font-weight: 700; letter-spacing: .25em; color: var(--muted); text-transform: uppercase; }
+    .section-title-main { font-size: 1.4rem; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+    .admin-line { font-size: .75rem; color: var(--muted-hi); }
+    .admin-line span { font-family: var(--mono); color: var(--gold); }
+
+    .rounds-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); margin-top: 16px; }
     .round-card {
       background: var(--card); border: 1px solid var(--border); border-radius: 16px;
-      padding: 20px; cursor: pointer; transition: all .2s;
+      padding: 22px; cursor: pointer; transition: all .2s; position: relative;
     }
     .round-card:hover { border-color: var(--border-hi); transform: translateY(-2px); }
-    .round-card.selected { border-color: var(--primary); box-shadow: 0 0 20px rgba(99,102,241,.2); }
-    .round-id { font-size: .7rem; color: var(--muted); font-weight: 700; letter-spacing: .15em; margin-bottom: 12px; }
-    .round-price { font-family: var(--mono); font-size: 1.6rem; font-weight: 700; color: var(--gold-hi); margin-bottom: 4px; }
-    .round-meta { font-size: .75rem; color: var(--muted-hi); margin-bottom: 12px; display: flex; gap: 16px; flex-wrap: wrap; }
-    .round-time { font-size: .72rem; color: var(--muted); margin-bottom: 12px; }
-    .round-progress { background: var(--surface); border-radius: 6px; height: 6px; overflow: hidden; margin-bottom: 12px; }
+    .round-card.selected { border-color: var(--primary); box-shadow: 0 0 24px rgba(99,102,241,.25); }
+    .round-card .round-id { font-size: .68rem; color: var(--muted); font-weight: 700; letter-spacing: .15em; margin-bottom: 10px; }
+    .round-card .round-price { font-family: var(--mono); font-size: 1.5rem; font-weight: 700; color: var(--gold-hi); margin-bottom: 4px; }
+    .round-card .round-meta { font-size: .73rem; color: var(--muted-hi); margin-bottom: 10px; display: flex; gap: 14px; flex-wrap: wrap; }
+    .round-card .round-time { font-size: .7rem; color: var(--muted); margin-bottom: 10px; }
+    .round-progress { background: var(--surface); border-radius: 6px; height: 6px; overflow: hidden; margin-bottom: 10px; }
     .round-progress-bar { height: 100%; background: linear-gradient(90deg, var(--primary), var(--gold)); width: 0%; transition: width .3s; }
-    .round-status { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; font-size: .72rem; font-weight: 700; letter-spacing: .1em; }
+    .round-status { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; font-size: .7rem; font-weight: 700; letter-spacing: .1em; }
     .status-active { background: rgba(16,185,129,.1); color: var(--green-hi); border: 1px solid rgba(16,185,129,.25); }
     .status-upcoming { background: rgba(99,102,241,.1); color: var(--primary-hi); border: 1px solid rgba(99,102,241,.25); }
     .status-finished { background: rgba(239,68,68,.1); color: var(--red-hi); border: 1px solid rgba(239,68,68,.25); }
 
-    .actions-panel {
+    /* ── ACTION PANEL ── */
+    #actions-container {
       background: var(--card); border: 1px solid var(--border); border-radius: 16px;
-      padding: 28px; margin-top: 20px;
+      padding: 24px; margin-top: 20px; display: none;
     }
-    .actions-panel h3 { font-size: .75rem; letter-spacing: .2em; color: var(--muted); margin-bottom: 16px; }
-
+    #actions-container h3 { font-size: .72rem; letter-spacing: .18em; color: var(--muted); margin-bottom: 14px; }
     .btn {
-      font-family: var(--font); font-size: .8rem; font-weight: 700; letter-spacing: .12em;
-      padding: 14px 24px; border-radius: 12px; border: none; cursor: pointer; transition: all .2s;
+      font-family: var(--font); font-size: .8rem; font-weight: 700; letter-spacing: .1em;
+      padding: 13px 24px; border-radius: 12px; border: none; cursor: pointer; transition: all .2s;
       display: inline-flex; align-items: center; justify-content: center; gap: 8px;
     }
-    .btn:disabled { opacity: .4; cursor: not-allowed; }
+    .btn:disabled { opacity: .4; cursor: not-allowed; transform: none !important; }
     .btn-primary { background: linear-gradient(135deg, var(--primary), #8b5cf6); color: #fff; box-shadow: 0 0 30px rgba(99,102,241,.3); width: 100%; }
     .btn-primary:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 0 40px rgba(99,102,241,.5); }
     .btn-gold { background: linear-gradient(135deg, var(--gold), #d97706); color: #000; font-weight: 800; width: 100%; }
     .btn-gold:hover:not(:disabled) { box-shadow: 0 0 30px rgba(245,158,11,.5); transform: translateY(-1px); }
     .btn-outline { background: transparent; border: 1px solid var(--border-hi); color: var(--muted-hi); width: 100%; }
     .btn-outline:hover:not(:disabled) { background: var(--surface); color: var(--text); }
+    .btn-claim-highlight {
+      background: linear-gradient(135deg, #f59e0b, #fbbf24);
+      color: #000; font-weight: 800; width: 100%;
+      box-shadow: 0 0 30px rgba(245,158,11,.4);
+      animation: glow-claim 2s ease-in-out infinite;
+    }
+    @keyframes glow-claim { 0%,100%{box-shadow:0 0 20px rgba(245,158,11,.4)} 50%{box-shadow:0 0 40px rgba(245,158,11,.7)} }
+    .btn-claim-highlight:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 0 50px rgba(245,158,11,.7); }
 
     .admin-create-form {
-      display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px;
-      background: var(--surface); border-radius: 12px; padding: 16px;
+      display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px;
+      background: var(--surface); border-radius: 12px; padding: 14px;
     }
     .admin-create-form input {
-      flex: 1 1 160px; background: var(--bg); border: 1px solid var(--border-hi);
-      border-radius: 8px; padding: 12px; color: var(--text); font-family: var(--mono);
+      flex: 1 1 140px; background: var(--bg); border: 1px solid var(--border-hi);
+      border-radius: 8px; padding: 10px; color: var(--text); font-family: var(--mono); font-size: .8rem;
     }
     .admin-create-form input::placeholder { color: var(--muted); }
 
-    .finished-section { margin-top: 28px; }
-    .finished-list { display: flex; flex-direction: column; gap: 12px; }
-    .finished-item {
-      background: var(--surface); border-radius: 12px; padding: 14px 18px;
-      display: flex; align-items: center; justify-content: space-between; gap: 16px;
-      border: 1px solid var(--border);
-    }
-    .finished-left { display: flex; align-items: center; gap: 14px; }
-    .finished-round-num { font-size: .75rem; font-weight: 700; color: var(--gold); }
-    .finished-details { font-size: .82rem; }
-    .finished-details .winner { color: var(--primary-hi); font-family: var(--mono); }
-    .finished-details .prize { color: var(--gold-hi); font-weight: 700; }
-
-    .full-card { margin-top: 20px; }
-    .hof-tabs { display: flex; gap: 4px; background: var(--surface); border-radius: 10px; padding: 4px; margin-bottom: 20px; }
-    .hof-tab { flex: 1; font-family: var(--font); font-size: .72rem; font-weight: 700; letter-spacing: .1em; padding: 9px; border-radius: 7px; border: none; cursor: pointer; transition: all .2s; color: var(--muted); background: transparent; }
-    .hof-tab.active { background: var(--card); color: var(--text); box-shadow: 0 2px 8px rgba(0,0,0,.3); }
-    .winners-list { display: flex; flex-direction: column; gap: 10px; }
+    /* ── WINNERS / ACTIVITY ── */
+    .winners-list { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
     .winner-item { background: var(--surface); border-radius: 12px; padding: 14px 18px; display: flex; align-items: center; gap: 14px; border: 1px solid transparent; }
     .winner-item:hover { border-color: rgba(245,158,11,.2); }
-    .winner-rank { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-size: .85rem; font-weight: 700; background: rgba(245,158,11,.1); color: var(--gold); border: 1px solid rgba(245,158,11,.2); }
+    .winner-rank { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-size: .85rem; font-weight: 700; background: rgba(245,158,11,.1); color: var(--gold); border: 1px solid rgba(245,158,11,.2); flex-shrink: 0; }
     .winner-rank.r1 { background: rgba(245,158,11,.2); color: var(--gold-hi); font-size: 1.1rem; }
-    .winner-info { flex: 1; }
-    .winner-addr { font-family: var(--mono); font-size: .78rem; color: var(--text); cursor: pointer; }
+    .winner-info { flex: 1; min-width: 0; }
+    .winner-addr { font-family: var(--mono); font-size: .78rem; color: var(--text); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .winner-addr:hover { color: var(--gold); }
     .winner-meta { font-size: .68rem; color: var(--muted); margin-top: 3px; }
-    .winner-prize { font-family: var(--mono); font-size: .88rem; font-weight: 700; color: var(--gold); }
+    .winner-prize { font-family: var(--mono); font-size: .88rem; font-weight: 700; color: var(--gold); flex-shrink: 0; text-align: right; }
     .empty-state { text-align: center; padding: 40px 20px; color: var(--muted); font-size: .85rem; }
     .empty-state .es-icon { font-size: 2.5rem; margin-bottom: 12px; opacity: .4; }
 
-    .history-list { display: flex; flex-direction: column; gap: 12px; }
+    .history-list { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
     .history-item { background: var(--surface); border-radius: 10px; padding: 14px; display: flex; align-items: center; gap: 12px; }
-    .history-ico { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-size: 1rem; }
+    .history-ico { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-size: 1rem; flex-shrink: 0; }
     .history-ico.w { background: rgba(245,158,11,.15); color: var(--gold); }
     .history-ico.f { background: rgba(239,68,68,.15); color: var(--red); }
     .history-ico.t { background: rgba(99,102,241,.15); color: var(--primary-hi); }
@@ -187,6 +260,20 @@
     .history-d { font-size: .7rem; color: var(--muted); font-family: var(--mono); }
     .history-amt { font-size: .82rem; font-weight: 700; font-family: var(--mono); color: var(--gold); }
 
+    /* ── FINISHED ROUNDS ── */
+    .finished-list { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+    .finished-item {
+      background: var(--surface); border-radius: 12px; padding: 14px 18px;
+      display: flex; align-items: center; justify-content: space-between; gap: 14px;
+      border: 1px solid var(--border); flex-wrap: wrap;
+    }
+    .finished-left { display: flex; align-items: center; gap: 12px; }
+    .finished-round-num { font-size: .75rem; font-weight: 700; color: var(--gold); }
+    .finished-details { font-size: .78rem; }
+    .finished-details .winner { color: var(--primary-hi); font-family: var(--mono); }
+    .finished-details .prize { color: var(--gold-hi); font-weight: 700; }
+
+    /* ── MODALS ── */
     .modal-overlay { display: none; position: fixed; inset: 0; z-index: 999; background: rgba(6,9,16,.85); backdrop-filter: blur(10px); align-items: center; justify-content: center; }
     .modal-overlay.flex { display: flex; }
     .modal-box { background: var(--card); border: 1px solid var(--border-hi); border-radius: 20px; padding: 40px; width: 90%; max-width: 480px; text-align: center; animation: scaleIn .2s ease-out; }
@@ -205,70 +292,110 @@
     .mbtn-secondary:hover { background: var(--card); color: var(--text); }
     .mbtn-primary { background: linear-gradient(135deg, var(--primary), #8b5cf6); color: #fff; }
 
-    @media (max-width: 768px) {
-      .admin-create-form { flex-direction: column; }
-      .rounds-grid { grid-template-columns: 1fr; }
+    #not-initialized { display: none; text-align: center; padding: 60px 24px; }
+    #not-initialized h2 { margin: 20px 0 12px; }
+    #not-initialized p { color: var(--muted-hi); margin-bottom: 20px; }
+
+    @media (max-width: 900px) {
+      #sidebar {
+        transform: translateX(-100%);
+        box-shadow: 4px 0 30px rgba(0,0,0,.5);
+      }
+      #sidebar.open { transform: translateX(0); }
+      .sidebar-toggle { display: flex; }
+      #main-area { margin-left: 0; }
+      .content-section { padding: 0 16px 24px; }
+      #pending-claims-banner { padding: 14px 20px; }
+      .section-top-bar { padding: 16px 0 12px; }
     }
   </style>
 </head>
 <body>
 <div id="root">
-  <header>
-    <div class="wrap">
-      <div class="header-inner">
-        <a href="#" class="logo">
-          <div class="logo-mark">🎟</div>
-          <div class="logo-name">SOL<em>LOTTO</em><span class="devnet-pill">DEVNET</span></div>
-        </a>
-        <div style="display:flex;align-items:center;gap:20px;">
-          <div class="net-status" id="net-status" style="display:none;">
-            <div class="net-dot"></div><span>Devnet</span>
-          </div>
-          <button id="btn-wallet" onclick="handleWalletBtn()">
-            <span class="wallet-dot" id="wallet-dot" style="display:none;"></span>
-            <span id="wallet-label">CONECTAR WALLET</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  </header>
+  <!-- ═══ SIDEBAR TOGGLE (MÓVIL) ═══ -->
+  <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()">☰</button>
 
-  <div id="welcome">
-    <div class="wrap">
+  <!-- ═══ SIDEBAR ═══ -->
+  <aside id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">🎟</div>
+      <div class="logo-name">SOL<em>LOTTO</em><span class="devnet-pill">DEVNET</span></div>
+    </div>
+    <nav class="sidebar-nav">
+      <button class="nav-item active" data-section="rounds" onclick="switchMainSection('rounds')">
+        <span class="nav-icon">🎲</span> Rondas
+      </button>
+      <button class="nav-item" data-section="winners" onclick="switchMainSection('winners')">
+        <span class="nav-icon">🏆</span> Ganadores
+      </button>
+      <button class="nav-item" data-section="activity" onclick="switchMainSection('activity')">
+        <span class="nav-icon">📋</span> Actividad
+      </button>
+      <button class="nav-item" data-section="history" onclick="switchMainSection('history')">
+        <span class="nav-icon">📜</span> Historial
+      </button>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="net-status" id="net-status" style="display:none;">
+        <div class="net-dot"></div><span>Devnet</span>
+      </div>
+      <button id="btn-wallet" onclick="handleWalletBtn()">
+        <span class="wallet-dot" id="wallet-dot" style="display:none;"></span>
+        <span id="wallet-label">CONECTAR WALLET</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ═══ MAIN AREA ═══ -->
+  <div id="main-area">
+    <!-- Welcome -->
+    <div id="welcome">
       <div class="w-badge">MULTI‑RONDA · TRANSPARENTE</div>
       <h1 class="w-title">Elige tu ronda<br/><span>y prueba suerte</span></h1>
       <p class="w-desc">Crea rondas con diferentes precios y horarios. Solo el admin finaliza la ronda; cualquiera puede reclamar el premio.</p>
       <button class="btn-connect-main" onclick="handleWalletBtn()">CONECTAR WALLET</button>
       <div id="no-phantom-msg">No se detectó Phantom Wallet. <a href="https://phantom.app/" target="_blank">Instálala aquí</a>.</div>
     </div>
-  </div>
 
-  <div id="dashboard">
-    <div id="not-initialized" style="display:none; text-align:center; padding:60px 24px;">
-      <div style="font-size:4rem;opacity:0.5;">🎰</div>
-      <h2 style="margin:20px 0 12px;">Lotería no inicializada</h2>
-      <p style="color:var(--muted-hi);">La cuenta global aún no existe en la blockchain.<br>Conéctate con la wallet administradora y crea la lotería.</p>
-      <button class="btn-primary" style="max-width:300px;margin:20px auto;" onclick="handleInitialize()">🚀 INICIALIZAR LOTERÍA</button>
-    </div>
-
-    <div id="main-content" style="display:none;">
-      <div class="global-hero">
-        <div class="wrap">
-          <div class="global-label">LOTERÍA MULTI‑RONDA</div>
-          <div class="global-rounds" id="total-rounds">0</div>
-          <div style="font-size:.8rem;color:var(--muted);">rondas creadas</div>
-          <div class="global-admin-line">Admin: <span id="global-admin">...</span></div>
+    <!-- Dashboard -->
+    <div id="dashboard">
+      <!-- Pending claims banner -->
+      <div id="pending-claims-banner">
+        <div class="pcb-inner">
+          <div class="pcb-text">
+            <span class="pcb-icon">🎁</span>
+            <span class="pcb-title">¡Tienes premios por reclamar!</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+            <span class="pcb-amount" id="pcb-amount">0.00 ◎</span>
+            <button class="btn btn-claim-highlight" style="width:auto;padding:10px 20px;font-size:.75rem;" onclick="claimFromBanner()">💰 RECLAMAR AHORA</button>
+          </div>
         </div>
       </div>
 
-      <div class="wrap">
-        <div class="rounds-section">
-          <div class="section-header">
-            <div class="section-title">RONDAS ACTIVAS / PRÓXIMAS</div>
+      <!-- Not initialized -->
+      <div id="not-initialized">
+        <div style="font-size:4rem;opacity:0.5;">🎰</div>
+        <h2>Lotería no inicializada</h2>
+        <p>La cuenta global aún no existe en la blockchain.<br>Conéctate con la wallet administradora y crea la lotería.</p>
+        <button class="btn-primary" style="max-width:300px;margin:20px auto;" onclick="handleInitialize()">🚀 INICIALIZAR LOTERÍA</button>
+      </div>
+
+      <!-- Main content -->
+      <div id="main-content" style="display:none;flex:1;flex-direction:column;">
+        <!-- ── SECCIÓN RONDAS ── -->
+        <div class="content-section active-section" id="section-rounds">
+          <div class="section-top-bar">
+            <div>
+              <div class="section-label">LOTERÍA MULTI‑RONDA</div>
+              <div class="section-title-main"><span id="total-rounds">0</span> rondas creadas</div>
+              <div class="admin-line">Admin: <span id="global-admin">...</span></div>
+            </div>
             <div id="create-round-btn-container" style="display:none;">
-              <button class="btn btn-outline" style="width:auto; padding:8px 16px;" onclick="toggleCreateForm()">➕ CREAR RONDA</button>
+              <button class="btn btn-outline" style="width:auto;padding:10px 18px;" onclick="toggleCreateForm()">➕ CREAR RONDA</button>
             </div>
           </div>
+
           <div id="create-round-form" style="display:none;" class="admin-create-form">
             <input type="number" id="new-price" placeholder="Precio SOL" step="0.001" min="0.001">
             <input type="datetime-local" id="new-start">
@@ -276,38 +403,62 @@
             <input type="number" id="new-max" placeholder="Max tickets" min="1">
             <button class="btn btn-primary" style="width:auto;" onclick="handleCreateRound()">CREAR</button>
           </div>
+
           <div class="rounds-grid" id="rounds-container"></div>
-        </div>
 
-        <div class="actions-panel" id="actions-container" style="display:none;">
-          <h3>ACCIÓN PARA RONDA SELECCIONADA</h3>
-          <div id="selected-round-info" style="margin-bottom:16px; font-size:.85rem;"></div>
-          <button class="btn btn-primary" id="btn-buy" onclick="handleBuy()">COMPRAR TICKET</button>
-          <button class="btn btn-gold" id="btn-finalize" style="margin-top:10px; display:none;" onclick="handleFinalize()">🎯 FINALIZAR RONDA Y PAGAR</button>
-          <button class="btn btn-outline" id="btn-claim" style="margin-top:10px; display:none;" onclick="handleClaim()">💰 RECLAMAR PREMIO</button>
-        </div>
-
-        <div class="full-card">
-          <div class="hof-tabs">
-            <button class="hof-tab active" id="tab-hof" onclick="switchTab('hof')">🏆 GANADORES</button>
-            <button class="hof-tab" id="tab-activity" onclick="switchTab('activity')">📋 ACTIVIDAD</button>
+          <!-- Action panel -->
+          <div id="actions-container">
+            <h3>ACCIÓN PARA RONDA SELECCIONADA</h3>
+            <div id="selected-round-info" style="margin-bottom:16px; font-size:.85rem;"></div>
+            <button class="btn btn-primary" id="btn-buy" onclick="handleBuy()">🎟 COMPRAR TICKET</button>
+            <button class="btn btn-gold" id="btn-finalize" style="margin-top:10px; display:none;" onclick="handleFinalize()">🎯 FINALIZAR RONDA Y PAGAR</button>
+            <button class="btn btn-claim-highlight" id="btn-claim" style="margin-top:10px; display:none;" onclick="handleClaim()">💰 RECLAMAR PREMIO</button>
           </div>
-          <div id="panel-hof"><div class="winners-list" id="winners-list"></div></div>
-          <div id="panel-activity" style="display:none;"><div class="history-list" id="history-list"></div></div>
         </div>
 
-        <div class="finished-section" id="finished-rounds-section" style="display:none;">
-          <div class="section-header">
-            <div class="section-title">📜 HISTORIAL DE RONDAS FINALIZADAS</div>
+        <!-- ── SECCIÓN GANADORES ── -->
+        <div class="content-section" id="section-winners">
+          <div class="section-top-bar">
+            <div>
+              <div class="section-label">HALL OF FAME</div>
+              <div class="section-title-main">🏆 Ganadores históricos</div>
+            </div>
           </div>
-          <div class="finished-list" id="finished-rounds-list"></div>
+          <div class="winners-list" id="winners-list"></div>
         </div>
 
+        <!-- ── SECCIÓN ACTIVIDAD ── -->
+        <div class="content-section" id="section-activity">
+          <div class="section-top-bar">
+            <div>
+              <div class="section-label">REGISTRO</div>
+              <div class="section-title-main">📋 Actividad reciente</div>
+            </div>
+          </div>
+          <div class="history-list" id="history-list"></div>
+        </div>
+
+        <!-- ── SECCIÓN HISTORIAL ── -->
+        <div class="content-section" id="section-history">
+          <div class="section-top-bar">
+            <div>
+              <div class="section-label">ARCHIVO</div>
+              <div class="section-title-main">📜 Rondas finalizadas</div>
+            </div>
+          </div>
+          <div id="finished-rounds-section" style="display:none;">
+            <div class="finished-list" id="finished-rounds-list"></div>
+          </div>
+          <div id="no-finished-msg" class="empty-state" style="display:none;">
+            <div class="es-icon">📭</div><div>No hay rondas finalizadas aún.</div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </div>
 
+<!-- TX MODAL -->
 <div id="tx-modal" class="modal-overlay" onclick="closeTxModal()">
   <div class="modal-box" onclick="event.stopPropagation()">
     <div id="tx-loading"><div class="tx-loader"></div><div class="modal-title">Procesando...</div><div class="modal-desc" id="tx-desc-loading">Esperando confirmación...</div></div>
@@ -318,7 +469,6 @@
 
 <script>
 const { Connection, PublicKey, SystemProgram, Transaction, TransactionInstruction } = solanaWeb3;
-// ⚠️ REEMPLAZA ESTA CLAVE CON TU NUEVO PROGRAM ID
 const PROGRAM_ID = new PublicKey("AZFvRwhuBiUbj4wvLu1EbZVdLgcYrYpHm3nRttDS4Vx3");
 const RPC = "https://api.devnet.solana.com";
 const EXPLORER = "https://solscan.io";
@@ -331,11 +481,11 @@ let globalState = null;
 let rounds = [];
 let selectedRoundId = null;
 let busy = false;
-let currentTab = 'hof';
+let currentMainSection = 'rounds';
 let activityLog = JSON.parse(localStorage.getItem("sollotto_activity")||"[]");
-let refreshTimer = null; // Para el polling automático
+let refreshTimer = null;
+let pendingClaimRoundId = null; // Para el banner de claims pendientes
 
-/* ---------- UTILS ---------- */
 const el = id => document.getElementById(id);
 function utf8(s) { return new TextEncoder().encode(s); }
 function u64LE(n) { const b = new ArrayBuffer(8); new DataView(b).setBigUint64(0, n, true); return new Uint8Array(b); }
@@ -345,12 +495,31 @@ function short(pk,n=4){if(!pk)return"...";const s=pk.toBase58?pk.toBase58():pk.t
 function fmtSOL(lam,dec=4){return(Number(lam)/1e9).toFixed(dec)+" ◎";}
 async function discriminator(name){const hash=await crypto.subtle.digest("SHA-256",utf8(`global:${name}`));return new Uint8Array(hash).slice(0,8);}
 
-/* ---------- PDA ---------- */
 function globalPDA(){return PublicKey.findProgramAddressSync([utf8("global")],PROGRAM_ID)[0];}
 function roundPDA(roundId){return PublicKey.findProgramAddressSync([utf8("round"),u64LE(BigInt(roundId))],PROGRAM_ID)[0];}
 function ticketPDA(roundId, ticketNumber){return PublicKey.findProgramAddressSync([utf8("ticket"),u64LE(BigInt(roundId)),u64LE(BigInt(ticketNumber))],PROGRAM_ID)[0];}
 
-/* ---------- ACTIVITY ---------- */
+/* ── Navegación principal ── */
+function switchMainSection(section) {
+  currentMainSection = section;
+  document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active-section'));
+  const sec = document.getElementById('section-' + section);
+  if (sec) sec.classList.add('active-section');
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  const navBtn = document.querySelector(`.nav-item[data-section="${section}"]`);
+  if (navBtn) navBtn.classList.add('active');
+  if (section === 'rounds') {
+    updateSelectedRoundUI();
+  }
+  // Cerrar sidebar en móvil
+  document.getElementById('sidebar').classList.remove('open');
+}
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+}
+
+/* ── Actividad ── */
 function addActivity(icon,cls,title,detail,amount){
   activityLog.unshift({icon,cls,title,detail,amount,time:new Date().toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"})});
   if(activityLog.length>30) activityLog.pop();
@@ -359,35 +528,28 @@ function addActivity(icon,cls,title,detail,amount){
 }
 function renderActivity(){
   const c=el("history-list");
+  if(!c) return;
   if(!activityLog.length){c.innerHTML='<div class="empty-state"><div class="es-icon">📋</div><div>No hay actividad reciente</div></div>';return;}
   c.innerHTML=activityLog.map(a=>`<div class="history-item"><div class="history-ico ${a.cls}">${a.icon}</div><div class="history-info"><div class="history-t">${a.title}</div><div class="history-d">${a.detail} · ${a.time}</div></div>${a.amount?`<div class="history-amt">${a.amount}</div>`:""}</div>`).join("");
 }
 
-/* ---------- HALL OF FAME ---------- */
+/* ── Ganadores ── */
 function loadWinners(){try{return JSON.parse(localStorage.getItem(HOF_KEY)||"[]");}catch{return[];}}
 function saveWinner(entry){const list=loadWinners();list.unshift(entry);localStorage.setItem(HOF_KEY,JSON.stringify(list.slice(0,50)));}
 function renderWinners(){
   const list=loadWinners();
   const c=el("winners-list");
+  if(!c) return;
   if(!list.length){c.innerHTML='<div class="empty-state"><div class="es-icon">🏆</div><div>Aún no hay ganadores</div></div>';return;}
   c.innerHTML=list.map((w,i)=>{
     const medal=i===0?"🥇":i===1?"🥈":i===2?"🥉":`#${i+1}`;
     const rankClass=i===0?"r1":"";
-    return `<div class="winner-item"><div class="winner-rank ${rankClass}">${medal}</div><div class="winner-info"><div class="winner-addr" onclick="copyText('${w.address}')">${w.address}</div><div class="winner-meta">Ronda ${w.round} · ${w.date}</div></div><div style="text-align:right;"><div class="winner-prize">${w.prize}</div><div class="winner-meta"><a href="${EXPLORER}/tx/${w.sig}?cluster=devnet" target="_blank">ver tx ↗</a></div></div></div>`;
+    return `<div class="winner-item"><div class="winner-rank ${rankClass}">${medal}</div><div class="winner-info"><div class="winner-addr" onclick="copyText('${w.address}')">${w.address}</div><div class="winner-meta">Ronda ${w.round} · ${w.date}</div></div><div class="winner-prize">${w.prize}<div class="winner-meta"><a href="${EXPLORER}/tx/${w.sig}?cluster=devnet" target="_blank">ver tx ↗</a></div></div></div>`;
   }).join("");
 }
 function copyText(t){navigator.clipboard.writeText(t).then(()=>{});}
 
-/* ---------- TABS ---------- */
-function switchTab(tab){
-  currentTab=tab;
-  el("tab-hof").classList.toggle("active",tab==="hof");
-  el("tab-activity").classList.toggle("active",tab==="activity");
-  el("panel-hof").style.display=tab==="hof"?"block":"none";
-  el("panel-activity").style.display=tab==="activity"?"block":"none";
-}
-
-/* ---------- FETCH ALL ---------- */
+/* ── Fetch principal ── */
 async function fetchAll(){
   try{
     const gPDA=globalPDA();
@@ -398,12 +560,14 @@ async function fetchAll(){
       el("actions-container").style.display="none";
       el("create-round-btn-container").style.display="none";
       el("finished-rounds-section").style.display="none";
+      el("no-finished-msg").style.display="none";
       el("not-initialized").style.display=walletPubkey?"block":"none";
       el("main-content").style.display="none";
+      el("pending-claims-banner").style.display="none";
       return;
     }
     el("not-initialized").style.display="none";
-    el("main-content").style.display="block";
+    el("main-content").style.display="flex";
     const gData=gInfo.data;
     globalState={
       admin: new PublicKey(gData.slice(8,40)),
@@ -448,12 +612,35 @@ async function fetchAll(){
       if(!sel || sel.isFinalized || sel.endTime < nowTs) selectedRoundId = null;
     }
 
+    updatePendingClaimsBanner();
     renderActiveRounds();
     renderFinishedRounds();
     updateSelectedRoundUI();
     renderWinners();
     renderActivity();
   }catch(e){console.error("fetchAll",e);}
+}
+
+function updatePendingClaimsBanner() {
+  const banner = el("pending-claims-banner");
+  if (!walletPubkey) { banner.style.display = "none"; pendingClaimRoundId = null; return; }
+  const claimableRound = rounds.find(r =>
+    r.isFinalized && r.totalPrize > 0n && r.winner.equals(walletPubkey)
+  );
+  if (claimableRound) {
+    banner.style.display = "block";
+    el("pcb-amount").textContent = fmtSOL(claimableRound.totalPrize, 4);
+    pendingClaimRoundId = claimableRound.id;
+  } else {
+    banner.style.display = "none";
+    pendingClaimRoundId = null;
+  }
+}
+
+function claimFromBanner() {
+  if (pendingClaimRoundId !== null) {
+    handleClaimFromHistory(pendingClaimRoundId);
+  }
 }
 
 function renderActiveRounds(){
@@ -484,11 +671,15 @@ function renderFinishedRounds(){
   const finished = rounds.filter(r => r.isFinalized || (r.endTime < nowTs && !r.isFinalized));
   const section = el("finished-rounds-section");
   const list = el("finished-rounds-list");
+  const noMsg = el("no-finished-msg");
   if(finished.length === 0){
-    section.style.display = "none";
+    if(section) section.style.display = "none";
+    if(noMsg) noMsg.style.display = "block";
     return;
   }
-  section.style.display = "block";
+  if(section) section.style.display = "block";
+  if(noMsg) noMsg.style.display = "none";
+  if(!list) return;
   list.innerHTML = finished.map(r => {
     if (r.isFinalized) {
       const winnerStr = r.winner.equals(SystemProgram.programId) ? "Sin ganador" : short(r.winner,6);
@@ -496,7 +687,7 @@ function renderFinishedRounds(){
       const isWinner = walletPubkey && r.winner.equals(walletPubkey);
       const canClaim = isWinner && r.totalPrize > 0n;
       const claimBtn = canClaim
-        ? `<button class="btn btn-outline" style="padding:6px 14px;font-size:.72rem;width:auto;" onclick="event.stopPropagation();handleClaimFromHistory(${r.id})">💰 Reclamar premio</button>`
+        ? `<button class="btn btn-claim-highlight" style="padding:8px 16px;font-size:.72rem;width:auto;" onclick="event.stopPropagation();handleClaimFromHistory(${r.id})">💰 Reclamar</button>`
         : '';
       return `<div class="finished-item">
         <div class="finished-left">
@@ -518,7 +709,7 @@ function renderFinishedRounds(){
       const isAdmin = walletPubkey && r.admin.equals(walletPubkey);
       let actionBtn = '';
       if (isAdmin) {
-        actionBtn = `<button class="btn btn-outline" style="padding:6px 14px;font-size:.72rem;width:auto;" onclick="event.stopPropagation();handleFinalizeFromHistory(${r.id})">🎯 Finalizar</button>`;
+        actionBtn = `<button class="btn btn-outline" style="padding:8px 16px;font-size:.72rem;width:auto;" onclick="event.stopPropagation();handleFinalizeFromHistory(${r.id})">🎯 Finalizar</button>`;
       }
       return `<div class="finished-item">
         <div class="finished-left">
@@ -551,20 +742,24 @@ function updateSelectedRoundUI(){
   const round = rounds.find(r=>r.id===selectedRoundId);
   const actions = el("actions-container");
   if(!round || round.isFinalized || round.endTime < nowTs){
-    actions.style.display="none";
+    if(actions) actions.style.display="none";
     return;
   }
-  actions.style.display="block";
+  if(actions) actions.style.display="block";
   const isActive=!round.isFinalized&&nowTs>=round.startTime&&nowTs<=round.endTime;
   const canBuy=isActive&&round.playerCount<round.maxTickets;
-  el("selected-round-info").innerHTML=`Ronda #${round.id} · ${fmtSOL(round.ticketPrice,2)} · ${round.playerCount}/${round.maxTickets} · Bote: ${fmtSOL(round.totalPrize,2)}<br>Estado: ${isActive?'ACTIVA':'PRÓXIMA'}`;
-  el("btn-buy").disabled=!canBuy;
-  el("btn-finalize").style.display="none";
+  const si = el("selected-round-info");
+  if(si) si.innerHTML=`Ronda #${round.id} · ${fmtSOL(round.ticketPrice,2)} · ${round.playerCount}/${round.maxTickets} · Bote: ${fmtSOL(round.totalPrize,2)}<br>Estado: ${isActive?'ACTIVA':'PRÓXIMA'}`;
+  const btnBuy = el("btn-buy");
+  if(btnBuy) btnBuy.disabled=!canBuy;
+  const btnFin = el("btn-finalize");
+  if(btnFin) btnFin.style.display="none";
   const isWinner=walletPubkey&&round.isFinalized&&round.winner.equals(walletPubkey);
-  el("btn-claim").style.display=(isWinner&&round.totalPrize>0n)?"inline-flex":"none";
+  const btnClaim = el("btn-claim");
+  if(btnClaim) btnClaim.style.display=(isWinner&&round.totalPrize>0n)?"inline-flex":"none";
 }
 
-/* ---------- TRANSACTION ---------- */
+/* ── Transacciones ── */
 async function sendTx(ixs){
   const{blockhash}=await conn.getLatestBlockhash();
   const tx=new Transaction();tx.recentBlockhash=blockhash;tx.feePayer=walletPubkey;
@@ -579,32 +774,25 @@ function txSuccess(sig){el("tx-desc-success").textContent=`Firma: ${short(sig,8)
 function txError(msg){el("tx-desc-error").textContent=msg.slice(0,200);el("tx-loading").style.display="none";el("tx-error").style.display="block";}
 function closeTxModal(){el("tx-modal").classList.remove("flex");}
 
-/* ---------- POLLING ---------- */
+/* ── Polling ── */
 function startPolling() {
   if (refreshTimer) clearInterval(refreshTimer);
   refreshTimer = setInterval(() => {
-    if (!busy && walletPubkey) {
-      fetchAll();
-    }
-  }, 15000); // cada 15 segundos
+    if (!busy && walletPubkey) fetchAll();
+  }, 15000);
 }
 function stopPolling() {
-  if (refreshTimer) {
-    clearInterval(refreshTimer);
-    refreshTimer = null;
-  }
+  if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
 }
 
-/* ---------- ACTIONS ---------- */
+/* ── Acciones ── */
 async function handleInitialize(){
   if(!walletPubkey||busy)return;
-  busy=true;
-  openTxModal("Creando cuenta global...");
+  busy=true; openTxModal("Creando cuenta global...");
   try{
-    const disc=await discriminator("initialize");
-    const gPda=globalPDA();
+    const disc=await discriminator("initialize"); const gPda=globalPDA();
     const ix=new TransactionInstruction({programId:PROGRAM_ID,keys:[{pubkey:gPda,isSigner:false,isWritable:true},{pubkey:walletPubkey,isSigner:true,isWritable:true},{pubkey:SystemProgram.programId,isSigner:false,isWritable:false}],data:disc});
-    const sig=await sendTx([ix]);txSuccess(sig);
+    const sig=await sendTx([ix]); txSuccess(sig);
     addActivity("🚀","t","Lotería inicializada","",null);
     await fetchAll();
   }catch(e){txError(e.message);}
@@ -614,22 +802,17 @@ async function handleInitialize(){
 async function handleCreateRound(){
   if(!walletPubkey||!globalState||busy)return;
   const price=parseFloat(el("new-price").value);
-  const startStr=el("new-start").value;
-  const endStr=el("new-end").value;
-  const max=parseInt(el("new-max").value);
+  const startStr=el("new-start").value; const endStr=el("new-end").value; const max=parseInt(el("new-max").value);
   if(isNaN(price)||price<=0||!startStr||!endStr||isNaN(max)||max<=0){alert("Completa todos los campos.");return;}
-  const startTs=Math.floor(new Date(startStr).getTime()/1000);
-  const endTs=Math.floor(new Date(endStr).getTime()/1000);
+  const startTs=Math.floor(new Date(startStr).getTime()/1000); const endTs=Math.floor(new Date(endStr).getTime()/1000);
   if(endTs<=startTs){alert("La fecha de fin debe ser posterior.");return;}
-  busy=true;
-  openTxModal(`Creando ronda con precio ${price} SOL...`);
+  busy=true; openTxModal(`Creando ronda con precio ${price} SOL...`);
   try{
     const disc=await discriminator("create_round");
     const data=concat(disc,u64LE(BigInt(Math.floor(price*1e9))),i64LE(BigInt(startTs)),i64LE(BigInt(endTs)),u64LE(BigInt(max)));
-    const gPda=globalPDA();
-    const rPda=roundPDA(globalState.roundCount);
+    const gPda=globalPDA(); const rPda=roundPDA(globalState.roundCount);
     const ix=new TransactionInstruction({programId:PROGRAM_ID,keys:[{pubkey:gPda,isSigner:false,isWritable:true},{pubkey:rPda,isSigner:false,isWritable:true},{pubkey:walletPubkey,isSigner:true,isWritable:true},{pubkey:SystemProgram.programId,isSigner:false,isWritable:false}],data});
-    const sig=await sendTx([ix]);txSuccess(sig);
+    const sig=await sendTx([ix]); txSuccess(sig);
     addActivity("➕","t",`Ronda #${globalState.roundCount} creada`,`${price} SOL / max ${max}`,null);
     el("new-price").value="";el("new-start").value="";el("new-end").value="";el("new-max").value="";
     el("create-round-form").style.display="none";
@@ -642,16 +825,13 @@ async function handleBuy(){
   if(!walletPubkey||selectedRoundId===null||busy)return;
   const round=rounds.find(r=>r.id===selectedRoundId);
   if(!round||round.isFinalized)return;
-  busy=true;
-  openTxModal(`Comprando ticket ronda ${round.id}...`);
+  busy=true; openTxModal(`Comprando ticket ronda ${round.id}...`);
   try{
-    const disc=await discriminator("buy_ticket");
-    const data=concat(disc,u64LE(BigInt(round.id)));
-    const rPda=roundPDA(round.id);
-    const nextTicketNum=BigInt(round.playerCount)+1n;
+    const disc=await discriminator("buy_ticket"); const data=concat(disc,u64LE(BigInt(round.id)));
+    const rPda=roundPDA(round.id); const nextTicketNum=BigInt(round.playerCount)+1n;
     const tPda=ticketPDA(round.id,nextTicketNum);
     const ix=new TransactionInstruction({programId:PROGRAM_ID,keys:[{pubkey:rPda,isSigner:false,isWritable:true},{pubkey:tPda,isSigner:false,isWritable:true},{pubkey:walletPubkey,isSigner:true,isWritable:true},{pubkey:SystemProgram.programId,isSigner:false,isWritable:false}],data});
-    const sig=await sendTx([ix]);txSuccess(sig);
+    const sig=await sendTx([ix]); txSuccess(sig);
     addActivity("🎟","t",`Ticket ronda ${round.id}`,`${short(walletPubkey,6)}`,fmtSOL(round.ticketPrice,2));
     await fetchAll();
   }catch(e){txError(e.message);}
@@ -662,128 +842,83 @@ async function finalizeRound(roundId){
   const round = rounds.find(r=>r.id===roundId);
   if(!round || round.isFinalized || !round.admin.equals(walletPubkey)) throw new Error("No puedes finalizar esta ronda.");
   if(round.playerCount === 0) throw new Error("No hay tickets vendidos en esta ronda.");
-
   const rPda = roundPDA(round.id);
-  const MAX_ATTEMPTS = 5;
-  let lastError = null;
-
+  const MAX_ATTEMPTS = 5; let lastError = null;
   for(let attempt = 0; attempt < MAX_ATTEMPTS; attempt++){
     try {
       const slot = await conn.getSlot("confirmed");
       const winnerIndex = Number(BigInt(slot) % BigInt(round.playerCount));
       const winnerPubkey = round.players[winnerIndex];
-
       if(!winnerPubkey) throw new Error(`No se encontró jugador en índice ${winnerIndex}`);
-
       el("tx-desc-loading").textContent = `Intento ${attempt+1}: ganador estimado ${short(winnerPubkey,6)}, enviando tx...`;
-
       const disc = await discriminator("finalize_round");
       const data = concat(disc, u64LE(BigInt(round.id)));
-      const ix = new TransactionInstruction({
-        programId: PROGRAM_ID,
-        keys: [
-          {pubkey: rPda,                    isSigner: false, isWritable: true},
-          {pubkey: walletPubkey,            isSigner: true,  isWritable: true},
-          {pubkey: winnerPubkey,            isSigner: false, isWritable: true},
-          {pubkey: SystemProgram.programId, isSigner: false, isWritable: false}
-        ],
-        data
-      });
-
+      const ix = new TransactionInstruction({programId: PROGRAM_ID, keys: [
+        {pubkey: rPda, isSigner: false, isWritable: true},
+        {pubkey: walletPubkey, isSigner: true, isWritable: true},
+        {pubkey: winnerPubkey, isSigner: false, isWritable: true},
+        {pubkey: SystemProgram.programId, isSigner: false, isWritable: false}
+      ], data});
       const sig = await sendTx([ix]);
-
-      saveWinner({
-        address: winnerPubkey.toBase58(),
-        prize: fmtSOL(round.totalPrize, 4),
-        round: round.id,
-        date: new Date().toLocaleDateString("es-ES"),
-        sig
-      });
+      saveWinner({address: winnerPubkey.toBase58(), prize: fmtSOL(round.totalPrize, 4), round: round.id, date: new Date().toLocaleDateString("es-ES"), sig});
       addActivity("🏆","w",`Ganador ronda ${round.id}`,`${short(winnerPubkey,8)}`,fmtSOL(round.totalPrize,4));
       txSuccess(sig);
-      return; // éxito — salir
+      return;
     } catch(e) {
       lastError = e;
-      if(e.message && e.message.includes("WrongWinnerAccount")){
-        await new Promise(r => setTimeout(r, 500));
-        continue;
-      }
+      if(e.message && e.message.includes("WrongWinnerAccount")){ await new Promise(r => setTimeout(r, 500)); continue; }
       throw e;
     }
   }
-
   throw new Error(`No se pudo finalizar tras ${MAX_ATTEMPTS} intentos. ${lastError?.message||""}`);
 }
 
 async function handleFinalize(roundIdParam = null){
   const targetRoundId = roundIdParam ?? selectedRoundId;
   if(!walletPubkey || targetRoundId === null || busy) return;
-  busy = true;
-  openTxModal(`Finalizando ronda ${targetRoundId}...`);
+  busy = true; openTxModal(`Finalizando ronda ${targetRoundId}...`);
   try {
     await finalizeRound(targetRoundId);
-    // IMPORTANTE: refrescar estado completo desde la blockchain
     await fetchAll();
     if (selectedRoundId === targetRoundId) selectedRoundId = null;
-  } catch(e) {
-    txError(e.message);
-  }
+  } catch(e) { txError(e.message); }
   busy = false;
 }
-
-async function handleFinalizeFromHistory(roundId){
-  await handleFinalize(roundId);
-}
+async function handleFinalizeFromHistory(roundId){ await handleFinalize(roundId); }
 
 async function handleClaim(){
   if(!walletPubkey||selectedRoundId===null||busy)return;
   const round=rounds.find(r=>r.id===selectedRoundId);
   if(!round||!round.isFinalized||round.totalPrize<=0n)return;
-  busy=true;
-  openTxModal(`Reclamando premio...`);
+  busy=true; openTxModal(`Reclamando premio...`);
   try{
-    const disc=await discriminator("claim_prize");
-    const data=concat(disc,u64LE(BigInt(round.id)));
+    const disc=await discriminator("claim_prize"); const data=concat(disc,u64LE(BigInt(round.id)));
     const rPda=roundPDA(round.id);
     const ix=new TransactionInstruction({programId:PROGRAM_ID,keys:[{pubkey:rPda,isSigner:false,isWritable:true},{pubkey:round.winner,isSigner:false,isWritable:true},{pubkey:SystemProgram.programId,isSigner:false,isWritable:false}],data});
-    const sig=await sendTx([ix]);txSuccess(sig);
+    const sig=await sendTx([ix]); txSuccess(sig);
     addActivity("💰","w",`Premio reclamado ronda ${round.id}`,`${short(round.winner,8)}`,fmtSOL(round.totalPrize,4));
     await fetchAll();
   }catch(e){txError(e.message);}
   busy=false;
 }
-
 async function handleClaimFromHistory(roundId){
   if(!walletPubkey || busy) return;
   const round = rounds.find(r => r.id === roundId);
   if(!round || !round.isFinalized || round.totalPrize <= 0n) return;
-  if(!round.winner.equals(walletPubkey)) {
-    alert("Solo el ganador puede reclamar el premio.");
-    return;
-  }
-  busy = true;
-  openTxModal(`Reclamando premio de la ronda ${roundId}...`);
+  if(!round.winner.equals(walletPubkey)) { alert("Solo el ganador puede reclamar el premio."); return; }
+  busy = true; openTxModal(`Reclamando premio de la ronda ${roundId}...`);
   try {
-    const disc = await discriminator("claim_prize");
-    const data = concat(disc, u64LE(BigInt(roundId)));
+    const disc = await discriminator("claim_prize"); const data = concat(disc, u64LE(BigInt(roundId)));
     const rPda = roundPDA(roundId);
-    const ix = new TransactionInstruction({
-      programId: PROGRAM_ID,
-      keys: [
-        {pubkey: rPda, isSigner: false, isWritable: true},
-        {pubkey: round.winner, isSigner: false, isWritable: true},
-        {pubkey: SystemProgram.programId, isSigner: false, isWritable: false}
-      ],
-      data
-    });
-    const sig = await sendTx([ix]);
-    txSuccess(sig);
+    const ix = new TransactionInstruction({programId: PROGRAM_ID, keys: [
+      {pubkey: rPda, isSigner: false, isWritable: true},
+      {pubkey: round.winner, isSigner: false, isWritable: true},
+      {pubkey: SystemProgram.programId, isSigner: false, isWritable: false}
+    ], data});
+    const sig = await sendTx([ix]); txSuccess(sig);
     addActivity("💰","w",`Premio reclamado ronda ${roundId}`,`${short(round.winner,8)}`,fmtSOL(round.totalPrize,4));
-    await fetchAll();
-    renderWinners(); // por si acaso
-  } catch(e) {
-    txError(e.message);
-  }
+    await fetchAll(); renderWinners();
+  } catch(e) { txError(e.message); }
   busy = false;
 }
 
@@ -792,36 +927,36 @@ function toggleCreateForm(){
   form.style.display=form.style.display==="none"?"flex":"none";
 }
 
-/* ---------- WALLET ---------- */
+/* ── Wallet ── */
 async function handleWalletBtn(){walletPubkey?disconnectWallet():await connectWallet();}
 async function connectWallet(){
   if(!window.solana?.isPhantom){el("no-phantom-msg").style.display="block";return;}
   try{
-    const resp=await window.solana.connect();
-    walletPubkey=resp.publicKey;
+    const resp=await window.solana.connect(); walletPubkey=resp.publicKey;
     el("btn-wallet").classList.add("on");
     el("wallet-label").textContent=`DESCONECTAR · ${short(walletPubkey,4)}`;
     el("wallet-dot").style.display="inline-block";
     el("net-status").style.display="flex";
     el("welcome").style.display="none";
-    el("dashboard").style.display="block";
-    await fetchAll();
-    startPolling(); // Iniciar refresco automático
+    el("dashboard").classList.add("active-db");
+    await fetchAll(); startPolling();
   }catch(e){}
 }
 function disconnectWallet(){
   window.solana?.disconnect();
-  walletPubkey=null;globalState=null;rounds=[];
+  walletPubkey=null;globalState=null;rounds=[];selectedRoundId=null;
   el("btn-wallet").classList.remove("on");
   el("wallet-label").textContent="CONECTAR WALLET";
+  el("wallet-dot").style.display="none";
+  el("net-status").style.display="none";
   el("welcome").style.display="flex";
-  el("dashboard").style.display="none";
-  stopPolling(); // Detener refresco automático
+  el("dashboard").classList.remove("active-db");
+  el("pending-claims-banner").style.display="none";
+  stopPolling();
 }
 
 window.addEventListener("load",()=>{
-  renderWinners();
-  renderActivity();
+  renderWinners(); renderActivity();
   if(window.solana?.isPhantom&&window.solana.isConnected){
     window.solana.connect({onlyIfTrusted:true}).then(r=>{walletPubkey=r.publicKey;connectWallet();}).catch(()=>{});
   }

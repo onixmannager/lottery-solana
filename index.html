@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>SolLotto — Devnet</title>
+  <title>SolLotto Multi‑Ronda — Devnet</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
   <script src="https://unpkg.com/@solana/web3.js@1.91.8/lib/index.iife.min.js"></script>
@@ -48,9 +48,8 @@
     }
 
     #root { position: relative; z-index: 1; }
-    .wrap { max-width: 1000px; margin: 0 auto; padding: 0 24px; }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
 
-    /* ══ HEADER ══ */
     header {
       border-bottom: 1px solid var(--border);
       backdrop-filter: blur(12px);
@@ -92,7 +91,6 @@
     .net-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: blink 2s ease-in-out infinite; }
     @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
 
-    /* ══ WELCOME ══ */
     #welcome {
       min-height: calc(100vh - 64px);
       display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -135,206 +133,88 @@
     }
     #no-phantom-msg a { color: var(--red-hi); }
 
-    /* ══ DASHBOARD ══ */
     #dashboard { display: none; padding-bottom: 80px; }
 
-    #not-initialized {
-      display: none; text-align: center; padding: 60px 24px; margin-top: 40px;
+    .rounds-list {
+      display: grid; gap: 20px; margin: 30px 0;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     }
-    #not-initialized .ni-icon { font-size: 4rem; margin-bottom: 20px; opacity: 0.5; }
-    #not-initialized h2 { font-size: 1.8rem; margin-bottom: 12px; color: var(--text); }
-    #not-initialized p {
-      color: var(--muted-hi); margin-bottom: 28px; max-width: 500px;
-      margin-left: auto; margin-right: auto; line-height: 1.6;
+    .round-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 16px; padding: 20px;
+      transition: all .2s; cursor: pointer;
     }
-
-    /* ══ HERO PRIZE ══ */
-    .prize-hero {
-      text-align: center; padding: 56px 0 48px;
-      border-bottom: 1px solid var(--border); position: relative;
+    .round-card:hover { border-color: var(--border-hi); transform: translateY(-2px); }
+    .round-card.selected { border-color: var(--primary); box-shadow: 0 0 20px rgba(99,102,241,.2); }
+    .round-card .round-id { font-size: .7rem; color: var(--muted); font-weight: 700; letter-spacing: .15em; margin-bottom: 12px; }
+    .round-card .round-price { font-family: var(--mono); font-size: 1.6rem; font-weight: 700; color: var(--gold-hi); margin-bottom: 4px; }
+    .round-card .round-meta { font-size: .75rem; color: var(--muted-hi); margin-bottom: 12px; display: flex; gap: 16px; flex-wrap: wrap; }
+    .round-card .round-time { font-size: .72rem; color: var(--muted); margin-bottom: 12px; }
+    .round-card .round-progress {
+      background: var(--surface); border-radius: 6px; height: 6px; overflow: hidden; margin-bottom: 12px;
     }
-    .prize-label { font-size: .7rem; font-weight: 700; letter-spacing: .3em; color: var(--muted); margin-bottom: 14px; }
-    .prize-amount {
-      font-size: clamp(3rem, 10vw, 5.5rem); font-weight: 700;
-      font-family: var(--mono); letter-spacing: -.02em;
-      color: var(--gold-hi); line-height: 1;
-      text-shadow: 0 0 60px rgba(245,158,11,.3); margin-bottom: 8px;
-    }
-    .prize-usd { font-size: .85rem; color: var(--muted); margin-bottom: 24px; }
-    .prize-meta { display: flex; justify-content: center; gap: 32px; flex-wrap: wrap; }
-    .prize-meta-item { font-size: .8rem; color: var(--muted-hi); display: flex; align-items: center; gap: 6px; }
-    .prize-meta-item strong { color: var(--text); font-weight: 600; }
-    .prize-status {
+    .round-card .round-progress-bar { height: 100%; background: linear-gradient(90deg, var(--primary), var(--gold)); width: 0%; transition: width .3s; }
+    .round-card .round-status {
       display: inline-flex; align-items: center; gap: 6px;
       padding: 4px 12px; border-radius: 20px; font-size: .72rem; font-weight: 700; letter-spacing: .1em;
     }
-    .prize-status.active { background: rgba(16,185,129,.1); color: var(--green-hi); border: 1px solid rgba(16,185,129,.25); }
-    .prize-status.closed { background: rgba(239,68,68,.1); color: var(--red-hi); border: 1px solid rgba(239,68,68,.25); }
-    .prize-status .pdot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: blink 2s ease-in-out infinite; }
+    .status-active { background: rgba(16,185,129,.1); color: var(--green-hi); border: 1px solid rgba(16,185,129,.25); }
+    .status-upcoming { background: rgba(99,102,241,.1); color: var(--primary-hi); border: 1px solid rgba(99,102,241,.25); }
+    .status-finished { background: rgba(239,68,68,.1); color: var(--red-hi); border: 1px solid rgba(239,68,68,.25); }
 
-    /* ══ GRID ══ */
-    .main-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 28px; }
-    .card {
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: 16px; padding: 28px; transition: border-color .2s;
+    .actions-panel {
+      background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 28px;
+      margin-top: 10px;
     }
-    .card:hover { border-color: var(--border-hi); }
-    .card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
-    .card-title { font-size: .7rem; font-weight: 700; letter-spacing: .2em; color: var(--muted); }
-    .card-badge {
-      font-size: .65rem; font-weight: 700; letter-spacing: .1em;
-      background: rgba(99,102,241,.1); color: var(--primary-hi);
-      border: 1px solid rgba(99,102,241,.25); border-radius: 14px; padding: 2px 9px;
-    }
+    .actions-panel h3 { font-size: .75rem; letter-spacing: .2em; color: var(--muted); margin-bottom: 16px; }
 
-    /* ══ USER CARD ══ */
-    .user-panel {
-      display: flex; align-items: center; gap: 14px;
-      background: var(--surface); border-radius: 12px; padding: 16px; margin-bottom: 20px;
+    .btn {
+      font-family: var(--font); font-size: .8rem; font-weight: 700; letter-spacing: .12em;
+      padding: 14px 24px; border-radius: 12px; border: none; cursor: pointer; transition: all .2s;
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
     }
-    .user-avatar {
-      width: 48px; height: 48px; border-radius: 50%;
-      background: linear-gradient(135deg, var(--primary), #a78bfa);
-      display: grid; place-items: center; font-size: 1.3rem;
-      flex-shrink: 0; box-shadow: 0 0 20px rgba(99,102,241,.3);
-    }
-    .user-avatar.is-admin { background: linear-gradient(135deg, var(--gold), #f97316); box-shadow: 0 0 20px rgba(245,158,11,.3); }
-    .user-info { flex: 1; }
-    .user-name { font-size: .9rem; font-weight: 600; margin-bottom: 4px; color: var(--text); }
-    .user-addr { font-size: .7rem; font-family: var(--mono); color: var(--muted); cursor: pointer; transition: color .2s; }
-    .user-addr:hover { color: var(--primary-hi); }
-    .admin-badge-small {
-      display: inline-block; font-size: .58rem; font-weight: 700; letter-spacing: .15em;
-      background: rgba(245,158,11,.15); color: var(--gold); border: 1px solid rgba(245,158,11,.3);
-      border-radius: 10px; padding: 1px 7px; margin-left: 6px; vertical-align: middle;
-    }
-    .my-tickets { background: var(--surface); border-radius: 12px; padding: 16px; text-align: center; }
-    .my-tickets-label { font-size: .65rem; font-weight: 700; letter-spacing: .2em; color: var(--muted); margin-bottom: 10px; }
-    .my-tickets-val {
-      font-size: 2.2rem; font-weight: 700; font-family: var(--mono);
-      color: var(--primary-hi); text-shadow: 0 0 30px rgba(99,102,241,.3);
-    }
+    .btn:disabled { opacity: .4; cursor: not-allowed; }
+    .btn-primary { background: linear-gradient(135deg, var(--primary), #8b5cf6); color: #fff; box-shadow: 0 0 30px rgba(99,102,241,.3); width: 100%; }
+    .btn-primary:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 0 40px rgba(99,102,241,.5); }
+    .btn-gold { background: linear-gradient(135deg, var(--gold), #d97706); color: #000; font-weight: 800; width: 100%; }
+    .btn-gold:hover:not(:disabled) { box-shadow: 0 0 30px rgba(245,158,11,.5); transform: translateY(-1px); }
+    .btn-outline { background: transparent; border: 1px solid var(--border-hi); color: var(--muted-hi); width: 100%; }
+    .btn-outline:hover:not(:disabled) { background: var(--surface); color: var(--text); }
 
-    /* ══ BUTTONS ══ */
-    .btn-buy, .btn-admin, .btn-initialize {
-      width: 100%; font-family: var(--font); font-size: .8rem; font-weight: 700;
-      letter-spacing: .12em; padding: 16px; border-radius: 12px;
-      border: none; cursor: pointer; transition: all .2s;
-      display: flex; align-items: center; justify-content: center; gap: 8px;
+    .admin-create-form {
+      display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px;
+      background: var(--surface); border-radius: 12px; padding: 16px;
     }
-    .btn-buy {
-      background: linear-gradient(135deg, var(--primary), #8b5cf6);
-      color: #fff; box-shadow: 0 0 30px rgba(99,102,241,.3);
+    .admin-create-form input {
+      flex: 1 1 160px; background: var(--bg); border: 1px solid var(--border-hi);
+      border-radius: 8px; padding: 12px; color: var(--text); font-family: var(--mono);
     }
-    .btn-buy:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 0 40px rgba(99,102,241,.5); }
-    .btn-initialize {
-      background: linear-gradient(135deg, var(--green), #059669);
-      color: #fff; box-shadow: 0 0 30px rgba(16,185,129,.3);
-    }
-    .btn-initialize:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 0 40px rgba(16,185,129,.5); }
-    .btn-admin {
-      background: var(--surface); color: var(--muted-hi); border: 1px solid var(--border-hi);
-    }
-    .btn-admin:hover:not(:disabled) { background: var(--card); color: var(--text); }
-    .btn-buy:disabled, .btn-admin:disabled, .btn-initialize:disabled {
-      opacity: .4; cursor: not-allowed; transform: none !important;
-    }
-    .admin-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+    .admin-create-form input::placeholder { color: var(--muted); }
 
-    /* ══ HALL OF FAME ══ */
-    .full-card { grid-column: 1 / -1; }
-    .hof-tabs {
-      display: flex; gap: 4px; background: var(--surface);
-      border-radius: 10px; padding: 4px; margin-bottom: 20px;
-    }
-    .hof-tab {
-      flex: 1; font-family: var(--font); font-size: .72rem; font-weight: 700;
-      letter-spacing: .1em; padding: 9px; border-radius: 7px; border: none;
-      cursor: pointer; transition: all .2s; color: var(--muted); background: transparent;
-    }
-    .hof-tab.active { background: var(--card); color: var(--text); box-shadow: 0 2px 8px rgba(0,0,0,.3); }
-
-    /* winners list */
-    .winners-list { display: flex; flex-direction: column; gap: 10px; }
-    .winner-item {
-      background: var(--surface); border-radius: 12px; padding: 14px 18px;
-      display: flex; align-items: center; gap: 14px;
-      border: 1px solid transparent; transition: border-color .2s;
-    }
-    .winner-item:hover { border-color: rgba(245,158,11,.2); }
-    .winner-rank {
-      width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
-      display: grid; place-items: center; font-size: .85rem; font-weight: 700;
-      background: rgba(245,158,11,.1); color: var(--gold); border: 1px solid rgba(245,158,11,.2);
-    }
-    .winner-rank.r1 { background: rgba(245,158,11,.2); color: var(--gold-hi); font-size: 1.1rem; }
-    .winner-info { flex: 1; min-width: 0; }
-    .winner-addr {
-      font-family: var(--mono); font-size: .78rem; color: var(--text);
-      cursor: pointer; transition: color .2s;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    .winner-addr:hover { color: var(--gold); }
-    .winner-meta { font-size: .68rem; color: var(--muted); margin-top: 3px; }
-    .winner-prize { font-family: var(--mono); font-size: .88rem; font-weight: 700; color: var(--gold); flex-shrink: 0; }
-    .winner-round { font-size: .65rem; color: var(--muted); margin-top: 2px; text-align: right; }
-    .empty-state { text-align: center; padding: 40px 20px; color: var(--muted); font-size: .85rem; }
-    .empty-state .es-icon { font-size: 2.5rem; margin-bottom: 12px; opacity: .4; }
-
-    /* activity list */
-    .history-list { display: flex; flex-direction: column; gap: 12px; }
-    .history-item {
-      background: var(--surface); border-radius: 10px; padding: 14px;
-      display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    }
-    .history-ico {
-      width: 36px; height: 36px; border-radius: 50%;
-      display: grid; place-items: center; font-size: 1rem; flex-shrink: 0;
-    }
-    .history-ico.w { background: rgba(245,158,11,.15); color: var(--gold); }
-    .history-ico.c { background: rgba(239,68,68,.15); color: var(--red); }
-    .history-ico.t { background: rgba(99,102,241,.15); color: var(--primary-hi); }
-    .history-info { flex: 1; }
-    .history-t { font-size: .82rem; font-weight: 600; color: var(--text); margin-bottom: 4px; }
-    .history-d { font-size: .7rem; color: var(--muted); font-family: var(--mono); }
-    .history-amt { font-size: .82rem; font-weight: 700; font-family: var(--mono); color: var(--gold); }
-
-    /* ══ TX MODAL ══ */
     .modal-overlay {
       display: none; position: fixed; inset: 0; z-index: 999;
       background: rgba(6,9,16,.85); backdrop-filter: blur(10px);
-      animation: fadein .15s; align-items: center; justify-content: center;
+      align-items: center; justify-content: center;
     }
     .modal-overlay.flex { display: flex; }
-    @keyframes fadein { from { opacity: 0 } to { opacity: 1 } }
-    @keyframes scaleIn { from { opacity:0; transform:scale(.92) } to { opacity:1; transform:scale(1) } }
-
     .modal-box {
       background: var(--card); border: 1px solid var(--border-hi);
       border-radius: 20px; padding: 40px; width: 90%; max-width: 480px;
-      box-shadow: 0 20px 60px rgba(0,0,0,.5);
-      text-align: center; animation: scaleIn .2s ease-out;
+      box-shadow: 0 20px 60px rgba(0,0,0,.5); text-align: center;
+      animation: scaleIn .2s ease-out;
     }
-    .modal-box.wide { max-width: 560px; }
-
+    @keyframes scaleIn { from { opacity:0; transform:scale(.92) } to { opacity:1; transform:scale(1) } }
     .tx-loader {
-      width: 80px; height: 80px; margin: 0 auto 24px;
+      width: 60px; height: 60px; margin: 0 auto 24px;
       border: 5px solid var(--surface); border-top-color: var(--primary);
       border-radius: 50%; animation: spin 1s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .tx-icon {
-      width: 80px; height: 80px; border-radius: 50%;
-      margin: 0 auto 24px; display: grid; place-items: center; font-size: 2.5rem;
-    }
+    .tx-icon { width: 60px; height: 60px; border-radius: 50%; margin: 0 auto 24px; display: grid; place-items: center; font-size: 2rem; }
     .tx-icon.success { background: rgba(16,185,129,.15); color: var(--green-hi); }
-    .tx-icon.error   { background: rgba(239,68,68,.15); color: var(--red-hi); }
-    .tx-icon.winner  { background: rgba(245,158,11,.15); color: var(--gold-hi); font-size: 3rem; }
-    .tx-icon.warn    { background: rgba(245,158,11,.12); color: var(--gold-hi); font-size: 2.5rem; }
-    .tx-icon.info    { background: rgba(99,102,241,.12); color: var(--primary-hi); font-size: 2.5rem; }
-
+    .tx-icon.error { background: rgba(239,68,68,.15); color: var(--red-hi); }
     .modal-title { font-size: 1.3rem; font-weight: 700; margin-bottom: 10px; color: var(--text); }
-    .modal-desc  { font-size: .85rem; color: var(--muted-hi); margin-bottom: 24px; line-height: 1.6; }
+    .modal-desc { font-size: .85rem; color: var(--muted-hi); margin-bottom: 24px; line-height: 1.6; }
     .tx-link {
       display: inline-flex; align-items: center; gap: 8px;
       font-size: .75rem; font-weight: 600; letter-spacing: .08em;
@@ -342,156 +222,24 @@
       border-radius: 8px; border: 1px solid rgba(99,102,241,.3);
       background: rgba(99,102,241,.08); transition: all .2s;
     }
-    .tx-link:hover { background: rgba(99,102,241,.15); border-color: var(--primary); }
-
-    /* modal buttons */
-    .modal-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 8px; }
+    .modal-btns { display: flex; gap: 10px; justify-content: center; margin-top: 16px; }
     .mbtn {
       font-family: var(--font); font-size: .78rem; font-weight: 700; letter-spacing: .1em;
       padding: 11px 24px; border-radius: 10px; cursor: pointer; transition: all .2s; border: none;
     }
-    .mbtn-secondary {
-      background: var(--surface); color: var(--muted-hi); border: 1px solid var(--border-hi);
-    }
+    .mbtn-secondary { background: var(--surface); color: var(--muted-hi); border: 1px solid var(--border-hi); }
     .mbtn-secondary:hover { background: var(--card); color: var(--text); }
-    .mbtn-primary {
-      background: linear-gradient(135deg, var(--primary), #8b5cf6);
-      color: #fff; box-shadow: 0 0 20px rgba(99,102,241,.3);
-    }
-    .mbtn-primary:hover { box-shadow: 0 0 30px rgba(99,102,241,.5); transform: translateY(-1px); }
-    .mbtn-danger {
-      background: linear-gradient(135deg, var(--red), #c53030);
-      color: #fff; box-shadow: 0 0 20px rgba(239,68,68,.2);
-    }
-    .mbtn-danger:hover { box-shadow: 0 0 30px rgba(239,68,68,.4); transform: translateY(-1px); }
-    .mbtn-gold {
-      background: linear-gradient(135deg, var(--gold), #d97706);
-      color: #000; font-weight: 800; box-shadow: 0 0 20px rgba(245,158,11,.3);
-    }
-    .mbtn-gold:hover { box-shadow: 0 0 30px rgba(245,158,11,.5); transform: translateY(-1px); }
+    .mbtn-primary { background: linear-gradient(135deg, var(--primary), #8b5cf6); color: #fff; }
+    .mbtn-primary:hover { box-shadow: 0 0 20px rgba(99,102,241,.5); }
 
-    /* ── custom input inside modal ── */
-    .modal-input-group { margin-bottom: 20px; text-align: left; }
-    .modal-input-label { font-size: .68rem; font-weight: 700; letter-spacing: .15em; color: var(--muted); margin-bottom: 8px; display: block; }
-    .modal-input {
-      width: 100%; background: var(--surface); border: 1px solid var(--border-hi);
-      border-radius: 10px; padding: 13px 16px; color: var(--text);
-      font-family: var(--mono); font-size: .9rem; outline: none; transition: border-color .2s;
-    }
-    .modal-input:focus { border-color: var(--primary); }
-    .modal-input::placeholder { color: var(--muted); }
-    .modal-note {
-      font-size: .72rem; color: var(--muted); margin-top: 8px; line-height: 1.5;
-    }
-
-    /* ── winner celebration ── */
-    .winner-celebration {
-      padding: 10px 0;
-    }
-    .winner-celebration .confetti-row {
-      font-size: 1.6rem; margin-bottom: 16px; letter-spacing: 6px;
-      animation: pulse 1.5s ease-in-out infinite;
-    }
-    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.7;transform:scale(.95)} }
-    .winner-addr-box {
-      background: var(--surface); border-radius: 12px; padding: 16px;
-      font-family: var(--mono); font-size: .78rem; color: var(--gold-hi);
-      word-break: break-all; margin: 16px 0; border: 1px solid rgba(245,158,11,.2);
-      cursor: pointer; transition: border-color .2s;
-    }
-    .winner-addr-box:hover { border-color: rgba(245,158,11,.5); }
-    .winner-prize-big {
-      font-size: 2rem; font-weight: 700; font-family: var(--mono);
-      color: var(--gold-hi); text-shadow: 0 0 30px rgba(245,158,11,.4);
-      margin: 8px 0;
-    }
-
-    /* ── confirm modal ── */
-    .confirm-details {
-      background: var(--surface); border-radius: 12px; padding: 16px;
-      margin: 16px 0; text-align: left;
-    }
-    .confirm-row {
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 8px 0; border-bottom: 1px solid var(--border); font-size: .82rem;
-    }
-    .confirm-row:last-child { border-bottom: none; }
-    .confirm-row span:first-child { color: var(--muted); }
-    .confirm-row span:last-child { font-family: var(--mono); color: var(--text); font-weight: 600; }
-    .confirm-warn {
-      background: rgba(245,158,11,.08); border: 1px solid rgba(245,158,11,.2);
-      border-radius: 8px; padding: 10px 14px; font-size: .75rem; color: var(--gold-hi);
-      margin-top: 12px; line-height: 1.5;
-    }
-
-    /* ══ TOASTS ══ */
-    #toasts {
-      position: fixed; bottom: 24px; right: 24px; z-index: 1100;
-      display: flex; flex-direction: column; gap: 12px; align-items: flex-end;
-    }
-    .tst {
-      background: var(--card); border: 1px solid var(--border-hi);
-      border-radius: 12px; padding: 14px 18px; min-width: 280px; max-width: 360px;
-      box-shadow: 0 10px 40px rgba(0,0,0,.3); animation: slideIn .3s ease-out;
-    }
-    @keyframes slideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-    .tst-lbl { font-size: .7rem; font-weight: 700; letter-spacing: .15em; margin-bottom: 6px; }
-    .tst-msg { font-size: .8rem; color: var(--muted-hi); }
-    .tst.s { border-left: 4px solid var(--green); }
-    .tst.s .tst-lbl { color: var(--green-hi); }
-    .tst.e { border-left: 4px solid var(--red); }
-    .tst.e .tst-lbl { color: var(--red-hi); }
-    .tst.i { border-left: 4px solid var(--primary); }
-    .tst.i .tst-lbl { color: var(--primary-hi); }
-
-    /* ══ MOBILE NOTICE ══ */
-    .mobile-notice {
-      display: none;
-      background: var(--gold);
-      color: #000;
-      text-align: center;
-      padding: 12px 20px;
-      font-weight: 700;
-      font-size: 0.8rem;
-      letter-spacing: 0.05em;
-      position: relative;
-    }
-    .mobile-notice button {
-      background: #000;
-      color: var(--gold-hi);
-      border: none;
-      padding: 6px 14px;
-      margin-left: 10px;
-      border-radius: 6px;
-      font-weight: 700;
-      cursor: pointer;
-      font-family: var(--font);
-    }
-
-    /* ══ RESPONSIVE ══ */
     @media (max-width: 768px) {
-      .main-grid { grid-template-columns: 1fr; }
-      .full-card { grid-column: 1; }
-      .admin-actions { grid-template-columns: 1fr; }
-      #toasts { bottom: 16px; right: 16px; left: 16px; align-items: stretch; }
-      .tst { min-width: 0; max-width: none; }
-      .modal-btns { flex-direction: column; }
-      .mbtn { width: 100%; }
-      .modal-box { padding: 30px; }
-      .prize-hero { padding: 40px 0 32px; }
-      .header-inner { height: 56px; }
+      .admin-create-form { flex-direction: column; }
+      .rounds-list { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
 <div id="root">
-  <!-- Mobile notice: appears only if Phantom is NOT detected on a mobile device -->
-  <div class="mobile-notice" id="mobile-notice">
-    📱 Para usar la lotería, copia la URL y pégala en el navegador de Phantom.
-    <button onclick="copyWindowUrl()">Copiar URL</button>
-  </div>
-
-  <!-- ═══════ HEADER ═══════ -->
   <header>
     <div class="wrap">
       <div class="header-inner">
@@ -513,95 +261,35 @@
     </div>
   </header>
 
-  <!-- ═══════ WELCOME ═══════ -->
   <div id="welcome">
     <div class="wrap">
-      <div class="w-badge">ON-CHAIN · TRANSPARENTE · VERIFICABLE</div>
-      <h1 class="w-title">Tu suerte empieza <br/><span>en la blockchain</span></h1>
-      <p class="w-desc">
-        Lotería descentralizada en Solana. Sin intermediarios, sin trucos.
-        Cada ticket vive on-chain. La suerte está escrita en el bloque.
-      </p>
+      <div class="w-badge">MULTI‑RONDA · TRANSPARENTE</div>
+      <h1 class="w-title">Elige tu ronda<br/><span>y prueba suerte</span></h1>
+      <p class="w-desc">Crea rondas con diferentes precios y horarios. Cualquiera puede finalizar y reclamar el premio automáticamente.</p>
       <button class="btn-connect-main" onclick="handleWalletBtn()">CONECTAR WALLET</button>
-      <div id="no-phantom-msg">
-        No se detectó Phantom Wallet.
-        <a href="https://phantom.app/" target="_blank">Instálala aquí</a>.
-      </div>
-      <div class="w-features">
-        <div class="w-feat"><span class="w-feat-icon">⚡</span> Instantáneo</div>
-        <div class="w-feat"><span class="w-feat-icon">🔒</span> Seguro</div>
-        <div class="w-feat"><span class="w-feat-icon">🏆</span> Verificable</div>
-      </div>
+      <div id="no-phantom-msg">No se detectó Phantom Wallet. <a href="https://phantom.app/" target="_blank">Instálala aquí</a>.</div>
     </div>
   </div>
 
-  <!-- ═══════ DASHBOARD ═══════ -->
   <div id="dashboard">
-    <div id="not-initialized">
-      <div class="ni-icon">🎰</div>
-      <h2 id="ni-title">Lotería no inicializada</h2>
-      <p id="ni-desc">La lotería aún no ha sido creada en la blockchain.<br>
-         Si eres el administrador, puedes inicializarla ahora.</p>
-      <button class="btn-initialize" id="ni-btn" onclick="handleInitialize()">🚀 INICIALIZAR LOTERÍA</button>
-    </div>
+    <div class="wrap" style="padding-top:24px;">
+      <div id="rounds-container" class="rounds-list"></div>
+      <div id="actions-container" class="actions-panel" style="display:none;">
+        <h3>ACCIÓN PARA RONDA SELECCIONADA</h3>
+        <div id="selected-round-info" style="margin-bottom:16px; font-size:.85rem;"></div>
+        <button class="btn btn-primary" id="btn-buy" onclick="handleBuy()">COMPRAR TICKET</button>
+        <button class="btn btn-gold" id="btn-finalize" style="margin-top:10px;" onclick="handleFinalize()">🎯 FINALIZAR RONDA Y PAGAR</button>
+        <button class="btn btn-outline" id="btn-claim" style="margin-top:10px; display:none;" onclick="handleClaim()">💰 RECLAMAR PREMIO</button>
 
-    <div id="main-content" style="display:none;">
-      <div class="prize-hero">
-        <div class="wrap">
-          <div class="prize-label">BOTE ACTUAL</div>
-          <div class="prize-amount" id="prize-amount">0.00 ◎</div>
-          <div class="prize-usd" id="prize-usd">~$0.00 USD</div>
-          <div class="prize-meta">
-            <div class="prize-meta-item"><span>Precio ticket:</span><strong id="ticket-price">0.0 ◎</strong></div>
-            <div class="prize-meta-item"><span>Tickets vendidos:</span><strong id="total-tickets">0</strong></div>
-            <div class="prize-meta-item"><span class="prize-status active" id="lottery-status"><span class="pdot"></span>ACTIVA</span></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="wrap">
-        <div class="main-grid">
-          <div class="card">
-            <div class="card-head"><div class="card-title">TU CUENTA</div><div id="user-role-badge" style="display:none;" class="card-badge">⚙ ADMIN</div></div>
-            <div class="user-panel">
-              <div class="user-avatar" id="user-avatar">👤</div>
-              <div class="user-info">
-                <div class="user-name" id="user-name">ANON</div>
-                <div class="user-addr" id="user-addr-short" onclick="copyAddr()" title="Copiar dirección">...</div>
-              </div>
-            </div>
-            <div class="my-tickets">
-              <div class="my-tickets-label">MIS TICKETS EN ESTA RONDA</div>
-              <div class="my-tickets-val" id="my-tickets-count">0</div>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="card-head"><div class="card-title">ACCIONES</div><div class="card-badge">DEVNET</div></div>
-            <button class="btn-buy" id="btn-buy" onclick="handleBuy()">COMPRAR TICKET · 0.0 ◎</button>
-            <div id="admin-panel" style="display:none;">
-              <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
-                <div style="font-size:.65rem;font-weight:700;letter-spacing:.2em;color:var(--gold);margin-bottom:12px;display:flex;align-items:center;gap:6px;">⚙️ PANEL ADMINISTRADOR</div>
-                <div class="admin-actions">
-                  <button class="btn-admin" id="btn-pick" onclick="handlePickWinner()">🏆 ELEGIR GANADOR</button>
-                  <button class="btn-admin" id="btn-restart" onclick="handleRestart()">🔄 NUEVA RONDA</button>
-                </div>
-                <div id="admin-hint" style="font-size:.7rem;color:var(--muted);margin-top:10px;text-align:center;line-height:1.5;"></div>
-              </div>
-            </div>
-          </div>
-
-          <div class="card full-card">
-            <div class="card-head">
-              <div class="card-title" id="tab-section-title">HALL OF FAME</div>
-              <div style="font-size:.7rem;color:var(--muted);"><span id="countdown">10s</span></div>
-            </div>
-            <div class="hof-tabs">
-              <button class="hof-tab active" id="tab-hof" onclick="switchTab('hof')">🏆 GANADORES</button>
-              <button class="hof-tab" id="tab-activity" onclick="switchTab('activity')">📋 ACTIVIDAD</button>
-            </div>
-            <div id="panel-hof"><div class="winners-list" id="winners-list"></div></div>
-            <div id="panel-activity" style="display:none;"><div class="history-list" id="history-list"></div></div>
+        <!-- Admin create round -->
+        <div id="admin-create" style="display:none; margin-top:20px; border-top:1px solid var(--border); padding-top:20px;">
+          <h3 style="color:var(--gold);">CREAR NUEVA RONDA (ADMIN)</h3>
+          <div class="admin-create-form">
+            <input type="number" id="new-price" placeholder="Precio SOL" step="0.001" min="0.001">
+            <input type="datetime-local" id="new-start" placeholder="Inicio">
+            <input type="datetime-local" id="new-end" placeholder="Fin">
+            <input type="number" id="new-max" placeholder="Max tickets" min="1">
+            <button class="btn btn-primary" style="width:auto;" onclick="handleCreateRound()">CREAR</button>
           </div>
         </div>
       </div>
@@ -609,353 +297,390 @@
   </div>
 </div>
 
-<!-- MODALS (identical to previous version) -->
+<!-- TX Modal -->
 <div id="tx-modal" class="modal-overlay" onclick="closeTxModal()">
   <div class="modal-box" onclick="event.stopPropagation()">
-    <div id="tx-loading" style="display:none;"><div class="tx-loader"></div><div class="modal-title" id="tx-title-loading">Procesando...</div><div class="modal-desc" id="tx-desc-loading">Esperando confirmación...</div></div>
-    <div id="tx-success" style="display:none;"><div class="tx-icon success">✓</div><div class="modal-title">¡Transacción exitosa!</div><div class="modal-desc" id="tx-desc-success"></div><a id="tx-link" class="tx-link" href="#" target="_blank">Ver en Solscan ↗</a><div class="modal-btns" style="margin-top:16px;"><button class="mbtn mbtn-secondary" onclick="closeTxModal()">CERRAR</button></div></div>
-    <div id="tx-error" style="display:none;"><div class="tx-icon error">✕</div><div class="modal-title">Error en la transacción</div><div class="modal-desc" id="tx-desc-error"></div><div class="modal-btns"><button class="mbtn mbtn-secondary" onclick="closeTxModal()">CERRAR</button></div></div>
+    <div id="tx-loading"><div class="tx-loader"></div><div class="modal-title">Procesando...</div><div class="modal-desc" id="tx-desc-loading">Esperando confirmación...</div></div>
+    <div id="tx-success" style="display:none;"><div class="tx-icon success">✓</div><div class="modal-title">¡Éxito!</div><div class="modal-desc" id="tx-desc-success"></div><a id="tx-link" class="tx-link" href="#" target="_blank">Ver en Solscan ↗</a><div class="modal-btns"><button class="mbtn mbtn-secondary" onclick="closeTxModal()">CERRAR</button></div></div>
+    <div id="tx-error" style="display:none;"><div class="tx-icon error">✕</div><div class="modal-title">Error</div><div class="modal-desc" id="tx-desc-error"></div><div class="modal-btns"><button class="mbtn mbtn-secondary" onclick="closeTxModal()">CERRAR</button></div></div>
   </div>
 </div>
-
-<div id="confirm-modal" class="modal-overlay" onclick="_confirmReject()">
-  <div class="modal-box" onclick="event.stopPropagation()">
-    <div class="tx-icon warn" id="confirm-icon">⚠️</div><div class="modal-title" id="confirm-title">¿Confirmar acción?</div><div class="modal-desc" id="confirm-desc"></div><div id="confirm-details-slot"></div>
-    <div class="modal-btns"><button class="mbtn mbtn-secondary" onclick="_confirmReject()">CANCELAR</button><button class="mbtn mbtn-danger" id="confirm-ok-btn" onclick="_confirmAccept()">CONFIRMAR</button></div>
-  </div>
-</div>
-
-<div id="input-modal" class="modal-overlay" onclick="_inputCancel()">
-  <div class="modal-box" onclick="event.stopPropagation()">
-    <div class="tx-icon info" id="input-icon">✏️</div><div class="modal-title" id="input-title">Introduce un valor</div><div class="modal-desc" id="input-desc"></div>
-    <div class="modal-input-group"><label class="modal-input-label" id="input-label">VALOR</label><input class="modal-input" id="input-field" type="number" step="0.001" min="0.001" placeholder="0.1"/><div class="modal-note" id="input-note"></div></div>
-    <div class="modal-btns"><button class="mbtn mbtn-secondary" onclick="_inputCancel()">CANCELAR</button><button class="mbtn mbtn-primary" onclick="_inputAccept()">CONTINUAR</button></div>
-  </div>
-</div>
-
-<div id="winner-modal" class="modal-overlay" onclick="closeWinnerModal()">
-  <div class="modal-box wide" onclick="event.stopPropagation()">
-    <div class="winner-celebration">
-      <div class="confetti-row">🎉🏆🎉</div><div class="modal-title" style="font-size:1.6rem;color:var(--gold-hi);">¡TENEMOS GANADOR!</div><div class="modal-desc">El sorteo ha finalizado. El bote ha sido transferido on-chain.</div>
-      <div class="winner-prize-big" id="wm-prize">0.0000 ◎</div><div style="font-size:.72rem;color:var(--muted);margin-bottom:4px;">WALLET GANADORA</div><div class="winner-addr-box" id="wm-addr" onclick="copyWinnerAddr()" title="Clic para copiar">...</div><div style="font-size:.7rem;color:var(--muted);">Clic en la dirección para copiar · Verificable on-chain</div>
-    </div>
-    <div class="modal-btns" style="margin-top:20px;"><a id="wm-link" class="tx-link" href="#" target="_blank">Ver transacción ↗</a><button class="mbtn mbtn-gold" onclick="closeWinnerModal()">¡ENTENDIDO! 🎊</button></div>
-  </div>
-</div>
-
-<div id="toasts"></div>
 
 <script>
 const { Connection, PublicKey, SystemProgram, Transaction, TransactionInstruction } = solanaWeb3;
 const PROGRAM_ID = new PublicKey("AZFvRwhuBiUbj4wvLu1EbZVdLgcYrYpHm3nRttDS4Vx3");
 const RPC = "https://api.devnet.solana.com";
 const EXPLORER = "https://solscan.io";
-const HOF_KEY = "sollotto_winners_devnet";
-
 const conn = new Connection(RPC, "confirmed");
+
 let walletPubkey = null;
-let lotteryState = null;
-let myTickets = 0;
+let globalState = null;   // { admin, roundCount }
+let rounds = [];          // array de objetos Round parseados
+let selectedRoundId = null;
 let busy = false;
 let refreshTimer = null;
-let countdownInt = null;
-let countdownVal = 10;
-let currentTab = 'hof';
-let activityLog = [];
 
-/* ---------- HELPERS ---------- */
+/* ---------- UTILS ---------- */
 const el = id => document.getElementById(id);
 function utf8(s) { return new TextEncoder().encode(s); }
 function u64LE(n) { const b = new ArrayBuffer(8); new DataView(b).setBigUint64(0, n, true); return new Uint8Array(b); }
+function i64LE(n) { const b = new ArrayBuffer(8); new DataView(b).setBigInt64(0, n, true); return new Uint8Array(b); }
 function concat(...arrs) { const len = arrs.reduce((a,b)=>a+b.length,0); const res = new Uint8Array(len); let off=0; for(const a of arrs){res.set(a,off);off+=a.length;} return res; }
 function short(pk,n=4){if(!pk)return"...";const s=pk.toBase58?pk.toBase58():pk.toString();return s.slice(0,n)+"..."+s.slice(-n);}
 function fmtSOL(lam,dec=4){return(Number(lam)/1e9).toFixed(dec)+" ◎";}
 function now(){return new Date().toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});}
-function setBusy(id,state){const b=el(id);if(b)b.disabled=state;}
-function toast(type,lbl,msg){const d=document.createElement("div");d.className=`tst ${type}`;d.innerHTML=`<div class="tst-lbl">${lbl}</div><div class="tst-msg">${msg}</div>`;el("toasts").prepend(d);setTimeout(()=>d.remove(),6000);}
-function copyAddr(){if(!walletPubkey)return;navigator.clipboard.writeText(walletPubkey.toBase58()).then(()=>toast("i","COPIADO","Dirección copiada al portapapeles"));}
-
-/* ---------- HALL OF FAME ---------- */
-function loadWinners(){try{return JSON.parse(localStorage.getItem(HOF_KEY)||"[]");}catch{return[];}}
-function saveWinner(entry){const list=loadWinners();list.unshift(entry);localStorage.setItem(HOF_KEY,JSON.stringify(list.slice(0,50)));}
-function renderWinners(){
-  const list=loadWinners();
-  const container=el("winners-list");
-  if(list.length===0){container.innerHTML=`<div class="empty-state"><div class="es-icon">🏆</div><div>Aún no hay ganadores registrados.<br>¡Sé el primero!</div></div>`;return;}
-  container.innerHTML=list.map((w,i)=>{
-    const medal=i===0?"🥇":i===1?"🥈":i===2?"🥉":`#${i+1}`;
-    const rankClass=i===0?"r1":"";
-    return `<div class="winner-item"><div class="winner-rank ${rankClass}">${medal}</div><div class="winner-info"><div class="winner-addr" onclick="copyText('${w.address}')" title="${w.address}">${w.address}</div><div class="winner-meta">Ronda ${w.round} · ${w.date}</div></div><div style="text-align:right;flex-shrink:0;"><div class="winner-prize">${w.prize}</div><div class="winner-round"><a href="${EXPLORER}/tx/${w.sig}?cluster=devnet" target="_blank" style="color:var(--muted);text-decoration:none;">ver tx ↗</a></div></div></div>`;
-  }).join("");
-}
-function copyText(text){navigator.clipboard.writeText(text).then(()=>toast("i","COPIADO",text.slice(0,20)+"..."));}
-
-/* ---------- ACTIVITY LOG ---------- */
-function addActivity(icon,cls,title,detail,amount){activityLog.unshift({icon,cls,title,detail,amount,time:now()});if(activityLog.length>30)activityLog.pop();renderActivity();}
-function renderActivity(){
-  const container=el("history-list");
-  if(activityLog.length===0){container.innerHTML=`<div class="empty-state"><div class="es-icon">📋</div><div>No hay actividad reciente</div></div>`;return;}
-  container.innerHTML=activityLog.map(a=>`<div class="history-item"><div class="history-ico ${a.cls}">${a.icon}</div><div class="history-info"><div class="history-t">${a.title}</div><div class="history-d">${a.detail} · ${a.time}</div></div>${a.amount?`<div class="history-amt">${a.amount}</div>`:""}</div>`).join("");
-}
-
-/* ---------- TABS ---------- */
-function switchTab(tab){currentTab=tab;el("tab-hof").classList.toggle("active",tab==="hof");el("tab-activity").classList.toggle("active",tab==="activity");el("panel-hof").style.display=tab==="hof"?"block":"none";el("panel-activity").style.display=tab==="activity"?"block":"none";}
-
-/* ---------- MODALS ---------- */
-let _confirmResolve=null;
-function showConfirm({title,desc,details,iconEmoji,okLabel,okClass}){
-  return new Promise(resolve=>{_confirmResolve=resolve;el("confirm-icon").textContent=iconEmoji||"⚠️";el("confirm-title").textContent=title;el("confirm-desc").innerHTML=desc||"";el("confirm-details-slot").innerHTML=details||"";const okBtn=el("confirm-ok-btn");okBtn.textContent=okLabel||"CONFIRMAR";okBtn.className=`mbtn ${okClass||"mbtn-danger"}`;el("confirm-modal").classList.add("flex");});
-}
-function _confirmAccept(){el("confirm-modal").classList.remove("flex");_confirmResolve&&_confirmResolve(true);}
-function _confirmReject(){el("confirm-modal").classList.remove("flex");_confirmResolve&&_confirmResolve(false);}
-
-let _inputResolve=null;
-function showInput({title,desc,label,note,defaultValue,icon}){
-  return new Promise(resolve=>{_inputResolve=resolve;el("input-icon").textContent=icon||"✏️";el("input-title").textContent=title;el("input-desc").textContent=desc||"";el("input-label").textContent=label||"VALOR";el("input-note").textContent=note||"";el("input-field").value=defaultValue||"";el("input-modal").classList.add("flex");setTimeout(()=>el("input-field").focus(),100);});
-}
-function _inputAccept(){const val=el("input-field").value.trim();el("input-modal").classList.remove("flex");_inputResolve&&_inputResolve(val);}
-function _inputCancel(){el("input-modal").classList.remove("flex");_inputResolve&&_inputResolve(null);}
-
-/* ---------- PDA FUNCTIONS ---------- */
-function lotteryPDA(){return PublicKey.findProgramAddressSync([utf8("lottery")],PROGRAM_ID)[0];}
-function ticketPDA(ticketId){return PublicKey.findProgramAddressSync([utf8("ticket"),u64LE(BigInt(ticketId))],PROGRAM_ID)[0];}
 
 /* ---------- DISCRIMINATOR ---------- */
 async function discriminator(name){const hash=await crypto.subtle.digest("SHA-256",utf8(`global:${name}`));return new Uint8Array(hash).slice(0,8);}
 
-/* ---------- FETCH STATE ---------- */
-async function fetchState(){
-  try{
-    const pda=lotteryPDA();
-    const info=await conn.getAccountInfo(pda);
-    if(!info){
-      el("not-initialized").style.display="block";el("main-content").style.display="none";lotteryState=null;
-      el("ni-title").textContent="Lotería no inicializada";
-      el("ni-desc").innerHTML="La cuenta de la lotería aún no existe en la blockchain.<br>Conecta la wallet de administrador para crearla.";
-      el("ni-btn").style.display="inline-flex";el("ni-btn").textContent="🚀 INICIALIZAR LOTERÍA";el("ni-btn").onclick=handleInitialize;
+/* ---------- PDA ---------- */
+function globalPDA(){return PublicKey.findProgramAddressSync([utf8("global")],PROGRAM_ID)[0];}
+function roundPDA(roundId){return PublicKey.findProgramAddressSync([utf8("round"),u64LE(BigInt(roundId))],PROGRAM_ID)[0];}
+function ticketPDA(roundId, ticketNumber){return PublicKey.findProgramAddressSync([utf8("ticket"),u64LE(BigInt(roundId)),u64LE(BigInt(ticketNumber))],PROGRAM_ID)[0];}
+
+/* ---------- FETCH GLOBAL + ROUNDS ---------- */
+async function fetchAll() {
+  try {
+    const gPDA = globalPDA();
+    const gInfo = await conn.getAccountInfo(gPDA);
+    if (!gInfo) {
+      globalState = null;
+      rounds = [];
+      el("rounds-container").innerHTML = "<p style='color:var(--muted);'>Lotería no inicializada. Conecta como admin para crearla.</p>";
+      el("actions-container").style.display = "none";
       return;
     }
-    el("not-initialized").style.display="none";el("main-content").style.display="block";
-    const data=info.data;
-    lotteryState={
-      admin:        new PublicKey(data.slice(8,40)),
-      ticketPrice:  new DataView(data.buffer,data.byteOffset+40,8).getBigUint64(0,true),
-      totalTickets: new DataView(data.buffer,data.byteOffset+48,8).getBigUint64(0,true),
-      totalPrize:   new DataView(data.buffer,data.byteOffset+56,8).getBigUint64(0,true),
-      isActive:     data[64]!==0,
-      winner:       new PublicKey(data.slice(65,97)),
-      roundStartId: new DataView(data.buffer,data.byteOffset+97,8).getBigUint64(0,true),
+    const gData = gInfo.data;
+    globalState = {
+      admin: new PublicKey(gData.slice(8,40)),
+      roundCount: Number(new DataView(gData.buffer, gData.byteOffset+40, 8).getBigUint64(0, true))
     };
-    const roundTickets=lotteryState.totalTickets-lotteryState.roundStartId;
-    el("prize-amount").textContent=fmtSOL(lotteryState.totalPrize,2);
-    el("ticket-price").textContent=fmtSOL(lotteryState.ticketPrice,2);
-    el("total-tickets").textContent=roundTickets.toString();
-    const status=el("lottery-status");
-    if(lotteryState.isActive){status.className="prize-status active";status.innerHTML='<span class="pdot"></span>ACTIVA';}
-    else{status.className="prize-status closed";status.innerHTML='<span class="pdot"></span>CERRADA';}
-    el("btn-buy").textContent=lotteryState.isActive?`COMPRAR TICKET · ${fmtSOL(lotteryState.ticketPrice,2)}`:"LOTERÍA CERRADA";
-    el("btn-buy").disabled=!lotteryState.isActive;
-    const isAdmin=walletPubkey&&lotteryState.admin.equals(walletPubkey);
-    el("admin-panel").style.display=isAdmin?"block":"none";
-    el("user-role-badge").style.display=isAdmin?"block":"none";
-    if(isAdmin){
-      el("user-avatar").classList.add("is-admin");el("user-avatar").textContent="⚙️";
-      el("user-name").innerHTML=`ADMIN <span class="admin-badge-small">✓</span>`;
-      const btnPick=el("btn-pick"),btnRestart=el("btn-restart"),hint=el("admin-hint");
-      if(lotteryState.isActive){
-        btnPick.disabled=false;btnPick.style.opacity="";btnRestart.disabled=true;btnRestart.style.opacity="0.35";
-        hint.innerHTML="Ronda activa — elige ganador para cerrar, luego podrás reiniciar.";
-      }else{
-        btnPick.disabled=true;btnPick.style.opacity="0.35";btnRestart.disabled=false;btnRestart.style.opacity="";
-        const w=lotteryState.winner.toBase58();
-        const noWinner=w==="11111111111111111111111111111111";
-        hint.innerHTML=noWinner?"Ronda cerrada — inicia una nueva cuando quieras.":`Último ganador: <span style="font-family:var(--mono);color:var(--gold)">${short(lotteryState.winner,6)}</span>`;
-      }
-    }else{
-      el("user-avatar").classList.remove("is-admin");el("user-avatar").textContent="👤";el("user-name").textContent="ANON";
+    // Cargar todas las rondas
+    rounds = [];
+    for (let i=0; i<globalState.roundCount; i++) {
+      try {
+        const rPDA = roundPDA(i);
+        const rInfo = await conn.getAccountInfo(rPDA);
+        if (!rInfo) continue;
+        const data = rInfo.data;
+        // Deserializar Round (estructura fija)
+        let offset = 8; // skip discriminator
+        const id = Number(new DataView(data.buffer, data.byteOffset+offset, 8).getBigUint64(0, true)); offset+=8;
+        const ticketPrice = new DataView(data.buffer, data.byteOffset+offset, 8).getBigUint64(0, true); offset+=8;
+        const startTime = Number(new DataView(data.buffer, data.byteOffset+offset, 8).getBigInt64(0, true)); offset+=8;
+        const endTime = Number(new DataView(data.buffer, data.byteOffset+offset, 8).getBigInt64(0, true)); offset+=8;
+        const maxTickets = new DataView(data.buffer, data.byteOffset+offset, 8).getBigUint64(0, true); offset+=8;
+        // players array: 2000 * 32 bytes
+        const players = [];
+        for (let j=0; j<2000; j++) {
+          const pubkey = new PublicKey(data.slice(offset, offset+32));
+          offset+=32;
+          players.push(pubkey);
+        }
+        const playerCount = Number(new DataView(data.buffer, data.byteOffset+offset, 8).getBigUint64(0, true)); offset+=8;
+        const winner = new PublicKey(data.slice(offset, offset+32)); offset+=32;
+        const isFinalized = data[offset] !== 0; offset+=1;
+        const totalPrize = new DataView(data.buffer, data.byteOffset+offset, 8).getBigUint64(0, true); offset+=8;
+        const admin = new PublicKey(data.slice(offset, offset+32)); offset+=32;
+        const bump = data[offset]; offset+=1;
+
+        rounds.push({
+          id, ticketPrice, startTime, endTime, maxTickets, players, playerCount,
+          winner, isFinalized, totalPrize, admin, bump
+        });
+      } catch(e) { console.warn("Error fetching round", i, e); }
     }
-    myTickets=0;
-    const startId=lotteryState.roundStartId+1n;
-    for(let i=startId;i<=lotteryState.totalTickets;i++){
-      try{const tInfo=await conn.getAccountInfo(ticketPDA(i));if(tInfo){const owner=new PublicKey(tInfo.data.slice(8,40));if(walletPubkey&&owner.equals(walletPubkey))myTickets++;}}catch(_){}
-    }
-    el("my-tickets-count").textContent=myTickets;
-    renderWinners();
-    resetCountdown();
-  }catch(e){console.error("fetchState error:",e);}
+    renderRounds();
+    updateSelectedRoundUI();
+  } catch(e) { console.error("fetchAll error", e); }
 }
 
-/* ---------- SEND TX ---------- */
-async function sendTx(ixs){
-  const{blockhash}=await conn.getLatestBlockhash();
-  const tx=new Transaction();tx.recentBlockhash=blockhash;tx.feePayer=walletPubkey;
-  ixs.forEach(ix=>tx.add(ix));
-  const signed=await window.solana.signTransaction(tx);
-  const sig=await conn.sendRawTransaction(signed.serialize());
-  await conn.confirmTransaction(sig,"confirmed");
+function renderRounds() {
+  const container = el("rounds-container");
+  if (rounds.length === 0) {
+    container.innerHTML = "<p style='color:var(--muted);'>No hay rondas creadas aún.</p>";
+    return;
+  }
+  const nowTs = Math.floor(Date.now()/1000);
+  container.innerHTML = rounds.map(r => {
+    let statusClass = 'status-upcoming', statusText = 'PRÓXIMA';
+    if (r.isFinalized) { statusClass = 'status-finished'; statusText = 'FINALIZADA'; }
+    else if (nowTs >= r.startTime && nowTs <= r.endTime) { statusClass = 'status-active'; statusText = 'ACTIVA'; }
+    else if (nowTs > r.endTime) { statusClass = 'status-finished'; statusText = 'FINALIZABLE'; }
+
+    const progress = r.maxTickets > 0 ? Math.min(100, (Number(r.playerCount) / Number(r.maxTickets))*100) : 0;
+    return `
+      <div class="round-card ${selectedRoundId===r.id?'selected':''}" onclick="selectRound(${r.id})">
+        <div class="round-id">RONDA #${r.id}</div>
+        <div class="round-price">${fmtSOL(r.ticketPrice,2)}</div>
+        <div class="round-meta">
+          <span>👥 ${r.playerCount}/${r.maxTickets}</span>
+          <span>🏆 ${fmtSOL(r.totalPrize,2)}</span>
+        </div>
+        <div class="round-time">${new Date(r.startTime*1000).toLocaleString()} → ${new Date(r.endTime*1000).toLocaleString()}</div>
+        <div class="round-progress"><div class="round-progress-bar" style="width:${progress}%;"></div></div>
+        <span class="round-status ${statusClass}">${statusText}</span>
+        ${r.isFinalized && !r.winner.equals(SystemProgram.programId) ? `<div style="margin-top:8px;font-size:.7rem;color:var(--gold);">Ganador: ${short(r.winner,6)}</div>` : ''}
+      </div>`;
+  }).join('');
+}
+
+function selectRound(id) {
+  selectedRoundId = id;
+  renderRounds();
+  updateSelectedRoundUI();
+}
+
+function updateSelectedRoundUI() {
+  const round = rounds.find(r => r.id === selectedRoundId);
+  const actions = el("actions-container");
+  if (!round) { actions.style.display = "none"; return; }
+  actions.style.display = "block";
+
+  el("selected-round-info").innerHTML = `
+    Ronda #${round.id} · ${fmtSOL(round.ticketPrice,2)} por ticket · ${round.playerCount}/${round.maxTickets} boletos · Bote: ${fmtSOL(round.totalPrize,2)}<br>
+    Estado: ${round.isFinalized ? 'FINALIZADA' : (Date.now()/1000 >= round.startTime && Date.now()/1000 <= round.endTime ? 'ACTIVA' : (Date.now()/1000 > round.endTime ? 'FINALIZABLE' : 'PRÓXIMA'))}
+  `;
+
+  const nowTs = Math.floor(Date.now()/1000);
+  const canBuy = !round.isFinalized && nowTs >= round.startTime && nowTs <= round.endTime && round.playerCount < round.maxTickets;
+  el("btn-buy").disabled = !canBuy;
+
+  const canFinalize = !round.isFinalized && nowTs >= round.endTime && round.playerCount > 0;
+  el("btn-finalize").style.display = canFinalize ? "inline-flex" : "none";
+
+  const isWinner = walletPubkey && round.isFinalized && round.winner.equals(walletPubkey);
+  const prizeUnclaimed = round.totalPrize > 0n;
+  el("btn-claim").style.display = (isWinner && prizeUnclaimed) ? "inline-flex" : "none";
+
+  // Admin panel
+  const isAdmin = walletPubkey && globalState && globalState.admin.equals(walletPubkey);
+  el("admin-create").style.display = isAdmin ? "block" : "none";
+}
+
+/* ---------- TRANSACTION HELPER ---------- */
+async function sendTx(ixs) {
+  const { blockhash } = await conn.getLatestBlockhash();
+  const tx = new Transaction();
+  tx.recentBlockhash = blockhash;
+  tx.feePayer = walletPubkey;
+  ixs.forEach(ix => tx.add(ix));
+  const signed = await window.solana.signTransaction(tx);
+  const sig = await conn.sendRawTransaction(signed.serialize());
+  await conn.confirmTransaction(sig, "confirmed");
   return sig;
 }
 
-/* ---------- TX MODAL ---------- */
-function openTxModal(title,desc){el("tx-title-loading").textContent=title;el("tx-desc-loading").textContent=desc;el("tx-loading").style.display="block";el("tx-success").style.display="none";el("tx-error").style.display="none";el("tx-modal").classList.add("flex");}
-function txSuccess(sig){el("tx-desc-success").textContent=`Firma: ${short(sig,8)}`;el("tx-link").href=`${EXPLORER}/tx/${sig}?cluster=devnet`;el("tx-loading").style.display="none";el("tx-success").style.display="block";}
-function txError(msg){console.error("TX ERROR FULL:",msg);const display=msg.length>200?msg.slice(0,200)+"…":msg;el("tx-desc-error").textContent=display;el("tx-loading").style.display="none";el("tx-error").style.display="block";}
-function closeTxModal(){el("tx-modal").classList.remove("flex");}
-
-/* ---------- WINNER MODAL ---------- */
-let _winnerAddrFull="";
-function showWinnerModal(pubkey,prize,sig){_winnerAddrFull=pubkey.toBase58?pubkey.toBase58():pubkey.toString();el("wm-prize").textContent=fmtSOL(prize,4);el("wm-addr").textContent=_winnerAddrFull;el("wm-link").href=`${EXPLORER}/tx/${sig}?cluster=devnet`;el("winner-modal").classList.add("flex");}
-function closeWinnerModal(){el("winner-modal").classList.remove("flex");}
-function copyWinnerAddr(){navigator.clipboard.writeText(_winnerAddrFull).then(()=>toast("i","COPIADO","Dirección del ganador copiada"));}
+function openTxModal(title, desc) {
+  el("tx-desc-loading").textContent = desc;
+  el("tx-loading").style.display = "block";
+  el("tx-success").style.display = "none";
+  el("tx-error").style.display = "none";
+  el("tx-modal").classList.add("flex");
+}
+function txSuccess(sig) {
+  el("tx-desc-success").textContent = `Firma: ${short(sig,8)}`;
+  el("tx-link").href = `${EXPLORER}/tx/${sig}?cluster=devnet`;
+  el("tx-loading").style.display = "none";
+  el("tx-success").style.display = "block";
+}
+function txError(msg) {
+  el("tx-desc-error").textContent = msg.slice(0,200);
+  el("tx-loading").style.display = "none";
+  el("tx-error").style.display = "block";
+}
+function closeTxModal() { el("tx-modal").classList.remove("flex"); }
 
 /* ---------- ACTIONS ---------- */
-async function handleInitialize(){
-  if(!walletPubkey||busy)return;
-  const existingInfo=await conn.getAccountInfo(lotteryPDA());
-  if(existingInfo){
-    if(lotteryState&&!lotteryState.isActive){toast("i","LOTERÍA YA EXISTE","Usa 'Nueva Ronda' para reiniciarla.");await fetchState();}
-    else if(lotteryState&&lotteryState.isActive){toast("i","LOTERÍA YA ACTIVA","Puedes comprar tickets.");await fetchState();}
-    else{await fetchState();}
+async function handleBuy() {
+  if (!walletPubkey || !selectedRoundId || busy) return;
+  const round = rounds.find(r => r.id === selectedRoundId);
+  if (!round) return;
+  busy = true;
+  openTxModal("Comprando ticket", `Ronda ${round.id} · ${fmtSOL(round.ticketPrice,2)}`);
+  try {
+    const disc = await discriminator("buy_ticket");
+    const data = concat(disc, u64LE(BigInt(round.id)));
+    const roundPda = roundPDA(round.id);
+    const nextTicketNum = round.playerCount + 1n;
+    const ticketPda = ticketPDA(round.id, nextTicketNum);
+    const ix = new TransactionInstruction({
+      programId: PROGRAM_ID,
+      keys: [
+        { pubkey: roundPda, isSigner: false, isWritable: true },
+        { pubkey: ticketPda, isSigner: false, isWritable: true },
+        { pubkey: walletPubkey, isSigner: true, isWritable: true },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ],
+      data
+    });
+    const sig = await sendTx([ix]);
+    txSuccess(sig);
+    await fetchAll();
+  } catch(e) { txError(e.message); console.error(e); }
+  busy = false;
+}
+
+async function handleFinalize() {
+  if (!walletPubkey || !selectedRoundId || busy) return;
+  const round = rounds.find(r => r.id === selectedRoundId);
+  if (!round) return;
+  busy = true;
+  openTxModal("Finalizando ronda", `Calculando ganador de ronda ${round.id}...`);
+  try {
+    // 1) finalize_round
+    const disc1 = await discriminator("finalize_round");
+    const data1 = concat(disc1, u64LE(BigInt(round.id)));
+    const roundPda = roundPDA(round.id);
+    const ix1 = new TransactionInstruction({
+      programId: PROGRAM_ID,
+      keys: [
+        { pubkey: roundPda, isSigner: false, isWritable: true },
+      ],
+      data: data1
+    });
+    await sendTx([ix1]);
+    // Refrescar para obtener winner
+    await fetchAll();
+    const updatedRound = rounds.find(r => r.id === selectedRoundId);
+    if (!updatedRound || !updatedRound.isFinalized) throw new Error("La ronda no se finalizó correctamente");
+    
+    // 2) claim_prize (automático)
+    if (updatedRound.totalPrize > 0n && !updatedRound.winner.equals(SystemProgram.programId)) {
+      const disc2 = await discriminator("claim_prize");
+      const data2 = concat(disc2, u64LE(BigInt(round.id)));
+      const ix2 = new TransactionInstruction({
+        programId: PROGRAM_ID,
+        keys: [
+          { pubkey: roundPda, isSigner: false, isWritable: true },
+          { pubkey: updatedRound.winner, isSigner: false, isWritable: true },
+          { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+        ],
+        data: data2
+      });
+      const sig = await sendTx([ix2]);
+      txSuccess(sig);
+    } else {
+      txSuccess("Ronda finalizada, sin premio que reclamar.");
+    }
+    await fetchAll();
+  } catch(e) { txError(e.message); console.error(e); }
+  busy = false;
+}
+
+async function handleClaim() {
+  if (!walletPubkey || !selectedRoundId || busy) return;
+  const round = rounds.find(r => r.id === selectedRoundId);
+  if (!round || !round.isFinalized || round.totalPrize <= 0n) return;
+  busy = true;
+  openTxModal("Reclamando premio", `Enviando ${fmtSOL(round.totalPrize,4)} a ${short(round.winner,6)}`);
+  try {
+    const disc = await discriminator("claim_prize");
+    const data = concat(disc, u64LE(BigInt(round.id)));
+    const roundPda = roundPDA(round.id);
+    const ix = new TransactionInstruction({
+      programId: PROGRAM_ID,
+      keys: [
+        { pubkey: roundPda, isSigner: false, isWritable: true },
+        { pubkey: round.winner, isSigner: false, isWritable: true },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ],
+      data
+    });
+    const sig = await sendTx([ix]);
+    txSuccess(sig);
+    await fetchAll();
+  } catch(e) { txError(e.message); console.error(e); }
+  busy = false;
+}
+
+async function handleCreateRound() {
+  if (!walletPubkey || !globalState || busy) return;
+  const price = parseFloat(el("new-price").value);
+  const startStr = el("new-start").value;
+  const endStr = el("new-end").value;
+  const max = parseInt(el("new-max").value);
+  if (isNaN(price) || price<=0 || !startStr || !endStr || isNaN(max) || max<=0) {
+    alert("Completa todos los campos correctamente.");
     return;
   }
-  const priceStr=await showInput({icon:"🚀",title:"Inicializar Lotería",desc:"Introduce el precio de cada ticket en SOL. Esta operación crea la cuenta on-chain por primera vez.",label:"PRECIO DEL TICKET (SOL)",note:"Solo es necesario hacerlo una vez. Las siguientes rondas usan 'Nueva Ronda'.",defaultValue:"0.1"});
-  if(!priceStr)return;
-  const ticketPrice=parseFloat(priceStr);
-  if(isNaN(ticketPrice)||ticketPrice<=0){toast("e","ERROR","Precio inválido. Usa un número positivo.");return;}
-  busy=true;openTxModal("Inicializando lotería","Creando cuenta en la blockchain por primera vez...");
-  try{
-    const disc=await discriminator("initialize");const priceLamports=Math.floor(ticketPrice*1e9);
-    const data=concat(disc,u64LE(BigInt(priceLamports)));const pda=lotteryPDA();
-    const ix=new TransactionInstruction({programId:PROGRAM_ID,keys:[{pubkey:pda,isSigner:false,isWritable:true},{pubkey:walletPubkey,isSigner:true,isWritable:true},{pubkey:SystemProgram.programId,isSigner:false,isWritable:false}],data});
-    const sig=await sendTx([ix]);txSuccess(sig);addActivity("🚀","t","Lotería inicializada",`Precio: ${ticketPrice} SOL`,null);
-    toast("s","¡LOTERÍA INICIALIZADA! 🎉",`Tickets a ${ticketPrice} SOL`);await fetchState();
-  }catch(e){console.error(e);txError(e.message);toast("e","ERROR AL INICIALIZAR",e.message.slice(0,80));}
-  busy=false;
-}
-
-async function handleBuy(){
-  if(!walletPubkey||!lotteryState||busy)return;
-  busy=true;setBusy("btn-buy",true);
-  const currentRoundTickets=Number(lotteryState.totalTickets-lotteryState.roundStartId);
-  const ticketInRound=currentRoundTickets+1;
-  const nextNum=Number(lotteryState.totalTickets)+1;
-  openTxModal(`Comprando ticket ronda #${ticketInRound} (global #${nextNum})`,`Precio: ${fmtSOL(lotteryState.ticketPrice,2)}`);
-  try{
-    const disc=await discriminator("buy_ticket");const pda=lotteryPDA();const tPda=ticketPDA(lotteryState.totalTickets+1n);
-    const ix=new TransactionInstruction({programId:PROGRAM_ID,keys:[{pubkey:pda,isSigner:false,isWritable:true},{pubkey:tPda,isSigner:false,isWritable:true},{pubkey:walletPubkey,isSigner:true,isWritable:true},{pubkey:SystemProgram.programId,isSigner:false,isWritable:false}],data:disc});
-    const sig=await sendTx([ix]);txSuccess(sig);myTickets++;el("my-tickets-count").textContent=myTickets;
-    addActivity("🎟","t",`Ticket ronda #${ticketInRound} (global #${nextNum})`,`${short(walletPubkey,6)}`,fmtSOL(lotteryState.ticketPrice,2));
-    toast("s",`TICKET RONDA #${ticketInRound}`,`¡Compraste el ticket #${ticketInRound} de esta ronda! (ID global: ${nextNum})`);
-    await fetchState();
-  }catch(e){console.error(e);txError(e.message);toast("e","ERROR AL COMPRAR",e.message.slice(0,80));}
-  busy=false;if(lotteryState)el("btn-buy").textContent=`COMPRAR TICKET · ${fmtSOL(lotteryState.ticketPrice,2)}`;setBusy("btn-buy",false);
-}
-
-async function handleRestart(){
-  if(!walletPubkey||!lotteryState||busy)return;
-  if(lotteryState.isActive){toast("e","LOTERÍA ACTIVA","Primero elige un ganador para cerrar la ronda actual.");return;}
-  const currentSOL=(Number(lotteryState.ticketPrice)/1e9).toFixed(4);
-  const finishedRoundTickets=Number(lotteryState.totalTickets-lotteryState.roundStartId);
-  const priceStr=await showInput({icon:"🔄",title:"Nueva Ronda",desc:"Introduce el precio del ticket para la siguiente ronda.",label:"PRECIO DEL TICKET (SOL)",note:`Precio actual: ${currentSOL} SOL.`,defaultValue:currentSOL});
-  if(!priceStr)return;
-  const ticketPrice=parseFloat(priceStr);
-  if(isNaN(ticketPrice)||ticketPrice<=0){toast("e","PRECIO INVÁLIDO","Introduce un número positivo.");return;}
-  const ok=await showConfirm({iconEmoji:"🔄",title:"¿Iniciar nueva ronda?",desc:"Esto reiniciará el bote y activará la lotería para nuevos tickets.",
-    details:`<div class="confirm-details"><div class="confirm-row"><span>Precio ticket</span><span>${ticketPrice} SOL</span></div><div class="confirm-row"><span>Bote actual</span><span>${fmtSOL(lotteryState.totalPrize,4)}</span></div><div class="confirm-row"><span>Tickets en la ronda finalizada</span><span>${finishedRoundTickets}</span></div><div class="confirm-warn">⚠️ La nueva ronda empieza desde cero. Los tickets de la ronda anterior NO participan.</div></div>`,
-    okLabel:"NUEVA RONDA",okClass:"mbtn-primary"});
-  if(!ok)return;
-  busy=true;setBusy("btn-restart",true);openTxModal("Iniciando nueva ronda","Reiniciando la lotería...");
-  try{
-    const priceLamports=Math.floor(ticketPrice*1e9);const disc=await discriminator("restart");
-    const data=concat(disc,u64LE(BigInt(priceLamports)));const pda=lotteryPDA();
-    const ix=new TransactionInstruction({programId:PROGRAM_ID,keys:[{pubkey:pda,isSigner:false,isWritable:true},{pubkey:walletPubkey,isSigner:true,isWritable:true},{pubkey:SystemProgram.programId,isSigner:false,isWritable:false}],data});
-    const sig=await sendTx([ix]);txSuccess(sig);myTickets=0;el("my-tickets-count").textContent=0;
-    addActivity("🔄","t","Nueva ronda iniciada",`Precio: ${ticketPrice} SOL`,null);
-    toast("s","NUEVA RONDA INICIADA 🎲",`Tickets a ${ticketPrice} SOL — ¡empieza de cero!`);
-    await fetchState();
-  }catch(e){console.error(e);txError(e.message);toast("e","ERROR",e.message.slice(0,80));}
-  busy=false;setBusy("btn-restart",false);
-}
-
-async function handlePickWinner(){
-  if(!walletPubkey||!lotteryState||busy)return;
-  if(lotteryState.totalTickets<=lotteryState.roundStartId){toast("e","SIN TICKETS","No hay tickets vendidos en esta ronda.");return;}
-  const roundTicketCount=Number(lotteryState.totalTickets-lotteryState.roundStartId);
-  const ok=await showConfirm({iconEmoji:"🏆",title:"¿Elegir ganador?",desc:"Se sorteará aleatoriamente entre todos los tickets de esta ronda. El bote se transferirá al ganador on-chain.",
-    details:`<div class="confirm-details"><div class="confirm-row"><span>Tickets en juego (ronda)</span><span>${roundTicketCount}</span></div><div class="confirm-row"><span>Bote total</span><span>${fmtSOL(lotteryState.totalPrize,4)}</span></div></div><div class="confirm-warn">⚠️ Esta acción es IRREVERSIBLE.</div>`,
-    okLabel:"🏆 SORTEAR",okClass:"mbtn-gold"});
-  if(!ok)return;
-  busy=true;setBusy("btn-pick",true);openTxModal("Sorteando ganador","Recopilando tickets on-chain...");
-  try{
-    const owners=[];const startId=lotteryState.roundStartId+1n;
-    for(let i=startId;i<=lotteryState.totalTickets;i++){
-      try{const tInfo=await conn.getAccountInfo(ticketPDA(i));if(tInfo)owners.push(new PublicKey(tInfo.data.slice(8,40)));}catch(_){}
-      if(i%5n===0n){const checked=i-startId+1n;el("tx-desc-loading").textContent=`Leyendo tickets... ${checked}/${roundTicketCount}`;}
-    }
-    if(owners.length===0){txError("No se encontraron tickets válidos.");busy=false;setBusy("btn-pick",false);return;}
-    el("tx-desc-loading").textContent="Calculando ganador...";const slotInfo=await conn.getSlot();
-    const seed=Math.abs(slotInfo^Date.now());const winnerPubkey=owners[seed%owners.length];
-    el("tx-desc-loading").textContent=`Ganador: ${short(winnerPubkey,6)} — enviando tx...`;
-    const disc=await discriminator("pick_winner");const pda=lotteryPDA();
-    const ix=new TransactionInstruction({programId:PROGRAM_ID,keys:[{pubkey:pda,isSigner:false,isWritable:true},{pubkey:walletPubkey,isSigner:true,isWritable:true},{pubkey:winnerPubkey,isSigner:false,isWritable:true},{pubkey:SystemProgram.programId,isSigner:false,isWritable:false}],data:disc});
-    const prizeBeforeTx=lotteryState.totalPrize;const sig=await sendTx([ix]);
-    const currentWinners=loadWinners();const roundNumber=currentWinners.length+1;
-    const winnerEntry={address:winnerPubkey.toBase58(),prize:fmtSOL(prizeBeforeTx,4),prizeLamports:prizeBeforeTx.toString(),round:roundNumber,date:new Date().toLocaleDateString("es-ES",{day:"2-digit",month:"short",year:"numeric"}),sig};
-    saveWinner(winnerEntry);addActivity("🏆","w",`Ganador ronda ${roundNumber}`,`${short(winnerPubkey,8)}`,fmtSOL(prizeBeforeTx,4));
-    closeTxModal();showWinnerModal(winnerPubkey,prizeBeforeTx,sig);
-    toast("s",`¡GANADOR RONDA ${roundNumber}!`,`${short(winnerPubkey,6)} recibe ${fmtSOL(prizeBeforeTx,4)}`);
-    await fetchState();
-  }catch(e){console.error(e);txError(e.message);toast("e","ERROR",e.message.slice(0,80));}
-  busy=false;setBusy("btn-pick",false);
+  const startTs = Math.floor(new Date(startStr).getTime()/1000);
+  const endTs = Math.floor(new Date(endStr).getTime()/1000);
+  if (endTs <= startTs) { alert("La fecha de fin debe ser posterior al inicio."); return; }
+  busy = true;
+  openTxModal("Creando ronda", `Precio: ${price} SOL, max tickets: ${max}`);
+  try {
+    const disc = await discriminator("create_round");
+    const priceLam = BigInt(Math.floor(price*1e9));
+    const data = concat(
+      disc,
+      u64LE(priceLam),
+      i64LE(BigInt(startTs)),
+      i64LE(BigInt(endTs)),
+      u64LE(BigInt(max))
+    );
+    const gPda = globalPDA();
+    const rPda = roundPDA(globalState.roundCount);
+    const ix = new TransactionInstruction({
+      programId: PROGRAM_ID,
+      keys: [
+        { pubkey: gPda, isSigner: false, isWritable: true },
+        { pubkey: rPda, isSigner: false, isWritable: true },
+        { pubkey: walletPubkey, isSigner: true, isWritable: true },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ],
+      data
+    });
+    const sig = await sendTx([ix]);
+    txSuccess(sig);
+    await fetchAll();
+    el("new-price").value = "";
+    el("new-start").value = "";
+    el("new-end").value = "";
+    el("new-max").value = "";
+  } catch(e) { txError(e.message); console.error(e); }
+  busy = false;
 }
 
 /* ---------- WALLET ---------- */
-async function handleWalletBtn(){walletPubkey?disconnectWallet():await connectWallet();}
-async function connectWallet(){
-  if(!window.solana?.isPhantom){el("no-phantom-msg").style.display="block";return;}
-  try{const resp=await window.solana.connect();walletPubkey=resp.publicKey;onConnected();}catch(e){toast("e","ERROR DE CONEXIÓN",e.message);}
+async function handleWalletBtn() { walletPubkey ? disconnectWallet() : await connectWallet(); }
+async function connectWallet() {
+  if (!window.solana?.isPhantom) { el("no-phantom-msg").style.display = "block"; return; }
+  try {
+    const resp = await window.solana.connect();
+    walletPubkey = resp.publicKey;
+    el("btn-wallet").classList.add("on");
+    el("wallet-label").textContent = `DESCONECTAR · ${short(walletPubkey,4)}`;
+    el("wallet-dot").style.display = "inline-block";
+    el("net-status").style.display = "flex";
+    el("welcome").style.display = "none";
+    el("dashboard").style.display = "block";
+    await fetchAll();
+    startRefresh();
+  } catch(e) { console.error(e); }
 }
-function onConnected(){
-  el("btn-wallet").classList.add("on");el("wallet-label").textContent=`DESCONECTAR · ${short(walletPubkey,4)}`;
-  el("wallet-dot").style.display="inline-block";el("net-status").style.display="flex";
-  el("welcome").style.display="none";el("dashboard").style.display="block";
-  el("user-addr-short").textContent=short(walletPubkey,6);el("my-tickets-count").textContent=myTickets;
-  fetchState();startRefresh();
+function disconnectWallet() {
+  window.solana?.disconnect();
+  walletPubkey = null;
+  el("btn-wallet").classList.remove("on");
+  el("wallet-label").textContent = "CONECTAR WALLET";
+  el("welcome").style.display = "flex";
+  el("dashboard").style.display = "none";
+  stopRefresh();
 }
-function disconnectWallet(){
-  window.solana?.disconnect();walletPubkey=null;lotteryState=null;myTickets=0;stopRefresh();
-  el("btn-wallet").classList.remove("on");el("wallet-label").textContent="CONECTAR WALLET";el("wallet-dot").style.display="none";
-  el("net-status").style.display="none";el("welcome").style.display="flex";el("dashboard").style.display="none";
-}
+function startRefresh() { stopRefresh(); refreshTimer = setInterval(fetchAll, 10000); }
+function stopRefresh() { clearInterval(refreshTimer); }
 
-/* ---------- AUTO-REFRESH ---------- */
-function startRefresh(){stopRefresh();refreshTimer=setInterval(fetchState,10000);resetCountdown();}
-function stopRefresh(){clearInterval(refreshTimer);clearInterval(countdownInt);}
-function resetCountdown(){clearInterval(countdownInt);countdownVal=10;el("countdown").textContent="10s";countdownInt=setInterval(()=>{countdownVal--;el("countdown").textContent=countdownVal+"s";if(countdownVal<=0){countdownVal=10;el("countdown").textContent="10s";}},1000);}
-
-/* ---------- MOBILE NOTICE ---------- */
-function copyWindowUrl(){
-  navigator.clipboard.writeText(window.location.href).then(()=>toast("i","URL COPIADA","Pégala en el navegador de Phantom 📱"));
-}
-function checkMobileAndPhantom(){
-  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-  const hasPhantom = !!window.solana?.isPhantom;
-  if (isMobile && !hasPhantom) {
-    el("mobile-notice").style.display = "block";
+window.addEventListener("load", () => {
+  if (window.solana?.isPhantom && window.solana.isConnected) {
+    window.solana.connect({ onlyIfTrusted: true }).then(r => { walletPubkey = r.publicKey; connectWallet(); }).catch(() => {});
   }
-}
-
-/* ---------- INIT ---------- */
-window.addEventListener("load",()=>{
-  checkMobileAndPhantom();
-  const inputField=el("input-field");
-  if(inputField){inputField.addEventListener("keydown",e=>{if(e.key==="Enter")_inputAccept();if(e.key==="Escape")_inputCancel();});}
-  renderWinners();
-  if(window.solana?.isPhantom&&window.solana.isConnected){window.solana.connect({onlyIfTrusted:true}).then(r=>{walletPubkey=r.publicKey;onConnected();}).catch(()=>{});}
 });
-window.solana?.on?.("disconnect",disconnectWallet);
-window.solana?.on?.("accountChanged",pk=>{if(pk){walletPubkey=pk;el("user-addr-short").textContent=short(pk,6);fetchState();}else disconnectWallet();});
-document.addEventListener("keydown",e=>{if(e.key==="Escape"){_confirmReject();_inputCancel();closeWinnerModal();closeTxModal();}});
+window.solana?.on?.("disconnect", disconnectWallet);
+window.solana?.on?.("accountChanged", pk => {
+  if (pk) { walletPubkey = pk; fetchAll(); }
+  else disconnectWallet();
+});
 </script>
 </body>
 </html>

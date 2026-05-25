@@ -550,7 +550,7 @@
           <div class="card">
             <div class="card-head">
               <div class="card-title">TU CUENTA</div>
-              <div id="user-role-badge" style="display:none;" class="card-badge" style="background:rgba(245,158,11,.1);color:var(--gold);border-color:rgba(245,158,11,.3);">⚙ ADMIN</div>
+              <div id="user-role-badge" style="display:none;" class="card-badge">⚙ ADMIN</div>
             </div>
             <div class="user-panel">
               <div class="user-avatar" id="user-avatar">👤</div>
@@ -728,6 +728,7 @@
 
 <script>
 const { Connection, PublicKey, SystemProgram, Transaction, TransactionInstruction } = solanaWeb3;
+
 const PROGRAM_ID = new PublicKey("AZFvRwhuBiUbj4wvLu1EbZVdLgcYrYpHm3nRttDS4Vx3");
 const RPC        = "https://api.devnet.solana.com";
 const EXPLORER   = "https://solscan.io";
@@ -750,262 +751,378 @@ let activityLog  = [];
 const el = id => document.getElementById(id);
 function utf8(s) { return new TextEncoder().encode(s); }
 function u64LE(n) { const b = new ArrayBuffer(8); new DataView(b).setBigUint64(0, n, true); return new Uint8Array(b); }
-function concat(...arrs) { const len = arrs.reduce((a, b) => a + b.length, 0); const res = new Uint8Array(len); let off = 0; for (const a of arrs) { res.set(a, off); off += a.length; } return res; }
-function short(pk, n = 4) { if (!pk) return "..."; const s = pk.toBase58 ? pk.toBase58() : pk.toString(); return s.slice(0, n) + "..." + s.slice(-n); }
-function fmtSOL(lam, dec = 4) { return (Number(lam) / 1e9).toFixed(dec) + " ◎"; }
-function now() { return new Date().toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }); }
-function setBusy(id, state) { const b = el(id); if (b) b.disabled = state; }
-function toast(type, lbl, msg) { const d = document.createElement("div"); d.className = `tst ${type}`; d.innerHTML = `<div class="tst-lbl">${lbl}</div><div class="tst-msg">${msg}</div>`; el("toasts").prepend(d); setTimeout(() => d.remove(), 6000); }
-function copyAddr() { if (!walletPubkey) return; navigator.clipboard.writeText(walletPubkey.toBase58()).then(() => toast("i", "COPIADO", "Dirección copiada al portapapeles")); }
+function concat(...arrs) { const len = arrs.reduce((a,b)=>a+b.length,0); const res = new Uint8Array(len); let off=0; for(const a of arrs){res.set(a,off);off+=a.length;} return res; }
+function short(pk,n=4){if(!pk)return"...";const s=pk.toBase58?pk.toBase58():pk.toString();return s.slice(0,n)+"..."+s.slice(-n);}
+function fmtSOL(lam,dec=4){return(Number(lam)/1e9).toFixed(dec)+" ◎";}
+function now(){return new Date().toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});}
+function setBusy(id,state){const b=el(id);if(b)b.disabled=state;}
+function toast(type,lbl,msg){const d=document.createElement("div");d.className=`tst ${type}`;d.innerHTML=`<div class="tst-lbl">${lbl}</div><div class="tst-msg">${msg}</div>`;el("toasts").prepend(d);setTimeout(()=>d.remove(),6000);}
+function copyAddr(){if(!walletPubkey)return;navigator.clipboard.writeText(walletPubkey.toBase58()).then(()=>toast("i","COPIADO","Dirección copiada al portapapeles"));}
 
 /* ══════════════════════════════════════════════
    HALL OF FAME
 ══════════════════════════════════════════════ */
-function loadWinners() { try { return JSON.parse(localStorage.getItem(HOF_KEY) || "[]"); } catch { return []; } }
-function saveWinner(entry) { const list = loadWinners(); list.unshift(entry); localStorage.setItem(HOF_KEY, JSON.stringify(list.slice(0, 50))); }
-function renderWinners() { /* ... igual que antes ... */ }
-function copyText(text) { navigator.clipboard.writeText(text).then(() => toast("i", "COPIADO", text.slice(0,20) + "...")); }
+function loadWinners(){try{return JSON.parse(localStorage.getItem(HOF_KEY)||"[]");}catch{return[];}}
+function saveWinner(entry){const list=loadWinners();list.unshift(entry);localStorage.setItem(HOF_KEY,JSON.stringify(list.slice(0,50)));}
+function renderWinners(){
+  const list=loadWinners();
+  const container=el("winners-list");
+  if(list.length===0){container.innerHTML=`<div class="empty-state"><div class="es-icon">🏆</div><div>Aún no hay ganadores registrados.<br>¡Sé el primero!</div></div>`;return;}
+  container.innerHTML=list.map((w,i)=>{
+    const medal=i===0?"🥇":i===1?"🥈":i===2?"🥉":`#${i+1}`;
+    const rankClass=i===0?"r1":"";
+    return `<div class="winner-item">
+      <div class="winner-rank ${rankClass}">${medal}</div>
+      <div class="winner-info">
+        <div class="winner-addr" onclick="copyText('${w.address}')" title="${w.address}">${w.address}</div>
+        <div class="winner-meta">Ronda ${w.round} · ${w.date}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        <div class="winner-prize">${w.prize}</div>
+        <div class="winner-round"><a href="${EXPLORER}/tx/${w.sig}?cluster=devnet" target="_blank" style="color:var(--muted);text-decoration:none;">ver tx ↗</a></div>
+      </div>
+    </div>`;
+  }).join("");
+}
+function copyText(text){navigator.clipboard.writeText(text).then(()=>toast("i","COPIADO",text.slice(0,20)+"..."));}
 
 /* ══════════════════════════════════════════════
    ACTIVITY LOG
 ══════════════════════════════════════════════ */
-function addActivity(icon, cls, title, detail, amount) { activityLog.unshift({ icon, cls, title, detail, amount, time: now() }); if (activityLog.length > 30) activityLog.pop(); renderActivity(); }
-function renderActivity() { /* ... igual ... */ }
+function addActivity(icon,cls,title,detail,amount){activityLog.unshift({icon,cls,title,detail,amount,time:now()});if(activityLog.length>30)activityLog.pop();renderActivity();}
+function renderActivity(){
+  const container=el("history-list");
+  if(activityLog.length===0){container.innerHTML=`<div class="empty-state"><div class="es-icon">📋</div><div>No hay actividad reciente</div></div>`;return;}
+  container.innerHTML=activityLog.map(a=>`<div class="history-item">
+    <div class="history-ico ${a.cls}">${a.icon}</div>
+    <div class="history-info"><div class="history-t">${a.title}</div><div class="history-d">${a.detail} · ${a.time}</div></div>
+    ${a.amount?`<div class="history-amt">${a.amount}</div>`:""}
+  </div>`).join("");
+}
 
 /* ══════════════════════════════════════════════
-   TABS, MODALS, PDA, DISCRIMINATOR, FETCH
+   TABS
 ══════════════════════════════════════════════ */
-/* ... (mismas funciones) ... */
+function switchTab(tab){currentTab=tab;el("tab-hof").classList.toggle("active",tab==="hof");el("tab-activity").classList.toggle("active",tab==="activity");el("panel-hof").style.display=tab==="hof"?"block":"none";el("panel-activity").style.display=tab==="activity"?"block":"none";}
 
-// ───── FETCH STATE (igual, solo cambio el texto de "Tickets previos" en admin hint, opcional) ─────
-async function fetchState() {
-  /* ... */
+/* ══════════════════════════════════════════════
+   MODALS
+══════════════════════════════════════════════ */
+let _confirmResolve=null;
+function showConfirm({title,desc,details,iconEmoji,okLabel,okClass}){
+  return new Promise(resolve=>{
+    _confirmResolve=resolve;
+    el("confirm-icon").textContent=iconEmoji||"⚠️";
+    el("confirm-title").textContent=title;
+    el("confirm-desc").innerHTML=desc||"";
+    el("confirm-details-slot").innerHTML=details||"";
+    const okBtn=el("confirm-ok-btn");
+    okBtn.textContent=okLabel||"CONFIRMAR";
+    okBtn.className=`mbtn ${okClass||"mbtn-danger"}`;
+    el("confirm-modal").classList.add("flex");
+  });
 }
+function _confirmAccept(){el("confirm-modal").classList.remove("flex");_confirmResolve&&_confirmResolve(true);}
+function _confirmReject(){el("confirm-modal").classList.remove("flex");_confirmResolve&&_confirmResolve(false);}
+
+let _inputResolve=null;
+function showInput({title,desc,label,note,defaultValue,icon}){
+  return new Promise(resolve=>{
+    _inputResolve=resolve;
+    el("input-icon").textContent=icon||"✏️";
+    el("input-title").textContent=title;
+    el("input-desc").textContent=desc||"";
+    el("input-label").textContent=label||"VALOR";
+    el("input-note").textContent=note||"";
+    el("input-field").value=defaultValue||"";
+    el("input-modal").classList.add("flex");
+    setTimeout(()=>el("input-field").focus(),100);
+  });
+}
+function _inputAccept(){const val=el("input-field").value.trim();el("input-modal").classList.remove("flex");_inputResolve&&_inputResolve(val);}
+function _inputCancel(){el("input-modal").classList.remove("flex");_inputResolve&&_inputResolve(null);}
+
+/* ══════════════════════════════════════════════
+   PDA FUNCTIONS
+══════════════════════════════════════════════ */
+function lotteryPDA(){return PublicKey.findProgramAddressSync([utf8("lottery")],PROGRAM_ID)[0];}
+function ticketPDA(ticketId){return PublicKey.findProgramAddressSync([utf8("ticket"),u64LE(BigInt(ticketId))],PROGRAM_ID)[0];}
+
+/* ══════════════════════════════════════════════
+   DISCRIMINATOR
+══════════════════════════════════════════════ */
+async function discriminator(name){const hash=await crypto.subtle.digest("SHA-256",utf8(`global:${name}`));return new Uint8Array(hash).slice(0,8);}
+
+/* ══════════════════════════════════════════════
+   FETCH STATE
+══════════════════════════════════════════════ */
+async function fetchState(){
+  try{
+    const pda=lotteryPDA();
+    const info=await conn.getAccountInfo(pda);
+    if(!info){
+      el("not-initialized").style.display="block";
+      el("main-content").style.display="none";
+      lotteryState=null;
+      el("ni-title").textContent="Lotería no inicializada";
+      el("ni-desc").innerHTML="La cuenta de la lotería aún no existe en la blockchain.<br>Conecta la wallet de administrador para crearla.";
+      el("ni-btn").style.display="inline-flex";
+      el("ni-btn").textContent="🚀 INICIALIZAR LOTERÍA";
+      el("ni-btn").onclick=handleInitialize;
+      return;
+    }
+    el("not-initialized").style.display="none";
+    el("main-content").style.display="block";
+    const data=info.data;
+    lotteryState={
+      admin:        new PublicKey(data.slice(8,40)),
+      ticketPrice:  new DataView(data.buffer,data.byteOffset+40,8).getBigUint64(0,true),
+      totalTickets: new DataView(data.buffer,data.byteOffset+48,8).getBigUint64(0,true),
+      totalPrize:   new DataView(data.buffer,data.byteOffset+56,8).getBigUint64(0,true),
+      isActive:     data[64]!==0,
+      winner:       new PublicKey(data.slice(65,97)),
+      roundStartId: new DataView(data.buffer,data.byteOffset+97,8).getBigUint64(0,true),
+    };
+    const roundTickets=lotteryState.totalTickets-lotteryState.roundStartId;
+    el("prize-amount").textContent=fmtSOL(lotteryState.totalPrize,2);
+    el("ticket-price").textContent=fmtSOL(lotteryState.ticketPrice,2);
+    el("total-tickets").textContent=roundTickets.toString();
+    const status=el("lottery-status");
+    if(lotteryState.isActive){status.className="prize-status active";status.innerHTML='<span class="pdot"></span>ACTIVA';}
+    else{status.className="prize-status closed";status.innerHTML='<span class="pdot"></span>CERRADA';}
+    el("btn-buy").textContent=lotteryState.isActive?`COMPRAR TICKET · ${fmtSOL(lotteryState.ticketPrice,2)}`:"LOTERÍA CERRADA";
+    el("btn-buy").disabled=!lotteryState.isActive;
+    const isAdmin=walletPubkey&&lotteryState.admin.equals(walletPubkey);
+    el("admin-panel").style.display=isAdmin?"block":"none";
+    el("user-role-badge").style.display=isAdmin?"block":"none";
+    if(isAdmin){
+      el("user-avatar").classList.add("is-admin");
+      el("user-avatar").textContent="⚙️";
+      el("user-name").innerHTML=`ADMIN <span class="admin-badge-small">✓</span>`;
+      const btnPick=el("btn-pick"),btnRestart=el("btn-restart"),hint=el("admin-hint");
+      if(lotteryState.isActive){
+        btnPick.disabled=false;btnPick.style.opacity="";btnRestart.disabled=true;btnRestart.style.opacity="0.35";
+        hint.innerHTML="Ronda activa — elige ganador para cerrar, luego podrás reiniciar.";
+      }else{
+        btnPick.disabled=true;btnPick.style.opacity="0.35";btnRestart.disabled=false;btnRestart.style.opacity="";
+        const w=lotteryState.winner.toBase58();
+        const noWinner=w==="11111111111111111111111111111111";
+        hint.innerHTML=noWinner?"Ronda cerrada — inicia una nueva cuando quieras.":`Último ganador: <span style="font-family:var(--mono);color:var(--gold)">${short(lotteryState.winner,6)}</span>`;
+      }
+    }else{
+      el("user-avatar").classList.remove("is-admin");el("user-avatar").textContent="👤";el("user-name").textContent="ANON";
+    }
+    myTickets=0;
+    const startId=lotteryState.roundStartId+1n;
+    for(let i=startId;i<=lotteryState.totalTickets;i++){
+      try{const tInfo=await conn.getAccountInfo(ticketPDA(i));if(tInfo){const owner=new PublicKey(tInfo.data.slice(8,40));if(walletPubkey&&owner.equals(walletPubkey))myTickets++;}}catch(_){}
+    }
+    el("my-tickets-count").textContent=myTickets;
+    renderWinners();
+    resetCountdown();
+  }catch(e){console.error("fetchState error:",e);}
+}
+
+/* ══════════════════════════════════════════════
+   SEND TX
+══════════════════════════════════════════════ */
+async function sendTx(ixs){
+  const{blockhash}=await conn.getLatestBlockhash();
+  const tx=new Transaction();tx.recentBlockhash=blockhash;tx.feePayer=walletPubkey;
+  ixs.forEach(ix=>tx.add(ix));
+  const signed=await window.solana.signTransaction(tx);
+  const sig=await conn.sendRawTransaction(signed.serialize());
+  await conn.confirmTransaction(sig,"confirmed");
+  return sig;
+}
+
+/* ══════════════════════════════════════════════
+   TX MODAL
+══════════════════════════════════════════════ */
+function openTxModal(title,desc){el("tx-title-loading").textContent=title;el("tx-desc-loading").textContent=desc;el("tx-loading").style.display="block";el("tx-success").style.display="none";el("tx-error").style.display="none";el("tx-modal").classList.add("flex");}
+function txSuccess(sig){el("tx-desc-success").textContent=`Firma: ${short(sig,8)}`;el("tx-link").href=`${EXPLORER}/tx/${sig}?cluster=devnet`;el("tx-loading").style.display="none";el("tx-success").style.display="block";}
+function txError(msg){console.error("TX ERROR FULL:",msg);const display=msg.length>200?msg.slice(0,200)+"…":msg;el("tx-desc-error").textContent=display;el("tx-loading").style.display="none";el("tx-error").style.display="block";}
+function closeTxModal(){el("tx-modal").classList.remove("flex");}
+
+/* ══════════════════════════════════════════════
+   WINNER MODAL
+══════════════════════════════════════════════ */
+let _winnerAddrFull="";
+function showWinnerModal(pubkey,prize,sig){_winnerAddrFull=pubkey.toBase58?pubkey.toBase58():pubkey.toString();el("wm-prize").textContent=fmtSOL(prize,4);el("wm-addr").textContent=_winnerAddrFull;el("wm-link").href=`${EXPLORER}/tx/${sig}?cluster=devnet`;el("winner-modal").classList.add("flex");}
+function closeWinnerModal(){el("winner-modal").classList.remove("flex");}
+function copyWinnerAddr(){navigator.clipboard.writeText(_winnerAddrFull).then(()=>toast("i","COPIADO","Dirección del ganador copiada"));}
 
 /* ══════════════════════════════════════════════
    ACTIONS
 ══════════════════════════════════════════════ */
 
-async function handleInitialize() {
-  /* ... sin cambios ... */
-}
-
-async function handleBuy() {
-  if (!walletPubkey || !lotteryState || busy) return;
-  busy = true; setBusy("btn-buy", true);
-
-  // Calcular número de ticket de la ronda actual (antes de comprar)
-  const currentRoundTickets = Number(lotteryState.totalTickets - lotteryState.roundStartId);
-  const ticketInRound = currentRoundTickets + 1;
-
-  const nextNum = Number(lotteryState.totalTickets) + 1;
-  openTxModal(`Comprando ticket #${nextNum}`, `Precio: ${fmtSOL(lotteryState.ticketPrice, 2)}`);
-
-  try {
-    const disc = await discriminator("buy_ticket");
-    const pda  = lotteryPDA();
-    const tPda = ticketPDA(lotteryState.totalTickets + 1n);
-
-    const ix = new TransactionInstruction({
-      programId: PROGRAM_ID,
-      keys: [
-        { pubkey: pda,                     isSigner: false, isWritable: true  },
-        { pubkey: tPda,                    isSigner: false, isWritable: true  },
-        { pubkey: walletPubkey,            isSigner: true,  isWritable: true  },
-        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-      ],
-      data: disc,
-    });
-
-    const sig = await sendTx([ix]);
+async function handleInitialize(){
+  if(!walletPubkey||busy)return;
+  const existingInfo=await conn.getAccountInfo(lotteryPDA());
+  if(existingInfo){
+    if(lotteryState&&!lotteryState.isActive){toast("i","LOTERÍA YA EXISTE","Usa 'Nueva Ronda' para reiniciarla.");await fetchState();}
+    else if(lotteryState&&lotteryState.isActive){toast("i","LOTERÍA YA ACTIVA","Puedes comprar tickets.");await fetchState();}
+    else{await fetchState();}
+    return;
+  }
+  const priceStr=await showInput({icon:"🚀",title:"Inicializar Lotería",desc:"Introduce el precio de cada ticket en SOL. Esta operación crea la cuenta on-chain por primera vez.",label:"PRECIO DEL TICKET (SOL)",note:"Solo es necesario hacerlo una vez. Las siguientes rondas usan 'Nueva Ronda'.",defaultValue:"0.1"});
+  if(!priceStr)return;
+  const ticketPrice=parseFloat(priceStr);
+  if(isNaN(ticketPrice)||ticketPrice<=0){toast("e","ERROR","Precio inválido. Usa un número positivo.");return;}
+  busy=true;
+  openTxModal("Inicializando lotería","Creando cuenta en la blockchain por primera vez...");
+  try{
+    const disc=await discriminator("initialize");
+    const priceLamports=Math.floor(ticketPrice*1e9);
+    const data=concat(disc,u64LE(BigInt(priceLamports)));
+    const pda=lotteryPDA();
+    const ix=new TransactionInstruction({programId:PROGRAM_ID,keys:[{pubkey:pda,isSigner:false,isWritable:true},{pubkey:walletPubkey,isSigner:true,isWritable:true},{pubkey:SystemProgram.programId,isSigner:false,isWritable:false}],data});
+    const sig=await sendTx([ix]);
     txSuccess(sig);
-    myTickets++; // actualización local (luego fetchState sincronizará)
-    el("my-tickets-count").textContent = myTickets;
-
-    // Mensaje de actividad con número de ronda y global
-    addActivity("🎟", "t", `Ticket ronda #${ticketInRound} (global #${nextNum})`, `${short(walletPubkey, 6)}`, fmtSOL(lotteryState.ticketPrice, 2));
-    toast("s", `TICKET RONDA #${ticketInRound}`, `¡Compraste el ticket #${ticketInRound} de esta ronda! (ID global: ${nextNum})`);
+    addActivity("🚀","t","Lotería inicializada",`Precio: ${ticketPrice} SOL`,null);
+    toast("s","¡LOTERÍA INICIALIZADA! 🎉",`Tickets a ${ticketPrice} SOL`);
     await fetchState();
-  } catch (e) {
-    console.error(e);
-    txError(e.message);
-    toast("e", "ERROR AL COMPRAR", e.message.slice(0, 80));
-  }
-
-  busy = false;
-  if (lotteryState) el("btn-buy").textContent = `COMPRAR TICKET · ${fmtSOL(lotteryState.ticketPrice, 2)}`;
-  setBusy("btn-buy", false);
+  }catch(e){console.error(e);txError(e.message);toast("e","ERROR AL INICIALIZAR",e.message.slice(0,80));}
+  busy=false;
 }
 
-async function handleRestart() {
-  if (!walletPubkey || !lotteryState || busy) return;
-  if (lotteryState.isActive) {
-    toast("e", "LOTERÍA ACTIVA", "Primero elige un ganador para cerrar la ronda actual.");
-    return;
-  }
-
-  const currentSOL = (Number(lotteryState.ticketPrice) / 1e9).toFixed(4);
-  const finishedRoundTickets = Number(lotteryState.totalTickets - lotteryState.roundStartId);
-
-  const priceStr = await showInput({
-    icon: "🔄", title: "Nueva Ronda",
-    desc: "Introduce el precio del ticket para la siguiente ronda.",
-    label: "PRECIO DEL TICKET (SOL)",
-    note: `Precio actual: ${currentSOL} SOL.`,
-    defaultValue: currentSOL,
-  });
-  if (!priceStr) return;
-  const ticketPrice = parseFloat(priceStr);
-  if (isNaN(ticketPrice) || ticketPrice <= 0) {
-    toast("e", "PRECIO INVÁLIDO", "Introduce un número positivo.");
-    return;
-  }
-
-  const ok = await showConfirm({
-    iconEmoji: "🔄",
-    title: "¿Iniciar nueva ronda?",
-    desc: "Esto reiniciará el bote y activará la lotería para nuevos tickets.",
-    details: `<div class="confirm-details">
-      <div class="confirm-row"><span>Precio ticket</span><span>${ticketPrice} SOL</span></div>
-      <div class="confirm-row"><span>Bote actual</span><span>${fmtSOL(lotteryState.totalPrize, 4)}</span></div>
-      <div class="confirm-row"><span>Tickets en la ronda finalizada</span><span>${finishedRoundTickets}</span></div>
-      <div class="confirm-warn">⚠️ La nueva ronda empieza desde cero. Los tickets de la ronda anterior NO participan.</div>
-    </div>`,
-    okLabel: "NUEVA RONDA",
-    okClass: "mbtn-primary",
-  });
-  if (!ok) return;
-
-  busy = true; setBusy("btn-restart", true);
-  openTxModal("Iniciando nueva ronda", "Reiniciando la lotería...");
-
-  try {
-    const priceLamports = Math.floor(ticketPrice * 1e9);
-    const disc = await discriminator("restart");
-    const data = concat(disc, u64LE(BigInt(priceLamports)));
-    const pda  = lotteryPDA();
-
-    const ix = new TransactionInstruction({
-      programId: PROGRAM_ID,
-      keys: [
-        { pubkey: pda,                     isSigner: false, isWritable: true  },
-        { pubkey: walletPubkey,            isSigner: true,  isWritable: true  },
-        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-      ],
-      data,
-    });
-
-    const sig = await sendTx([ix]);
+async function handleBuy(){
+  if(!walletPubkey||!lotteryState||busy)return;
+  busy=true;setBusy("btn-buy",true);
+  const currentRoundTickets=Number(lotteryState.totalTickets-lotteryState.roundStartId);
+  const ticketInRound=currentRoundTickets+1;
+  const nextNum=Number(lotteryState.totalTickets)+1;
+  openTxModal(`Comprando ticket ronda #${ticketInRound} (global #${nextNum})`,`Precio: ${fmtSOL(lotteryState.ticketPrice,2)}`);
+  try{
+    const disc=await discriminator("buy_ticket");
+    const pda=lotteryPDA();
+    const tPda=ticketPDA(lotteryState.totalTickets+1n);
+    const ix=new TransactionInstruction({programId:PROGRAM_ID,keys:[{pubkey:pda,isSigner:false,isWritable:true},{pubkey:tPda,isSigner:false,isWritable:true},{pubkey:walletPubkey,isSigner:true,isWritable:true},{pubkey:SystemProgram.programId,isSigner:false,isWritable:false}],data:disc});
+    const sig=await sendTx([ix]);
     txSuccess(sig);
-    myTickets = 0;
-    el("my-tickets-count").textContent = 0;
-    addActivity("🔄", "t", "Nueva ronda iniciada", `Precio: ${ticketPrice} SOL`, null);
-    toast("s", "NUEVA RONDA INICIADA 🎲", `Tickets a ${ticketPrice} SOL — ¡empieza de cero!`);
+    myTickets++;
+    el("my-tickets-count").textContent=myTickets;
+    addActivity("🎟","t",`Ticket ronda #${ticketInRound} (global #${nextNum})`,`${short(walletPubkey,6)}`,fmtSOL(lotteryState.ticketPrice,2));
+    toast("s",`TICKET RONDA #${ticketInRound}`,`¡Compraste el ticket #${ticketInRound} de esta ronda! (ID global: ${nextNum})`);
     await fetchState();
-  } catch (e) {
-    console.error(e);
-    txError(e.message);
-    toast("e", "ERROR", e.message.slice(0, 80));
-  }
-  busy = false; setBusy("btn-restart", false);
+  }catch(e){console.error(e);txError(e.message);toast("e","ERROR AL COMPRAR",e.message.slice(0,80));}
+  busy=false;
+  if(lotteryState)el("btn-buy").textContent=`COMPRAR TICKET · ${fmtSOL(lotteryState.ticketPrice,2)}`;
+  setBusy("btn-buy",false);
 }
 
-async function handlePickWinner() {
-  if (!walletPubkey || !lotteryState || busy) return;
-  if (lotteryState.totalTickets <= lotteryState.roundStartId) {
-    toast("e", "SIN TICKETS", "No hay tickets vendidos en esta ronda.");
-    return;
-  }
+async function handleRestart(){
+  if(!walletPubkey||!lotteryState||busy)return;
+  if(lotteryState.isActive){toast("e","LOTERÍA ACTIVA","Primero elige un ganador para cerrar la ronda actual.");return;}
+  const currentSOL=(Number(lotteryState.ticketPrice)/1e9).toFixed(4);
+  const finishedRoundTickets=Number(lotteryState.totalTickets-lotteryState.roundStartId);
+  const priceStr=await showInput({icon:"🔄",title:"Nueva Ronda",desc:"Introduce el precio del ticket para la siguiente ronda.",label:"PRECIO DEL TICKET (SOL)",note:`Precio actual: ${currentSOL} SOL.`,defaultValue:currentSOL});
+  if(!priceStr)return;
+  const ticketPrice=parseFloat(priceStr);
+  if(isNaN(ticketPrice)||ticketPrice<=0){toast("e","PRECIO INVÁLIDO","Introduce un número positivo.");return;}
+  const ok=await showConfirm({iconEmoji:"🔄",title:"¿Iniciar nueva ronda?",desc:"Esto reiniciará el bote y activará la lotería para nuevos tickets.",
+    details:`<div class="confirm-details"><div class="confirm-row"><span>Precio ticket</span><span>${ticketPrice} SOL</span></div><div class="confirm-row"><span>Bote actual</span><span>${fmtSOL(lotteryState.totalPrize,4)}</span></div><div class="confirm-row"><span>Tickets en la ronda finalizada</span><span>${finishedRoundTickets}</span></div><div class="confirm-warn">⚠️ La nueva ronda empieza desde cero. Los tickets de la ronda anterior NO participan.</div></div>`,
+    okLabel:"NUEVA RONDA",okClass:"mbtn-primary"});
+  if(!ok)return;
+  busy=true;setBusy("btn-restart",true);
+  openTxModal("Iniciando nueva ronda","Reiniciando la lotería...");
+  try{
+    const priceLamports=Math.floor(ticketPrice*1e9);
+    const disc=await discriminator("restart");
+    const data=concat(disc,u64LE(BigInt(priceLamports)));
+    const pda=lotteryPDA();
+    const ix=new TransactionInstruction({programId:PROGRAM_ID,keys:[{pubkey:pda,isSigner:false,isWritable:true},{pubkey:walletPubkey,isSigner:true,isWritable:true},{pubkey:SystemProgram.programId,isSigner:false,isWritable:false}],data});
+    const sig=await sendTx([ix]);
+    txSuccess(sig);
+    myTickets=0;el("my-tickets-count").textContent=0;
+    addActivity("🔄","t","Nueva ronda iniciada",`Precio: ${ticketPrice} SOL`,null);
+    toast("s","NUEVA RONDA INICIADA 🎲",`Tickets a ${ticketPrice} SOL — ¡empieza de cero!`);
+    await fetchState();
+  }catch(e){console.error(e);txError(e.message);toast("e","ERROR",e.message.slice(0,80));}
+  busy=false;setBusy("btn-restart",false);
+}
 
-  const roundTicketCount = Number(lotteryState.totalTickets - lotteryState.roundStartId);
-
-  const ok = await showConfirm({
-    iconEmoji: "🏆",
-    title: "¿Elegir ganador?",
-    desc: "Se sorteará aleatoriamente entre todos los tickets de esta ronda. El bote se transferirá al ganador on-chain.",
-    details: `<div class="confirm-details">
-      <div class="confirm-row"><span>Tickets en juego (ronda)</span><span>${roundTicketCount}</span></div>
-      <div class="confirm-row"><span>Bote total</span><span>${fmtSOL(lotteryState.totalPrize, 4)}</span></div>
-    </div>
-    <div class="confirm-warn">⚠️ Esta acción es IRREVERSIBLE. Una vez elegido el ganador, la ronda se cerrará definitivamente.</div>`,
-    okLabel: "🏆 SORTEAR",
-    okClass: "mbtn-gold",
-  });
-  if (!ok) return;
-
-  busy = true; setBusy("btn-pick", true);
-  openTxModal("Sorteando ganador", "Recopilando tickets on-chain...");
-
-  try {
-    const owners = [];
-    const startId = lotteryState.roundStartId + 1n;
-    for (let i = startId; i <= lotteryState.totalTickets; i++) {
-      try {
-        const tInfo = await conn.getAccountInfo(ticketPDA(i));
-        if (tInfo) owners.push(new PublicKey(tInfo.data.slice(8, 40)));
-      } catch (_) {}
-      if (i % 5n === 0n) {
-        const checked = i - startId + 1n;
-        el("tx-desc-loading").textContent = `Leyendo tickets... ${checked}/${roundTicketCount}`;
-      }
+async function handlePickWinner(){
+  if(!walletPubkey||!lotteryState||busy)return;
+  if(lotteryState.totalTickets<=lotteryState.roundStartId){toast("e","SIN TICKETS","No hay tickets vendidos en esta ronda.");return;}
+  const roundTicketCount=Number(lotteryState.totalTickets-lotteryState.roundStartId);
+  const ok=await showConfirm({iconEmoji:"🏆",title:"¿Elegir ganador?",desc:"Se sorteará aleatoriamente entre todos los tickets de esta ronda. El bote se transferirá al ganador on-chain.",
+    details:`<div class="confirm-details"><div class="confirm-row"><span>Tickets en juego (ronda)</span><span>${roundTicketCount}</span></div><div class="confirm-row"><span>Bote total</span><span>${fmtSOL(lotteryState.totalPrize,4)}</span></div></div><div class="confirm-warn">⚠️ Esta acción es IRREVERSIBLE.</div>`,
+    okLabel:"🏆 SORTEAR",okClass:"mbtn-gold"});
+  if(!ok)return;
+  busy=true;setBusy("btn-pick",true);
+  openTxModal("Sorteando ganador","Recopilando tickets on-chain...");
+  try{
+    const owners=[];
+    const startId=lotteryState.roundStartId+1n;
+    for(let i=startId;i<=lotteryState.totalTickets;i++){
+      try{const tInfo=await conn.getAccountInfo(ticketPDA(i));if(tInfo)owners.push(new PublicKey(tInfo.data.slice(8,40)));}catch(_){}
+      if(i%5n===0n){const checked=i-startId+1n;el("tx-desc-loading").textContent=`Leyendo tickets... ${checked}/${roundTicketCount}`;}
     }
-    if (owners.length === 0) { txError("No se encontraron tickets válidos."); busy = false; setBusy("btn-pick", false); return; }
-
-    el("tx-desc-loading").textContent = "Calculando ganador...";
-    const slotInfo = await conn.getSlot();
-    const seed = Math.abs(slotInfo ^ Date.now());
-    const winnerPubkey = owners[seed % owners.length];
-    el("tx-desc-loading").textContent = `Ganador: ${short(winnerPubkey, 6)} — enviando tx...`;
-
-    const disc = await discriminator("pick_winner");
-    const pda  = lotteryPDA();
-    const ix = new TransactionInstruction({
-      programId: PROGRAM_ID,
-      keys: [
-        { pubkey: pda,                     isSigner: false, isWritable: true  },
-        { pubkey: walletPubkey,            isSigner: true,  isWritable: true  },
-        { pubkey: winnerPubkey,            isSigner: false, isWritable: true  },
-        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-      ],
-      data: disc,
-    });
-
-    const prizeBeforeTx = lotteryState.totalPrize;
-    const sig = await sendTx([ix]);
-
-    // Número de ronda real (consecutivo)
-    const currentWinners = loadWinners();
-    const roundNumber = currentWinners.length + 1;
-
-    const winnerEntry = {
-      address: winnerPubkey.toBase58(),
-      prize: fmtSOL(prizeBeforeTx, 4),
-      prizeLamports: prizeBeforeTx.toString(),
-      round: roundNumber,
-      date: new Date().toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" }),
-      sig,
-    };
+    if(owners.length===0){txError("No se encontraron tickets válidos.");busy=false;setBusy("btn-pick",false);return;}
+    el("tx-desc-loading").textContent="Calculando ganador...";
+    const slotInfo=await conn.getSlot();
+    const seed=Math.abs(slotInfo^Date.now());
+    const winnerPubkey=owners[seed%owners.length];
+    el("tx-desc-loading").textContent=`Ganador: ${short(winnerPubkey,6)} — enviando tx...`;
+    const disc=await discriminator("pick_winner");
+    const pda=lotteryPDA();
+    const ix=new TransactionInstruction({programId:PROGRAM_ID,keys:[{pubkey:pda,isSigner:false,isWritable:true},{pubkey:walletPubkey,isSigner:true,isWritable:true},{pubkey:winnerPubkey,isSigner:false,isWritable:true},{pubkey:SystemProgram.programId,isSigner:false,isWritable:false}],data:disc});
+    const prizeBeforeTx=lotteryState.totalPrize;
+    const sig=await sendTx([ix]);
+    const currentWinners=loadWinners();
+    const roundNumber=currentWinners.length+1;
+    const winnerEntry={address:winnerPubkey.toBase58(),prize:fmtSOL(prizeBeforeTx,4),prizeLamports:prizeBeforeTx.toString(),round:roundNumber,date:new Date().toLocaleDateString("es-ES",{day:"2-digit",month:"short",year:"numeric"}),sig};
     saveWinner(winnerEntry);
-
-    addActivity("🏆", "w", `Ganador ronda ${roundNumber}`, `${short(winnerPubkey, 8)}`, fmtSOL(prizeBeforeTx, 4));
-
+    addActivity("🏆","w",`Ganador ronda ${roundNumber}`,`${short(winnerPubkey,8)}`,fmtSOL(prizeBeforeTx,4));
     closeTxModal();
-    showWinnerModal(winnerPubkey, prizeBeforeTx, sig);
-    toast("s", `¡GANADOR RONDA ${roundNumber}!`, `${short(winnerPubkey, 6)} recibe ${fmtSOL(prizeBeforeTx, 4)}`);
-
+    showWinnerModal(winnerPubkey,prizeBeforeTx,sig);
+    toast("s",`¡GANADOR RONDA ${roundNumber}!`,`${short(winnerPubkey,6)} recibe ${fmtSOL(prizeBeforeTx,4)}`);
     await fetchState();
-  } catch (e) {
-    console.error(e);
-    txError(e.message);
-    toast("e", "ERROR", e.message.slice(0, 80));
-  }
-  busy = false; setBusy("btn-pick", false);
+  }catch(e){console.error(e);txError(e.message);toast("e","ERROR",e.message.slice(0,80));}
+  busy=false;setBusy("btn-pick",false);
 }
 
 /* ══════════════════════════════════════════════
-   WALLET, AUTO-REFRESH, INIT (sin cambios)
+   WALLET
 ══════════════════════════════════════════════ */
-/* ... */
+async function handleWalletBtn(){walletPubkey?disconnectWallet():await connectWallet();}
+async function connectWallet(){
+  if(!window.solana?.isPhantom){el("no-phantom-msg").style.display="block";return;}
+  try{const resp=await window.solana.connect();walletPubkey=resp.publicKey;onConnected();}catch(e){toast("e","ERROR DE CONEXIÓN",e.message);}
+}
+function onConnected(){
+  el("btn-wallet").classList.add("on");el("wallet-label").textContent=`DESCONECTAR · ${short(walletPubkey,4)}`;
+  el("wallet-dot").style.display="inline-block";el("net-status").style.display="flex";
+  el("welcome").style.display="none";el("dashboard").style.display="block";
+  el("user-addr-short").textContent=short(walletPubkey,6);el("my-tickets-count").textContent=myTickets;
+  fetchState();startRefresh();
+}
+function disconnectWallet(){
+  window.solana?.disconnect();walletPubkey=null;lotteryState=null;myTickets=0;stopRefresh();
+  el("btn-wallet").classList.remove("on");el("wallet-label").textContent="CONECTAR WALLET";el("wallet-dot").style.display="none";
+  el("net-status").style.display="none";el("welcome").style.display="flex";el("dashboard").style.display="none";
+}
+
+/* ══════════════════════════════════════════════
+   AUTO-REFRESH
+══════════════════════════════════════════════ */
+function startRefresh(){stopRefresh();refreshTimer=setInterval(fetchState,10000);resetCountdown();}
+function stopRefresh(){clearInterval(refreshTimer);clearInterval(countdownInt);}
+function resetCountdown(){clearInterval(countdownInt);countdownVal=10;el("countdown").textContent="10s";countdownInt=setInterval(()=>{countdownVal--;el("countdown").textContent=countdownVal+"s";if(countdownVal<=0){countdownVal=10;el("countdown").textContent="10s";}},1000);}
+
+/* ══════════════════════════════════════════════
+   INIT
+══════════════════════════════════════════════ */
+window.addEventListener("load",()=>{
+  const inputField=el("input-field");
+  if(inputField){inputField.addEventListener("keydown",e=>{if(e.key==="Enter")_inputAccept();if(e.key==="Escape")_inputCancel();});}
+  renderWinners();
+  if(window.solana?.isPhantom&&window.solana.isConnected){window.solana.connect({onlyIfTrusted:true}).then(r=>{walletPubkey=r.publicKey;onConnected();}).catch(()=>{});}
+});
+window.solana?.on?.("disconnect",disconnectWallet);
+window.solana?.on?.("accountChanged",pk=>{if(pk){walletPubkey=pk;el("user-addr-short").textContent=short(pk,6);fetchState();}else disconnectWallet();});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){_confirmReject();_inputCancel();closeWinnerModal();closeTxModal();}});
 </script>
 </body>
 </html>

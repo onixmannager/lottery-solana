@@ -35,6 +35,7 @@
       --shadow: 0 4px 24px rgba(0,0,0,0.3);
       --font: 'Inter', sans-serif;
       --mono: 'JetBrains Mono', monospace;
+      --sidebar-width: 260px;
     }
     body {
       font-family: var(--font);
@@ -56,8 +57,8 @@
 
     /* ═══════ SIDEBAR ═══════ */
     #sidebar {
-      width: 260px;
-      background: rgba(10,15,26,0.9);
+      width: var(--sidebar-width);
+      background: rgba(10,15,26,0.95);
       backdrop-filter: blur(20px);
       border-right: 1px solid var(--border);
       display: flex;
@@ -71,28 +72,29 @@
       box-shadow: var(--shadow);
     }
     .sidebar-logo {
-      padding: 24px 20px;
+      padding: 20px 20px;
       border-bottom: 1px solid var(--border);
       display: flex;
       align-items: center;
       gap: 10px;
+      flex-shrink: 0;
     }
     .logo-icon {
-      width: 36px;
-      height: 36px;
+      width: 34px;
+      height: 34px;
       background: linear-gradient(135deg, var(--primary), #7c4dff);
       border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: 800;
-      font-size: 18px;
+      font-size: 16px;
       color: #fff;
       box-shadow: 0 0 20px rgba(91,108,240,0.4);
     }
     .logo-text {
       font-weight: 700;
-      font-size: 1rem;
+      font-size: 0.95rem;
       letter-spacing: 0.05em;
       color: var(--text);
     }
@@ -116,6 +118,7 @@
       display: flex;
       flex-direction: column;
       gap: 4px;
+      overflow-y: auto;
     }
     .nav-item {
       display: flex;
@@ -158,6 +161,7 @@
       display: flex;
       flex-direction: column;
       gap: 8px;
+      flex-shrink: 0;
     }
     .network-indicator {
       display: flex;
@@ -214,7 +218,7 @@
       flex-shrink: 0;
     }
 
-    /* Mobile toggle */
+    /* ═══════ SIDEBAR TOGGLE (mobile) ═══════ */
     .sidebar-toggle {
       display: none;
       position: fixed;
@@ -232,17 +236,22 @@
       align-items: center;
       justify-content: center;
       backdrop-filter: blur(10px);
+      transition: transform 0.3s ease;
+    }
+    .sidebar-toggle.open {
+      transform: translateX(calc(var(--sidebar-width) - 56px));
     }
 
     /* ═══════ MAIN ═══════ */
     #main-area {
-      margin-left: 260px;
+      margin-left: var(--sidebar-width);
       flex: 1;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       position: relative;
       z-index: 1;
+      transition: margin-left 0.3s ease;
     }
     #welcome {
       flex: 1;
@@ -339,7 +348,7 @@
       display: flex;
     }
 
-    /* ═══ PENDING CLAIMS BANNER (siempre visible si hay premios) ═══ */
+    /* ═══ PENDING CLAIMS BANNER ═══ */
     #pending-claims-banner {
       display: none;
       background: linear-gradient(90deg, rgba(240,185,11,0.12), rgba(240,185,11,0.03));
@@ -412,6 +421,8 @@
       padding: 28px 0 20px;
       border-bottom: 1px solid var(--border);
       margin-bottom: 24px;
+      flex-wrap: wrap;
+      gap: 12px;
     }
     .section-header-left h2 {
       font-size: 1.6rem;
@@ -423,22 +434,8 @@
       font-size: 0.85rem;
       color: var(--text-muted);
     }
-    .admin-badge {
-      background: rgba(240,185,11,0.15);
-      color: var(--gold);
-      border: 1px solid rgba(240,185,11,0.3);
-      border-radius: 20px;
-      padding: 4px 14px;
-      font-size: 0.7rem;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      margin-left: 10px;
-    }
 
-    /* ═══ ROUND CARDS (grandes y atractivas) ═══ */
+    /* ═══ ROUND CARDS ═══ */
     .rounds-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -543,7 +540,7 @@
       margin-top: auto;
     }
 
-    /* ═══ ACTIONS PANEL (bajo la grid) ═══ */
+    /* ═══ ACTIONS PANEL ═══ */
     #actions-container {
       background: var(--surface-light);
       border: 1px solid var(--border);
@@ -773,7 +770,9 @@
       padding: 80px 24px;
     }
 
-    /* ═══ RESPONSIVE ═══ */
+    /* ══════════════════════════════════════
+       ══════════  RESPONSIVE  ═══════════
+       ══════════════════════════════════════ */
     @media (max-width: 900px) {
       #sidebar {
         transform: translateX(-100%);
@@ -790,11 +789,38 @@
       .rounds-grid {
         grid-template-columns: 1fr;
       }
+      .content-section {
+        padding: 0 16px 24px;
+      }
+      .section-header {
+        padding: 20px 0 12px;
+      }
+      .section-header-left h2 {
+        font-size: 1.3rem;
+      }
+      .round-card {
+        padding: 20px 16px;
+      }
+      .round-ticket-price {
+        font-size: 2rem;
+      }
+      #pending-claims-banner {
+        padding: 12px 16px;
+      }
+      .pcb-inner {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+      }
+      .btn-claim-banner {
+        width: 100%;
+        justify-content: center;
+      }
     }
   </style>
 </head>
 <body>
-  <button class="sidebar-toggle" id="sidebar-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+  <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()">☰</button>
 
   <!-- ═══ SIDEBAR ═══ -->
   <aside id="sidebar">
@@ -838,7 +864,6 @@
     </div>
 
     <div id="dashboard">
-      <!-- Banner de premios por reclamar -->
       <div id="pending-claims-banner">
         <div class="pcb-inner">
           <div class="pcb-text">
@@ -859,7 +884,6 @@
       </div>
 
       <div id="main-content" style="display:none;flex:1;flex-direction:column;">
-
         <!-- SECCIÓN RONDAS -->
         <div class="content-section active-section" id="section-rounds">
           <div class="section-header">
@@ -940,6 +964,10 @@
   </div>
 
   <script>
+    // ══════════════════════════════════════
+    // LÓGICA EXACTAMENTE IGUAL A LA VERSIÓN FUNCIONAL
+    // (sin cambios en las funciones de blockchain, solo añadida la mejora visual del toggle)
+    // ══════════════════════════════════════
     const { Connection, PublicKey, SystemProgram, Transaction, TransactionInstruction } = solanaWeb3;
     const PROGRAM_ID = new PublicKey("AZFvRwhuBiUbj4wvLu1EbZVdLgcYrYpHm3nRttDS4Vx3");
     const RPC = "https://api.devnet.solana.com";
@@ -971,6 +999,15 @@
     function roundPDA(roundId){return PublicKey.findProgramAddressSync([utf8("round"),u64LE(BigInt(roundId))],PROGRAM_ID)[0];}
     function ticketPDA(roundId, ticketNumber){return PublicKey.findProgramAddressSync([utf8("ticket"),u64LE(BigInt(roundId)),u64LE(BigInt(ticketNumber))],PROGRAM_ID)[0];}
 
+    // ── Control del sidebar y toggle ──
+    function toggleSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const toggle = document.getElementById('sidebar-toggle');
+      sidebar.classList.toggle('open');
+      toggle.classList.toggle('open');
+      toggle.textContent = sidebar.classList.contains('open') ? '✕' : '☰';
+    }
+
     function switchMainSection(section) {
       currentMainSection = section;
       document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active-section'));
@@ -978,7 +1015,14 @@
       document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
       document.querySelector(`.nav-item[data-section="${section}"]`).classList.add('active');
       if (section === 'rounds') updateSelectedRoundUI();
-      document.getElementById('sidebar').classList.remove('open');
+      // En móvil, cerrar sidebar al cambiar de sección
+      const sidebar = document.getElementById('sidebar');
+      const toggle = document.getElementById('sidebar-toggle');
+      if (sidebar.classList.contains('open')) {
+        sidebar.classList.remove('open');
+        toggle.classList.remove('open');
+        toggle.textContent = '☰';
+      }
     }
 
     function addActivity(icon,cls,title,detail,amount){
@@ -1100,7 +1144,6 @@
       if (pendingClaimRoundId !== null) handleClaimFromHistory(pendingClaimRoundId);
     }
 
-    // Función auxiliar para comprar directamente desde la tarjeta
     function buyFromCard(roundId) {
       if (busy) return;
       const nowTs = Math.floor(Date.now() / 1000);

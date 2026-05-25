@@ -569,7 +569,7 @@
           <!-- Lottery data -->
           <div id="lottery-data" style="display:none">
             <div class="stat-row">
-              <span class="sk">Ronda</span>
+              <span class="sk">Tickets totales (histórico)</span>
               <span class="sv" id="d-round">—</span>
             </div>
             <div class="stat-row">
@@ -732,11 +732,11 @@ function lotteryPDA() {
   const [pda] = PublicKey.findProgramAddressSync([enc("lottery")], PROGRAM_ID);
   return pda;
 }
-function ticketPDA(round, nextId) {
-  // seed = [b"ticket", round_u64_le, next_ticket_number_u64_le]
-  // Incluir round garantiza PDAs únicos entre rondas
+function ticketPDA(globalNextId) {
+  // seed = [b"ticket", global_ticket_count+1]
+  // global_ticket_count nunca se resetea → PDAs siempre únicos
   const [pda] = PublicKey.findProgramAddressSync(
-    [enc("ticket"), u64LE(round), u64LE(nextId)], PROGRAM_ID
+    [enc("ticket"), u64LE(globalNextId)], PROGRAM_ID
   );
   return pda;
 }
@@ -747,32 +747,32 @@ function ticketPDA(round, nextId) {
 //  admin(32) ticketPrice(8) totalTickets(8) totalPrize(8) isActive(1) winner(32)
 // ══════════════════════════════════════════════
 function decodeLottery(raw) {
-  // Layout (Anchor, sin padding extra):
-  // [0..7]    discriminator  8
-  // [8..39]   admin          32
-  // [40..47]  ticket_price   8
-  // [48..55]  total_tickets  8
-  // [56..63]  total_prize    8
-  // [64]      is_active      1
-  // [65..96]  winner         32
-  // [97..104] round          8
+  // Layout:
+  // [0..7]    discriminator         8
+  // [8..39]   admin                 32
+  // [40..47]  ticket_price          8
+  // [48..55]  total_tickets         8  (se resetea por ronda)
+  // [56..63]  total_prize           8  (se resetea por ronda)
+  // [64]      is_active             1
+  // [65..96]  winner                32
+  // [97..104] global_ticket_count   8  (nunca se resetea)
   const b = new Uint8Array(raw);
   if (b.length < 105) {
-    console.error("[decodeLottery] buffer too short:", b.length, "bytes");
-    throw new Error("Account data demasiado corto: " + b.length + " bytes (esperado ≥105). Redespliega el contrato con el nuevo lib.rs.");
+    console.error("[decodeLottery] buffer too short:", b.length, "bytes — redespliega el contrato");
+    throw new Error("Contrato desactualizado (97 bytes). Haz Build + Deploy del nuevo lib.rs en Solana Playground, actualiza PROGRAM_ID en el HTML, y refresca.");
   }
   const state = {
-    admin:        new PublicKey(b.slice(8,  40)),
-    ticketPrice:  readU64(b, 40),
-    totalTickets: readU64(b, 48),
-    totalPrize:   readU64(b, 56),
-    isActive:     b[64] === 1,
-    winner:       new PublicKey(b.slice(65, 97)),
-    round:        readU64(b, 97),
+    admin:             new PublicKey(b.slice(8,  40)),
+    ticketPrice:       readU64(b, 40),
+    totalTickets:      readU64(b, 48),
+    totalPrize:        readU64(b, 56),
+    isActive:          b[64] === 1,
+    winner:            new PublicKey(b.slice(65, 97)),
+    globalTicketCount: readU64(b, 97),
   };
   console.log("[decodeLottery] isActive:", state.isActive,
               "| totalTickets:", state.totalTickets.toString(),
-              "| round:", state.round.toString());
+              "| globalTicketCount:", state.globalTicketCount.toString());
   return state;
 }
 
@@ -835,7 +835,7 @@ function renderDashboard() {
   el("d-tickets").textContent          = totalTickets.toString();
   el("d-prize").textContent            = fmtSOL(totalPrize);
   el("d-admin").textContent            = short(admin);
-  const roundEl = el("d-round"); if (roundEl) roundEl.textContent = "#" + lotteryState.round.toString();
+  const roundEl = el("d-round"); if (roundEl) roundEl.textContent = lotteryState.globalTicketCount.toString();
   el("d-status").innerHTML             = isActive
     ? '<span class="status-pill active"><span class="sdot"></span>ACTIVA</span>'
     : '<span class="status-pill closed">CERRADA</span>';
@@ -1009,11 +1009,10 @@ async function handleBuy() {
   try {
     const disc  = await discriminator("buy_ticket");
     const pda   = lotteryPDA();
-    const nextId = currentTickets + 1n; // BigInt: el número que tendrá este ticket
-    const round  = freshState.round;    // BigInt: ronda actual
-    const tPda   = ticketPDA(round, nextId);
+    const globalNext = freshState.globalTicketCount + 1n; // BigInt: siguiente ID global
+    const tPda       = ticketPDA(globalNext);
 
-    console.log("[buy] ticket PDA:", tPda.toBase58(), "round:", round.toString(), "nextId:", nextId.toString());
+    console.log("[buy] ticket PDA:", tPda.toBase58(), "globalNext:", globalNext.toString());
 
     const ix = new TransactionInstruction({
       programId: PROGRAM_ID,

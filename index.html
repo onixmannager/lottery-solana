@@ -279,17 +279,14 @@
 
   <div id="dashboard">
     <div class="wrap" style="padding-top:24px;">
-      <!-- Inicialización si no existe cuenta global -->
       <div id="init-section" class="init-section" style="display:none;">
         <h2>🎰 Lotería no inicializada</h2>
         <p>La cuenta global aún no existe en la blockchain.<br>Conéctate con la wallet que será administradora y crea la lotería.</p>
         <button class="btn btn-primary" style="max-width:300px;margin:0 auto;" onclick="handleInitialize()">🚀 INICIALIZAR LOTERÍA</button>
       </div>
 
-      <!-- Lista de rondas (o panel de creación si no hay rondas y eres admin) -->
       <div id="rounds-container" class="rounds-list"></div>
 
-      <!-- Panel de acciones solo si hay ronda seleccionada -->
       <div id="actions-container" class="actions-panel" style="display:none;">
         <h3>ACCIÓN PARA RONDA SELECCIONADA</h3>
         <div id="selected-round-info" style="margin-bottom:16px; font-size:.85rem;"></div>
@@ -298,7 +295,6 @@
         <button class="btn btn-outline" id="btn-claim" style="margin-top:10px; display:none;" onclick="handleClaim()">💰 RECLAMAR PREMIO</button>
       </div>
 
-      <!-- Panel de creación de rondas (admin global, visible siempre si no hay rondas seleccionadas) -->
       <div id="admin-create-panel" style="display:none; margin-top:20px;">
         <div class="actions-panel">
           <h3 style="color:var(--gold);">CREAR NUEVA RONDA (ADMIN)</h3>
@@ -315,7 +311,6 @@
   </div>
 </div>
 
-<!-- TX Modal -->
 <div id="tx-modal" class="modal-overlay" onclick="closeTxModal()">
   <div class="modal-box" onclick="event.stopPropagation()">
     <div id="tx-loading"><div class="tx-loader"></div><div class="modal-title">Procesando...</div><div class="modal-desc" id="tx-desc-loading">Esperando confirmación...</div></div>
@@ -356,7 +351,7 @@ function globalPDA(){return PublicKey.findProgramAddressSync([utf8("global")],PR
 function roundPDA(roundId){return PublicKey.findProgramAddressSync([utf8("round"),u64LE(BigInt(roundId))],PROGRAM_ID)[0];}
 function ticketPDA(roundId, ticketNumber){return PublicKey.findProgramAddressSync([utf8("ticket"),u64LE(BigInt(roundId)),u64LE(BigInt(ticketNumber))],PROGRAM_ID)[0];}
 
-/* ---------- FETCH GLOBAL + ROUNDS ---------- */
+/* ---------- FETCH GLOBAL + ROUNDS (DINÁMICO) ---------- */
 async function fetchAll() {
   try {
     const gPDA = globalPDA();
@@ -373,59 +368,72 @@ async function fetchAll() {
     el("init-section").style.display = "none";
     const gData = gInfo.data;
     globalState = {
-      admin: new PublicKey(gData.slice(8,40)),
-      roundCount: Number(new DataView(gData.buffer, gData.byteOffset+40, 8).getBigUint64(0, true))
+      admin: new PublicKey(gData.slice(8, 40)),
+      roundCount: Number(new DataView(gData.buffer, gData.byteOffset + 40, 8).getBigUint64(0, true))
     };
 
-    // Cargar todas las rondas
     rounds = [];
-    for (let i=0; i<globalState.roundCount; i++) {
+    for (let i = 0; i < globalState.roundCount; i++) {
       try {
         const rPDA = roundPDA(i);
         const rInfo = await conn.getAccountInfo(rPDA);
         if (!rInfo) continue;
         const data = rInfo.data;
-        let offset = 8;
-        const id = Number(new DataView(data.buffer, data.byteOffset+offset, 8).getBigUint64(0, true)); offset+=8;
-        const ticketPrice = new DataView(data.buffer, data.byteOffset+offset, 8).getBigUint64(0, true); offset+=8;
-        const startTime = Number(new DataView(data.buffer, data.byteOffset+offset, 8).getBigInt64(0, true)); offset+=8;
-        const endTime = Number(new DataView(data.buffer, data.byteOffset+offset, 8).getBigInt64(0, true)); offset+=8;
-        const maxTickets = new DataView(data.buffer, data.byteOffset+offset, 8).getBigUint64(0, true); offset+=8;
+        const dataLen = data.length - 8; // sin los 8 del discriminator
+        const FIXED_SIZE = 122; // bytes fijos (sin el array de players): id(8)+ticket_price(8)+start_time(8)+end_time(8)+max_tickets(8) + player_count(8)+winner(32)+is_finalized(1)+total_prize(8)+admin(32)+bump(1)
+        if (dataLen < FIXED_SIZE) {
+          console.warn(`Ronda ${i}: cuenta demasiado pequeña, se omite`);
+          continue;
+        }
+        const numPlayers = (dataLen - FIXED_SIZE) / 32;
+        if (numPlayers % 1 !== 0) {
+          console.warn(`Ronda ${i}: número de jugadores no entero, se omite`);
+          continue;
+        }
+        const maxPlayers = Math.floor(numPlayers);
+
+        let offset = 8; // saltar discriminador
+        const id = Number(new DataView(data.buffer, data.byteOffset + offset, 8).getBigUint64(0, true)); offset += 8;
+        const ticketPrice = new DataView(data.buffer, data.byteOffset + offset, 8).getBigUint64(0, true); offset += 8;
+        const startTime = Number(new DataView(data.buffer, data.byteOffset + offset, 8).getBigInt64(0, true)); offset += 8;
+        const endTime = Number(new DataView(data.buffer, data.byteOffset + offset, 8).getBigInt64(0, true)); offset += 8;
+        const maxTickets = new DataView(data.buffer, data.byteOffset + offset, 8).getBigUint64(0, true); offset += 8;
         const players = [];
-        for (let j=0; j<2000; j++) {
-          const pubkey = new PublicKey(data.slice(offset, offset+32));
-          offset+=32;
+        for (let j = 0; j < maxPlayers; j++) {
+          const pubkey = new PublicKey(data.slice(offset, offset + 32));
+          offset += 32;
           players.push(pubkey);
         }
-        const playerCount = Number(new DataView(data.buffer, data.byteOffset+offset, 8).getBigUint64(0, true)); offset+=8;
-        const winner = new PublicKey(data.slice(offset, offset+32)); offset+=32;
-        const isFinalized = data[offset] !== 0; offset+=1;
-        const totalPrize = new DataView(data.buffer, data.byteOffset+offset, 8).getBigUint64(0, true); offset+=8;
-        const admin = new PublicKey(data.slice(offset, offset+32)); offset+=32;
-        const bump = data[offset]; offset+=1;
+        const playerCount = Number(new DataView(data.buffer, data.byteOffset + offset, 8).getBigUint64(0, true)); offset += 8;
+        const winner = new PublicKey(data.slice(offset, offset + 32)); offset += 32;
+        const isFinalized = data[offset] !== 0; offset += 1;
+        const totalPrize = new DataView(data.buffer, data.byteOffset + offset, 8).getBigUint64(0, true); offset += 8;
+        const admin = new PublicKey(data.slice(offset, offset + 32)); offset += 32;
+        const bump = data[offset]; offset += 1;
 
         rounds.push({
           id, ticketPrice, startTime, endTime, maxTickets, players, playerCount,
           winner, isFinalized, totalPrize, admin, bump
         });
-      } catch(e) { console.warn("Error fetching round", i, e); }
+      } catch (e) {
+        console.warn("Error fetching round", i, e);
+      }
     }
-
     renderRounds();
     updateSelectedRoundUI();
-  } catch(e) { console.error("fetchAll error", e); }
+  } catch (e) {
+    console.error("fetchAll error", e);
+  }
 }
 
 function renderRounds() {
   const container = el("rounds-container");
   if (rounds.length === 0) {
     container.innerHTML = "<p style='color:var(--muted); text-align:center; padding:20px;'>No hay rondas creadas aún.</p>";
-    // Mostrar panel de creación si eres admin global
     const isGlobalAdmin = walletPubkey && globalState && globalState.admin.equals(walletPubkey);
     el("admin-create-panel").style.display = isGlobalAdmin ? "block" : "none";
     return;
   }
-  // Si hay rondas, ocultar el panel de creación general (el admin puede crear más desde el panel de acciones)
   el("admin-create-panel").style.display = "none";
 
   const nowTs = Math.floor(Date.now()/1000);
@@ -463,7 +471,6 @@ function updateSelectedRoundUI() {
   const actions = el("actions-container");
   if (!round) {
     actions.style.display = "none";
-    // Si no hay ronda seleccionada pero hay rondas, mostramos el panel de admin para crear más si es admin
     if (rounds.length > 0) {
       const isGlobalAdmin = walletPubkey && globalState && globalState.admin.equals(walletPubkey);
       el("admin-create-panel").style.display = isGlobalAdmin ? "block" : "none";
@@ -471,7 +478,6 @@ function updateSelectedRoundUI() {
     return;
   }
   actions.style.display = "block";
-  // Ocultar panel general de creación cuando se está viendo una ronda específica
   el("admin-create-panel").style.display = "none";
 
   const nowTs = Math.floor(Date.now()/1000);
@@ -697,7 +703,6 @@ async function handleCreateRound() {
     const sig = await sendTx([ix]);
     txSuccess(sig);
     await fetchAll();
-    // Limpiar campos
     el("new-price").value = "";
     el("new-start").value = "";
     el("new-end").value = "";

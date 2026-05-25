@@ -728,9 +728,11 @@ function lotteryPDA() {
   const [pda] = PublicKey.findProgramAddressSync([enc("lottery")], PROGRAM_ID);
   return pda;
 }
-function ticketPDA(id, buyer) {
+function ticketPDA(nextId) {
+  // seed = [b"ticket", next_ticket_number_as_u64_le]
+  // nextId = total_tickets + 1 (mismo que el contrato calcula tras el +=1)
   const [pda] = PublicKey.findProgramAddressSync(
-    [enc("ticket"), u64LE(id), buyer.toBytes()], PROGRAM_ID
+    [enc("ticket"), u64LE(nextId)], PROGRAM_ID
   );
   return pda;
 }
@@ -1000,15 +1002,10 @@ async function handleBuy() {
   try {
     const disc  = await discriminator("buy_ticket");
     const pda   = lotteryPDA();
-    const tPda  = ticketPDA(currentTickets, walletPubkey);
+    const nextId = currentTickets + 1n; // BigInt: el número que tendrá este ticket
+    const tPda   = ticketPDA(nextId);
 
-    console.log("[buy] ticket PDA:", tPda.toBase58(), "seed id:", currentTickets.toString());
-
-    // Verificar que el ticket PDA no exista ya (evita error 0x0 por cuenta duplicada)
-    const existing = await connection.getAccountInfo(tPda);
-    if (existing) {
-      throw new Error(`El ticket PDA ya existe para este slot (id=${currentTickets}). Refresca e inténtalo de nuevo.`);
-    }
+    console.log("[buy] ticket PDA:", tPda.toBase58(), "nextId:", nextId.toString());
 
     const ix = new TransactionInstruction({
       programId: PROGRAM_ID,

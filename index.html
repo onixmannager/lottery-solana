@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SolLotto — Devnet</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Syncopate:wght@400;700&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+
+  <!-- Buffer polyfill (needed for Solana seeds & raw bytes) -->
+  <script src="https://cdn.jsdelivr.net/npm/buffer@6.0.3/index.min.js"></script>
+  <!-- Solana web3.js IIFE -->
+  <script src="https://unpkg.com/@solana/web3.js@1.91.8/lib/index.iife.min.js"></script>
+
+  <style>
+    :root {
+      --bg:       #07080f;
+      --surface:  #0d1020;
+      --border:   #1e2540;
+      --border-glow: #2d3a6e;
+      --primary:  #5b4fff;
+      --cyan:     #00d4ff;
+      --gold:     #f6c231;
+      --green:    #10d98a;
+      --red:      #ff4d6d;
+      --text:     #c8d0f0;
+      --muted:    #5a6380;
+      --font-head: 'Syncopate', sans-serif;
+      --font-mono: 'Share Tech Mono', monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-mono);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ─── Hex grid background ─── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        radial-gradient(ellipse 80% 60% at 50% -10%, rgba(91,79,255,.18) 0%, transparent 70%),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='52'%3E%3Cpolygon points='30,2 58,17 58,47 30,62 2,47 2,17' fill='none' stroke='rgba(91,79,255,0.07)' stroke-width='1'/%3E%3C/svg%3E");
+      background-size: 100% 100%, 60px 52px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ─── Layout ─── */
+    #app { position: relative; z-index: 1; max-width: 960px; margin: 0 auto; padding: 0 20px 60px; }
+
+    /* ─── Header ─── */
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 28px 0 24px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo { display: flex; align-items: center; gap: 12px; }
+    .logo-icon {
+      width: 40px; height: 40px; border-radius: 10px;
+      background: linear-gradient(135deg, var(--primary), var(--cyan));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; box-shadow: 0 0 20px rgba(91,79,255,.5);
+    }
+    .logo-text { font-family: var(--font-head); font-size: 1.4rem; font-weight: 700; letter-spacing: .1em; }
+    .logo-text span { color: var(--cyan); }
+    .logo-badge {
+      font-size: .6rem; background: rgba(246,194,49,.15);
+      color: var(--gold); border: 1px solid rgba(246,194,49,.3);
+      padding: 2px 8px; border-radius: 20px; letter-spacing: .15em; margin-left: 4px;
+    }
+
+    /* ─── Wallet button ─── */
+    #btn-wallet {
+      font-family: var(--font-mono);
+      font-size: .85rem; letter-spacing: .05em;
+      padding: 10px 22px;
+      border-radius: 8px; border: 1px solid var(--primary);
+      background: rgba(91,79,255,.15);
+      color: var(--cyan); cursor: pointer;
+      transition: all .2s;
+      white-space: nowrap;
+    }
+    #btn-wallet:hover { background: rgba(91,79,255,.35); box-shadow: 0 0 20px rgba(91,79,255,.4); }
+    #btn-wallet.connected { border-color: var(--green); color: var(--green); background: rgba(16,217,138,.08); }
+    #btn-wallet.connected:hover { background: rgba(255,77,109,.12); border-color: var(--red); color: var(--red); }
+
+    /* ─── Welcome screen ─── */
+    #welcome {
+      text-align: center; padding: 90px 20px;
+      display: flex; flex-direction: column; align-items: center; gap: 20px;
+    }
+    .welcome-ball {
+      width: 100px; height: 100px; border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #fff 0%, var(--gold) 25%, #b8860b 70%);
+      box-shadow: 0 0 40px rgba(246,194,49,.6), 0 0 80px rgba(246,194,49,.2);
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--font-head); font-size: 1.8rem; color: rgba(0,0,0,.7);
+      font-weight: 700;
+      animation: float 3s ease-in-out infinite;
+    }
+    @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
+
+    #welcome h2 { font-family: var(--font-head); font-size: 1.6rem; font-weight: 700; letter-spacing: .08em; color: #fff; }
+    #welcome p { color: var(--muted); max-width: 400px; line-height: 1.7; font-size: .9rem; }
+    #welcome .btn-main {
+      margin-top: 10px; padding: 14px 36px;
+      border-radius: 10px; border: none; cursor: pointer;
+      background: linear-gradient(135deg, var(--primary), var(--cyan));
+      color: #fff; font-family: var(--font-head); font-size: .85rem;
+      font-weight: 700; letter-spacing: .12em;
+      box-shadow: 0 0 30px rgba(91,79,255,.5);
+      transition: all .2s;
+    }
+    #welcome .btn-main:hover { transform: translateY(-2px); box-shadow: 0 0 50px rgba(91,79,255,.7); }
+
+    /* ─── No phantom warning ─── */
+    .no-phantom {
+      background: rgba(255,77,109,.08); border: 1px solid rgba(255,77,109,.3);
+      border-radius: 10px; padding: 16px 24px; margin-top: 20px;
+      font-size: .85rem; color: var(--red); display: none;
+    }
+
+    /* ─── Dashboard ─── */
+    #dashboard { display: none; }
+
+    /* ─── Stats bar ─── */
+    .stats-bar {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 12px; margin: 30px 0;
+    }
+    .stat-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 18px 20px;
+      transition: border-color .2s;
+    }
+    .stat-card:hover { border-color: var(--border-glow); }
+    .stat-label { font-size: .7rem; letter-spacing: .15em; color: var(--muted); margin-bottom: 8px; }
+    .stat-value { font-family: var(--font-head); font-size: 1.5rem; font-weight: 700; letter-spacing: .05em; }
+    .stat-value.gold { color: var(--gold); text-shadow: 0 0 20px rgba(246,194,49,.4); }
+    .stat-value.cyan { color: var(--cyan); }
+    .stat-value.green { color: var(--green); }
+    .stat-value.red { color: var(--red); }
+
+    /* ─── Main grid ─── */
+    .main-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+    /* ─── Card ─── */
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 16px; padding: 28px;
+    }
+    .card-title {
+      font-family: var(--font-head); font-size: .75rem; font-weight: 700;
+      letter-spacing: .15em; color: var(--muted); margin-bottom: 22px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .card-title::before { content: ''; display: block; width: 12px; height: 2px; background: var(--cyan); }
+
+    /* ─── Wallet info ─── */
+    .wallet-addr {
+      font-size: .78rem; color: var(--muted); margin-bottom: 6px; letter-spacing: .05em;
+    }
+    .balance-display {
+      font-family: var(--font-head); font-size: 2rem; color: #fff;
+      margin-bottom: 24px; letter-spacing: .05em;
+    }
+    .balance-display span { font-size: 1rem; color: var(--muted); margin-left: 4px; }
+
+    /* ─── Ticket button ─── */
+    .btn-ticket {
+      width: 100%; padding: 16px;
+      border-radius: 12px; border: none; cursor: pointer;
+      background: linear-gradient(135deg, var(--primary), #8b5cf6);
+      color: #fff; font-family: var(--font-head); font-size: .8rem;
+      font-weight: 700; letter-spacing: .12em;
+      box-shadow: 0 0 25px rgba(91,79,255,.4);
+      transition: all .2s; position: relative; overflow: hidden;
+    }
+    .btn-ticket::after {
+      content: ''; position: absolute; top: -50%; left: -60%;
+      width: 40%; height: 200%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,.12), transparent);
+      transform: skewX(-20deg);
+      animation: shimmer 2.5s infinite;
+    }
+    @keyframes shimmer { 0%{left:-60%} 100%{left:120%} }
+    .btn-ticket:hover { transform: translateY(-2px); box-shadow: 0 0 40px rgba(91,79,255,.6); }
+    .btn-ticket:disabled {
+      opacity: .4; cursor: not-allowed; transform: none;
+      box-shadow: none; background: var(--border);
+    }
+    .btn-ticket:disabled::after { display: none; }
+
+    /* ─── Lottery info ─── */
+    .info-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px 0; border-bottom: 1px solid var(--border);
+      font-size: .85rem;
+    }
+    .info-row:last-child { border-bottom: none; }
+    .info-row .label { color: var(--muted); }
+    .info-row .value { font-weight: 700; }
+
+    .status-badge {
+      display: inline-block; padding: 3px 12px; border-radius: 20px;
+      font-size: .72rem; letter-spacing: .1em; font-weight: 700;
+    }
+    .status-badge.active  { background: rgba(16,217,138,.12); color: var(--green); border: 1px solid rgba(16,217,138,.3); }
+    .status-badge.closed  { background: rgba(255,77,109,.12); color: var(--red);   border: 1px solid rgba(255,77,109,.3);  }
+
+    .winner-display {
+      background: rgba(246,194,49,.07); border: 1px solid rgba(246,194,49,.2);
+      border-radius: 10px; padding: 14px 16px; margin-top: 16px;
+    }
+    .winner-display .wl { font-size: .7rem; letter-spacing: .15em; color: var(--gold); margin-bottom: 6px; }
+    .winner-display .wa { font-size: .78rem; word-break: break-all; color: #fff; }
+
+    /* ─── Init / no lottery ─── */
+    .no-lottery {
+      text-align: center; padding: 30px 10px;
+    }
+    .no-lottery p { color: var(--muted); font-size: .85rem; margin-bottom: 20px; line-height: 1.6; }
+    .btn-init {
+      padding: 12px 28px; border-radius: 10px;
+      border: 1px solid var(--border-glow); background: transparent;
+      color: var(--text); font-family: var(--font-mono); font-size: .8rem;
+      letter-spacing: .08em; cursor: pointer; transition: all .2s;
+    }
+    .btn-init:hover { border-color: var(--cyan); color: var(--cyan); background: rgba(0,212,255,.06); }
+    .btn-init:disabled { opacity: .4; cursor: not-allowed; }
+
+    /* ─── Admin panel ─── */
+    .admin-panel {
+      margin-top: 16px; padding: 20px 28px;
+      background: var(--surface); border: 1px solid rgba(255,77,109,.25);
+      border-radius: 16px; display: none;
+    }
+    .admin-title {
+      font-size: .7rem; letter-spacing: .2em; color: var(--red); margin-bottom: 16px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .admin-title::before { content: '⚡'; }
+    .btn-pick {
+      width: 100%; padding: 13px;
+      border-radius: 10px; cursor: pointer;
+      background: transparent; border: 1px solid var(--red);
+      color: var(--red); font-family: var(--font-mono); font-size: .82rem;
+      letter-spacing: .08em; transition: all .2s;
+    }
+    .btn-pick:hover:not(:disabled) { background: rgba(255,77,109,.1); box-shadow: 0 0 20px rgba(255,77,109,.2); }
+    .btn-pick:disabled { opacity: .35; cursor: not-allowed; }
+
+    /* ─── Program ID input ─── */
+    .pid-box {
+      margin: 24px 0 0;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 18px 20px;
+    }
+    .pid-box label { font-size: .7rem; letter-spacing: .15em; color: var(--muted); display: block; margin-bottom: 10px; }
+    .pid-row { display: flex; gap: 8px; }
+    .pid-input {
+      flex: 1; background: var(--bg); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 14px;
+      color: var(--text); font-family: var(--font-mono); font-size: .8rem;
+      outline: none; transition: border-color .2s;
+    }
+    .pid-input:focus { border-color: var(--primary); }
+    .btn-pid {
+      padding: 10px 18px; border-radius: 8px; border: none;
+      background: var(--primary); color: #fff; font-family: var(--font-mono);
+      font-size: .78rem; cursor: pointer; transition: opacity .2s; white-space: nowrap;
+    }
+    .btn-pid:hover { opacity: .85; }
+
+    /* ─── Toast / messages ─── */
+    #toast-container {
+      position: fixed; bottom: 28px; right: 28px; z-index: 999;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .toast {
+      min-width: 280px; max-width: 420px;
+      background: #131629; border-radius: 10px; padding: 14px 18px;
+      font-size: .82rem; line-height: 1.5; border-left: 3px solid transparent;
+      box-shadow: 0 8px 32px rgba(0,0,0,.5);
+      animation: slideIn .25s ease; position: relative;
+    }
+    .toast .close { position: absolute; top: 10px; right: 12px; cursor: pointer; color: var(--muted); font-size: .9rem; }
+    .toast.info    { border-color: var(--cyan); }
+    .toast.success { border-color: var(--green); }
+    .toast.error   { border-color: var(--red); }
+    .toast .t-label { font-size: .7rem; letter-spacing: .12em; margin-bottom: 4px; opacity: .7; }
+    .toast.info    .t-label { color: var(--cyan); }
+    .toast.success .t-label { color: var(--green); }
+    .toast.error   .t-label { color: var(--red); }
+    .toast a { color: var(--cyan); text-decoration: underline; word-break: break-all; font-size: .75rem; }
+    @keyframes slideIn { from{transform:translateX(30px);opacity:0} to{transform:translateX(0);opacity:1} }
+
+    /* ─── Spinner ─── */
+    .spinner {
+      display: inline-block; width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,.2); border-top-color: #fff;
+      border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; margin-right: 6px;
+    }
+    @keyframes spin { to{transform:rotate(360deg)} }
+
+    /* ─── Refresh indicator ─── */
+    .refresh-bar {
+      display: flex; align-items: center; gap: 8px;
+      font-size: .72rem; color: var(--muted); margin-top: 14px; padding-top: 14px;
+      border-top: 1px solid var(--border);
+    }
+    .refresh-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--green); animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+    /* ─── Responsive ─── */
+    @media (max-width: 640px) {
+      .main-grid { grid-template-columns: 1fr; }
+      .stats-bar  { grid-template-columns: 1fr; }
+      .logo-text  { font-size: 1.1rem; }
+      #btn-wallet { font-size: .75rem; padding: 8px 14px; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="app">
+  <header>
+    <div class="logo">
+      <div class="logo-icon">🎲</div>
+      <div>
+        <div class="logo-text">SOL<span>LOTTO</span> <span class="logo-badge">DEVNET</span></div>
+      </div>
+    </div>
+    <button id="btn-wallet" onclick="handleWalletBtn()">CONECTAR WALLET</button>
+  </header>
+
+  <!-- Program ID config -->
+  <div class="pid-box">
+    <label>PROGRAM ID — reemplaza con el ID de tu despliegue</label>
+    <div class="pid-row">
+      <input id="pid-input" class="pid-input" type="text"
+        value="Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+        placeholder="Tu Program ID de Anchor..." />
+      <button class="btn-pid" onclick="applyProgramId()">APLICAR</button>
+    </div>
+  </div>
+
+  <!-- Welcome screen -->
+  <div id="welcome">
+    <div class="welcome-ball">🎰</div>
+    <h2>LOTERÍA DESCENTRALIZADA</h2>
+    <p>Conecta tu Phantom Wallet en modo Devnet para comprar tickets y ganar el bote acumulado.</p>
+    <button class="btn-main" onclick="handleWalletBtn()">CONECTAR PHANTOM</button>
+    <div class="no-phantom" id="no-phantom">
+      ⚠️ Phantom Wallet no detectada. Instálala en <a href="https://phantom.app" target="_blank">phantom.app</a>
+    </div>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="dashboard">
+    <!-- Stats -->
+    <div class="stats-bar">
+      <div class="stat-card">
+        <div class="stat-label">BOTE ACUMULADO</div>
+        <div class="stat-value gold" id="stat-prize">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">TICKETS VENDIDOS</div>
+        <div class="stat-value cyan" id="stat-tickets">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">ESTADO</div>
+        <div class="stat-value" id="stat-status">—</div>
+      </div>
+    </div>
+
+    <!-- Main grid -->
+    <div class="main-grid">
+
+      <!-- Left: User panel -->
+      <div class="card">
+        <div class="card-title">TU CUENTA</div>
+        <div class="wallet-addr" id="user-addr">—</div>
+        <div class="balance-display" id="user-balance">0.0000 <span>SOL</span></div>
+
+        <!-- Buy ticket -->
+        <div id="buy-section">
+          <button class="btn-ticket" id="btn-buy" onclick="handleBuyTicket()">
+            COMPRAR TICKET
+          </button>
+        </div>
+
+        <!-- Lottery inactive -->
+        <div id="inactive-section" style="display:none">
+          <div style="background:rgba(255,77,109,.06);border:1px solid rgba(255,77,109,.2);border-radius:10px;padding:16px;text-align:center;font-size:.82rem;color:var(--muted);">
+            La lotería está cerrada o no iniciada.
+          </div>
+        </div>
+
+        <div class="refresh-bar">
+          <div class="refresh-dot"></div>
+          <span>Auto-refresh cada 10s</span>
+          <span style="margin-left:auto;cursor:pointer;color:var(--cyan)" onclick="fetchState()" title="Refrescar ahora">↻</span>
+        </div>
+      </div>
+
+      <!-- Right: Lottery info -->
+      <div class="card">
+        <div class="card-title">ESTADO DE LA LOTERÍA</div>
+
+        <!-- Not initialized -->
+        <div id="no-lottery-section" class="no-lottery">
+          <p>No se encontró ninguna lotería activa en el Program ID configurado.<br/>
+          Si eres el admin, puedes inicializarla aquí.</p>
+          <button class="btn-init" id="btn-init" onclick="handleInit()">
+            INICIALIZAR LOTERÍA (0.1 SOL / ticket)
+          </button>
+        </div>
+
+        <!-- Lottery info -->
+        <div id="lottery-info" style="display:none">
+          <div class="info-row">
+            <span class="label">PRECIO TICKET</span>
+            <span class="value" id="info-price">—</span>
+          </div>
+          <div class="info-row">
+            <span class="label">TICKETS VENDIDOS</span>
+            <span class="value" id="info-tickets">—</span>
+          </div>
+          <div class="info-row">
+            <span class="label">BOTE TOTAL</span>
+            <span class="value gold" id="info-prize">—</span>
+          </div>
+          <div class="info-row">
+            <span class="label">ADMIN</span>
+            <span class="value" style="font-size:.75rem" id="info-admin">—</span>
+          </div>
+          <div class="info-row">
+            <span class="label">ESTADO</span>
+            <span id="info-status">—</span>
+          </div>
+          <div id="winner-box" class="winner-display" style="display:none">
+            <div class="wl">🏆 GANADOR</div>
+            <div class="wa" id="info-winner">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Admin panel -->
+    <div class="admin-panel" id="admin-panel">
+      <div class="admin-title">PANEL DE ADMINISTRADOR</div>
+      <p style="font-size:.8rem;color:var(--muted);margin-bottom:16px;line-height:1.6">
+        Cierra la lotería y elige un ganador aleatorio usando el timestamp del bloque.<br/>
+        <span style="color:var(--red);font-size:.75rem">⚠️ Esta acción es irreversible en Devnet.</span>
+      </p>
+      <button class="btn-pick" id="btn-pick" onclick="handlePickWinner()">
+        CERRAR Y ELEGIR GANADOR
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<script>
+// ══════════════════════════════════════════════════
+//  SETUP
+// ══════════════════════════════════════════════════
+
+// Ensure Buffer is globally available
+if (typeof window.Buffer === 'undefined') {
+  window.Buffer = buffer.Buffer;
+}
+
+const {
+  Connection, PublicKey, Transaction, TransactionInstruction,
+  SystemProgram, LAMPORTS_PER_SOL, clusterApiUrl
+} = solanaWeb3;
+
+// ══════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════
+
+let PROGRAM_ID = new PublicKey("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
+const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
+
+let walletPubkey   = null;
+let lotteryState   = null;
+let isLoading      = false;
+let refreshTimer   = null;
+
+// ══════════════════════════════════════════════════
+//  UTILS
+// ══════════════════════════════════════════════════
+
+/** Anchor instruction discriminator: sha256("global:<name>")[0..8] */
+async function discriminator(name) {
+  const encoded = new TextEncoder().encode(`global:${name}`);
+  const hash    = await crypto.subtle.digest("SHA-256", encoded);
+  return new Uint8Array(hash).slice(0, 8);
+}
+
+/** u64 → 8-byte little-endian Uint8Array */
+function u64LE(value) {
+  const buf = new ArrayBuffer(8);
+  new DataView(buf).setBigUint64(0, BigInt(value), true);
+  return new Uint8Array(buf);
+}
+
+/** Read u64 LE at offset inside a Uint8Array */
+function readU64(bytes, offset) {
+  return new DataView(bytes.buffer, bytes.byteOffset + offset, 8).getBigUint64(0, true);
+}
+
+/** Concatenate Uint8Arrays */
+function concat(...arrays) {
+  const len = arrays.reduce((s, a) => s + a.length, 0);
+  const out = new Uint8Array(len);
+  let i = 0;
+  for (const a of arrays) { out.set(a, i); i += a.length; }
+  return out;
+}
+
+/** Format lamports → "X.XXXX SOL" */
+function formatSOL(lamports) {
+  return (Number(lamports) / LAMPORTS_PER_SOL).toFixed(4) + " SOL";
+}
+
+/** Shorten a pubkey string */
+function short(pk) { const s = pk.toBase58(); return s.slice(0,4)+"…"+s.slice(-4); }
+
+// ══════════════════════════════════════════════════
+//  PDA HELPERS
+// ══════════════════════════════════════════════════
+
+function lotteryPDA() {
+  const [pda] = PublicKey.findProgramAddressSync(
+    [Buffer.from("lottery")],
+    PROGRAM_ID
+  );
+  return pda;
+}
+
+function ticketPDA(ticketId, buyer) {
+  const [pda] = PublicKey.findProgramAddressSync(
+    [Buffer.from("ticket"), u64LE(ticketId), buyer.toBytes()],
+    PROGRAM_ID
+  );
+  return pda;
+}
+
+// ══════════════════════════════════════════════════
+//  ACCOUNT DECODING
+// ══════════════════════════════════════════════════
+
+/**
+ * Lottery account layout (after 8-byte Anchor discriminator):
+ *   admin:         32 bytes  (Pubkey)
+ *   ticket_price:   8 bytes  (u64 LE)
+ *   total_tickets:  8 bytes  (u64 LE)
+ *   total_prize:    8 bytes  (u64 LE)
+ *   is_active:      1 byte   (bool)
+ *   winner:        32 bytes  (Pubkey)
+ *   ──────────────────────────
+ *   Total:         89 bytes after discriminator (97 total)
+ */
+function decodeLottery(rawData) {
+  const b = new Uint8Array(rawData);
+  const o = 8; // skip discriminator
+  return {
+    admin:        new PublicKey(b.slice(o,      o + 32)),
+    ticketPrice:  readU64(b, o + 32),
+    totalTickets: readU64(b, o + 40),
+    totalPrize:   readU64(b, o + 48),
+    isActive:     b[o + 56] === 1,
+    winner:       new PublicKey(b.slice(o + 57, o + 89)),
+  };
+}
+
+// ══════════════════════════════════════════════════
+//  FETCH STATE
+// ══════════════════════════════════════════════════
+
+async function fetchState() {
+  if (!walletPubkey) return;
+  try {
+    // Balance
+    const bal = await connection.getBalance(walletPubkey);
+    el("user-balance").innerHTML = (bal / LAMPORTS_PER_SOL).toFixed(4) + ' <span>SOL</span>';
+
+    // Lottery account
+    const pda  = lotteryPDA();
+    const info = await connection.getAccountInfo(pda);
+    lotteryState = info ? decodeLottery(info.data) : null;
+    renderDashboard();
+  } catch (e) {
+    console.error("fetchState error:", e);
+  }
+}
+
+// ══════════════════════════════════════════════════
+//  SEND TRANSACTION
+// ══════════════════════════════════════════════════
+
+async function sendTx(instructions) {
+  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+  const tx = new Transaction({ recentBlockhash: blockhash, feePayer: walletPubkey });
+  instructions.forEach(ix => tx.add(ix));
+
+  const signed = await window.solana.signTransaction(tx);
+  const sig    = await connection.sendRawTransaction(signed.serialize());
+  await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight });
+  return sig;
+}
+
+// ══════════════════════════════════════════════════
+//  INSTRUCTIONS
+// ══════════════════════════════════════════════════
+
+async function handleInit() {
+  if (!walletPubkey || isLoading) return;
+  setLoading(true, "btn-init", "INICIALIZANDO...");
+  try {
+    const disc  = await discriminator("initialize");
+    const price = BigInt(Math.round(0.1 * LAMPORTS_PER_SOL)); // 0.1 SOL
+    const data  = concat(disc, u64LE(price));
+    const pda   = lotteryPDA();
+
+    const ix = new TransactionInstruction({
+      programId: PROGRAM_ID,
+      keys: [
+        { pubkey: pda,                      isSigner: false, isWritable: true  },
+        { pubkey: walletPubkey,             isSigner: true,  isWritable: true  },
+        { pubkey: SystemProgram.programId,  isSigner: false, isWritable: false },
+      ],
+      data,
+    });
+
+    const sig = await sendTx([ix]);
+    toast("success", "LOTERÍA INICIALIZADA", `Tx: <a href="https://explorer.solana.com/tx/${sig}?cluster=devnet" target="_blank">${sig.slice(0,20)}…</a>`);
+    await fetchState();
+  } catch (e) {
+    console.error(e);
+    toast("error", "ERROR", e.message);
+  }
+  setLoading(false, "btn-init", "INICIALIZAR LOTERÍA (0.1 SOL / ticket)");
+}
+
+async function handleBuyTicket() {
+  if (!walletPubkey || !lotteryState || isLoading) return;
+  setLoading(true, "btn-buy", "COMPRANDO...");
+  try {
+    const disc     = await discriminator("buy_ticket");
+    const pda      = lotteryPDA();
+    const tPda     = ticketPDA(lotteryState.totalTickets, walletPubkey);
+
+    const ix = new TransactionInstruction({
+      programId: PROGRAM_ID,
+      keys: [
+        { pubkey: pda,                      isSigner: false, isWritable: true  },
+        { pubkey: tPda,                     isSigner: false, isWritable: true  },
+        { pubkey: walletPubkey,             isSigner: true,  isWritable: true  },
+        { pubkey: SystemProgram.programId,  isSigner: false, isWritable: false },
+      ],
+      data: disc,
+    });
+
+    const sig = await sendTx([ix]);
+    toast("success", "TICKET COMPRADO 🎟️", `Tx: <a href="https://explorer.solana.com/tx/${sig}?cluster=devnet" target="_blank">${sig.slice(0,20)}…</a>`);
+    await fetchState();
+  } catch (e) {
+    console.error(e);
+    toast("error", "ERROR", e.message);
+  }
+  const price = lotteryState ? formatSOL(lotteryState.ticketPrice) : "—";
+  setLoading(false, "btn-buy", `COMPRAR TICKET · ${price}`);
+}
+
+async function handlePickWinner() {
+  if (!walletPubkey || !lotteryState || isLoading) return;
+  if (!confirm("¿Seguro? Esta acción cierra la lotería y envía el bote al ganador.")) return;
+  setLoading(true, "btn-pick", "PROCESANDO...");
+  try {
+    const disc = await discriminator("pick_winner");
+    const pda  = lotteryPDA();
+
+    // MVP: winner = admin (same as in the original Next.js implementation)
+    const ix = new TransactionInstruction({
+      programId: PROGRAM_ID,
+      keys: [
+        { pubkey: pda,                      isSigner: false, isWritable: true  },
+        { pubkey: walletPubkey,             isSigner: true,  isWritable: true  },
+        { pubkey: walletPubkey,             isSigner: false, isWritable: true  }, // winner (MVP simplification)
+        { pubkey: SystemProgram.programId,  isSigner: false, isWritable: false },
+      ],
+      data: disc,
+    });
+
+    const sig = await sendTx([ix]);
+    toast("success", "¡GANADOR ELEGIDO! 🏆", `Tx: <a href="https://explorer.solana.com/tx/${sig}?cluster=devnet" target="_blank">${sig.slice(0,20)}…</a>`);
+    await fetchState();
+  } catch (e) {
+    console.error(e);
+    toast("error", "ERROR", e.message);
+  }
+  setLoading(false, "btn-pick", "CERRAR Y ELEGIR GANADOR");
+}
+
+// ══════════════════════════════════════════════════
+//  WALLET
+// ══════════════════════════════════════════════════
+
+async function handleWalletBtn() {
+  if (walletPubkey) {
+    disconnectWallet();
+  } else {
+    await connectWallet();
+  }
+}
+
+async function connectWallet() {
+  if (!window.solana || !window.solana.isPhantom) {
+    el("no-phantom").style.display = "block";
+    toast("error", "PHANTOM NO DETECTADA", 'Instala Phantom desde <a href="https://phantom.app" target="_blank">phantom.app</a>');
+    return;
+  }
+  try {
+    toast("info", "CONECTANDO", "Aprueba la conexión en Phantom...");
+    const resp = await window.solana.connect();
+    walletPubkey = resp.publicKey;
+
+    el("btn-wallet").textContent = `DESCONECTAR · ${short(walletPubkey)}`;
+    el("btn-wallet").classList.add("connected");
+    el("welcome").style.display   = "none";
+    el("dashboard").style.display = "block";
+    el("user-addr").textContent   = walletPubkey.toBase58();
+
+    await fetchState();
+    refreshTimer = setInterval(fetchState, 10000);
+    toast("success", "CONECTADO", `${walletPubkey.toBase58()}`);
+  } catch (e) {
+    toast("error", "ERROR DE CONEXIÓN", e.message);
+  }
+}
+
+function disconnectWallet() {
+  window.solana?.disconnect();
+  walletPubkey = null;
+  lotteryState = null;
+  clearInterval(refreshTimer);
+
+  el("btn-wallet").textContent = "CONECTAR WALLET";
+  el("btn-wallet").classList.remove("connected");
+  el("welcome").style.display   = "flex";
+  el("dashboard").style.display = "none";
+}
+
+// ══════════════════════════════════════════════════
+//  RENDER
+// ══════════════════════════════════════════════════
+
+function renderDashboard() {
+  if (!walletPubkey) return;
+
+  const noLottery  = el("no-lottery-section");
+  const lottInfo   = el("lottery-info");
+  const buySection = el("buy-section");
+  const inactSect  = el("inactive-section");
+  const adminPanel = el("admin-panel");
+  const winnerBox  = el("winner-box");
+
+  if (!lotteryState) {
+    // Not initialized
+    noLottery.style.display = "block";
+    lottInfo.style.display  = "none";
+    buySection.style.display  = "none";
+    inactSect.style.display   = "block";
+    adminPanel.style.display  = "none";
+    el("stat-prize").textContent   = "—";
+    el("stat-tickets").textContent = "—";
+    el("stat-status").textContent  = "—";
+    el("stat-status").className    = "stat-value";
+    return;
+  }
+
+  const { admin, ticketPrice, totalTickets, totalPrize, isActive, winner } = lotteryState;
+  const priceSOL   = formatSOL(ticketPrice);
+  const prizeSOL   = formatSOL(totalPrize);
+  const ticketNum  = Number(totalTickets);
+  const isAdmin    = walletPubkey && admin.toBase58() === walletPubkey.toBase58();
+
+  // Stats bar
+  el("stat-prize").textContent   = prizeSOL;
+  el("stat-tickets").textContent = ticketNum.toString();
+
+  const statusEl = el("stat-status");
+  if (isActive) {
+    statusEl.textContent = "ACTIVA";
+    statusEl.className   = "stat-value green";
+  } else {
+    statusEl.textContent = "CERRADA";
+    statusEl.className   = "stat-value red";
+  }
+
+  // Show lottery info
+  noLottery.style.display = "none";
+  lottInfo.style.display  = "block";
+  el("info-price").textContent   = priceSOL;
+  el("info-tickets").textContent = ticketNum.toString();
+  el("info-prize").textContent   = prizeSOL;
+  el("info-admin").textContent   = short(admin);
+
+  const infoStatus = el("info-status");
+  if (isActive) {
+    infoStatus.innerHTML = '<span class="status-badge active">ACTIVA</span>';
+  } else {
+    infoStatus.innerHTML = '<span class="status-badge closed">CERRADA</span>';
+  }
+
+  // Winner display
+  const ZERO_ADDR = "11111111111111111111111111111111";
+  if (!isActive && winner.toBase58() !== ZERO_ADDR) {
+    winnerBox.style.display = "block";
+    el("info-winner").textContent = winner.toBase58();
+  } else {
+    winnerBox.style.display = "none";
+  }
+
+  // Buy / inactive
+  if (isActive) {
+    buySection.style.display = "block";
+    inactSect.style.display  = "none";
+    const btn = el("btn-buy");
+    btn.textContent = `COMPRAR TICKET · ${priceSOL}`;
+    btn.disabled    = false;
+  } else {
+    buySection.style.display = "none";
+    inactSect.style.display  = "block";
+  }
+
+  // Admin panel
+  if (isAdmin) {
+    adminPanel.style.display  = "block";
+    el("btn-pick").disabled   = !isActive || ticketNum === 0;
+  } else {
+    adminPanel.style.display = "none";
+  }
+}
+
+// ══════════════════════════════════════════════════
+//  PROGRAM ID CONFIG
+// ══════════════════════════════════════════════════
+
+function applyProgramId() {
+  const raw = el("pid-input").value.trim();
+  try {
+    PROGRAM_ID = new PublicKey(raw);
+    lotteryState = null;
+    renderDashboard();
+    if (walletPubkey) fetchState();
+    toast("success", "PROGRAM ID ACTUALIZADO", raw);
+  } catch {
+    toast("error", "PROGRAM ID INVÁLIDO", "Verifica que sea una dirección Solana válida.");
+  }
+}
+
+// ══════════════════════════════════════════════════
+//  TOAST
+// ══════════════════════════════════════════════════
+
+function toast(type, label, msg) {
+  const container = el("toast-container");
+  const div = document.createElement("div");
+  div.className = `toast ${type}`;
+  div.innerHTML = `
+    <span class="close" onclick="this.parentElement.remove()">✕</span>
+    <div class="t-label">${label}</div>
+    <div>${msg}</div>
+  `;
+  container.appendChild(div);
+  setTimeout(() => div.remove(), 8000);
+}
+
+// ══════════════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════════════
+
+function el(id) { return document.getElementById(id); }
+
+function setLoading(state, btnId, text) {
+  isLoading = state;
+  const btn = el(btnId);
+  if (!btn) return;
+  if (state) {
+    btn.innerHTML = `<span class="spinner"></span>${text}`;
+    btn.disabled  = true;
+  } else {
+    btn.textContent = text;
+    btn.disabled    = false;
+  }
+}
+
+// ══════════════════════════════════════════════════
+//  PHANTOM AUTO-CONNECT
+// ══════════════════════════════════════════════════
+
+window.addEventListener("load", () => {
+  if (window.solana?.isPhantom && window.solana.isConnected) {
+    // Already connected from a previous session
+    connectWallet();
+  }
+});
+
+window.solana?.on?.("disconnect", () => disconnectWallet());
+</script>
+</body>
+</html>

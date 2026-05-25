@@ -932,7 +932,7 @@
             Tienes premios pendientes
           </div>
           <div style="display:flex;align-items:center;gap:16px;">
-            <span class="pcb-amount" id="pcb-amount">0.00 ◎</span>
+            <span class="pcb-amount" id="pcb-amount">0.00</span>
             <button class="btn-claim-banner" onclick="claimFromBanner()">RECLAMAR AHORA</button>
           </div>
         </div>
@@ -1059,7 +1059,8 @@
     function i64LE(n) { const b = new ArrayBuffer(8); new DataView(b).setBigInt64(0, n, true); return new Uint8Array(b); }
     function concat(...arrs) { const len = arrs.reduce((a,b)=>a+b.length,0); const res = new Uint8Array(len); let off=0; for(const a of arrs){res.set(a,off);off+=a.length;} return res; }
     function short(pk,n=4){if(!pk)return"...";const s=pk.toBase58?pk.toBase58():pk.toString();return s.slice(0,n)+"..."+s.slice(-n);}
-    function fmtSOL(lam,dec=4){return(Number(lam)/1e9).toFixed(dec)+" ◎";}
+    const SOL_ICON = `<svg width="11" height="11" viewBox="0 0 397 311" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:middle;margin-left:2px;margin-bottom:1px"><defs><linearGradient id="sg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#9945FF"/><stop offset="100%" stop-color="#14F195"/></linearGradient></defs><path d="M64.6 237.9a13 13 0 0 1 9.2-3.8h317a4.4 4.4 0 0 1 3.1 7.5l-52.8 52.8a13 13 0 0 1-9.2 3.8H14.6a4.4 4.4 0 0 1-3.1-7.5l53.1-52.8zm0-172.7A13.3 13.3 0 0 1 73.8 61.4h317a4.4 4.4 0 0 1 3.1 7.5l-52.8 52.8a13 13 0 0 1-9.2 3.8H14.6a4.4 4.4 0 0 1-3.1-7.5l53.1-52.8zm265.6 86.4a13 13 0 0 0-9.2-3.8H14.6a4.4 4.4 0 0 0-3.1 7.5l52.8 52.8a13 13 0 0 0 9.2 3.8h317a4.4 4.4 0 0 0 3.1-7.5l-52.4-52.8z" fill="url(#sg)"/></svg>`;
+    function fmtSOL(lam,dec=4){return(Number(lam)/1e9).toFixed(dec)+SOL_ICON;}
     async function discriminator(name){const hash=await crypto.subtle.digest("SHA-256",utf8(`global:${name}`));return new Uint8Array(hash).slice(0,8);}
 
     function globalPDA(){return PublicKey.findProgramAddressSync([utf8("global")],PROGRAM_ID)[0];}
@@ -1252,7 +1253,7 @@
       html += slice.map(r => {
         if (r.isFinalized) {
           const winnerStr = r.winner.equals(SystemProgram.programId) ? "Sin ganador" : short(r.winner, 6);
-          const prizeStr = r.totalPrize > 0n ? fmtSOL(r.totalPrize, 2) : "0.00 ◎";
+          const prizeStr = r.totalPrize > 0n ? fmtSOL(r.totalPrize, 2) : "0.00";
           const isWinner = walletPubkey && r.winner.equals(walletPubkey);
           const canClaim = isWinner && r.totalPrize > 0n;
           const claimBtn = canClaim
@@ -1444,7 +1445,7 @@
         const countdownText = nowTs < r.startTime
           ? `⏱ Inicia ${new Date(r.startTime*1000).toLocaleString('es-ES',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}`
           : `⏱ ${fmtCountdown(secsLeft)}`;
-        const canBuy = walletPubkey && isActive && r.playerCount < r.maxTickets && !busy;
+        const canBuy = walletPubkey && isActive && r.playerCount < r.maxTickets;
         const isFull = r.playerCount >= r.maxTickets;
         let btnLabel = '🎟 Comprar ticket';
         let btnClass = 'card-buy-btn';
@@ -1589,9 +1590,9 @@
         const ix=new TransactionInstruction({programId:PROGRAM_ID,keys:[{pubkey:rPda,isSigner:false,isWritable:true},{pubkey:tPda,isSigner:false,isWritable:true},{pubkey:walletPubkey,isSigner:true,isWritable:true},{pubkey:SystemProgram.programId,isSigner:false,isWritable:false}],data});
         const sig=await sendTx([ix]); txSuccess(sig);
         addActivity("🎟","t",`Ticket ronda ${round.id}`,`${short(walletPubkey,6)}`,fmtSOL(round.ticketPrice,2));
+        busy=false;
         await fetchAll();
-      }catch(e){txError(e.message);}
-      busy=false;
+      }catch(e){txError(e.message); busy=false;}
     }
     async function finalizeRound(roundId){
       const round = rounds.find(r=>r.id===roundId);

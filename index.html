@@ -597,12 +597,9 @@
             <span class="admin-badge">ADMIN</span>
             <span style="font-size:.85rem;font-weight:600;color:var(--red-hi)">Panel de Administrador</span>
           </div>
-          <p class="admin-desc" id="admin-desc-active">
-            Cierra la lotería y elige un ganador aleatorio.<br/>
+          <p class="admin-desc">
+            Cierra la lotería y elige un ganador aleatorio usando el timestamp del bloque de Solana.<br/>
             <strong style="color:var(--red-hi);font-size:.78rem">⚠️ Esta acción es irreversible. El bote se transfiere al ganador automáticamente.</strong>
-          </p>
-          <p class="admin-desc" id="admin-desc-closed" style="display:none">
-            Lotería cerrada. Puedes iniciar una nueva ronda.
           </p>
           <button class="btn-pick" id="btn-pick" onclick="handlePickWinner()">
             CERRAR LOTERÍA Y ELEGIR GANADOR
@@ -715,10 +712,9 @@ function lotteryPDA() {
   const [pda] = PublicKey.findProgramAddressSync([enc("lottery")], PROGRAM_ID);
   return pda;
 }
-function ticketPDA(nextId) {
-  // seed matches contract: [b"ticket", (total_tickets+1) as u64 LE]
+function ticketPDA(id, buyer) {
   const [pda] = PublicKey.findProgramAddressSync(
-    [enc("ticket"), u64LE(nextId)], PROGRAM_ID
+    [enc("ticket"), u64LE(id), buyer.toBytes()], PROGRAM_ID
   );
   return pda;
 }
@@ -729,16 +725,14 @@ function ticketPDA(nextId) {
 //  admin(32) ticketPrice(8) totalTickets(8) totalPrize(8) isActive(1) winner(32)
 // ══════════════════════════════════════════════
 function decodeLottery(raw) {
-  // [0-7] discriminator | [8-39] admin | [40-47] ticket_price
-  // [48-55] total_tickets | [56-63] total_prize | [64] is_active | [65-96] winner
-  const b = new Uint8Array(raw);
+  const b = new Uint8Array(raw); const o = 8;
   return {
-    admin:        new PublicKey(b.slice(8,  40)),
-    ticketPrice:  readU64(b, 40),
-    totalTickets: readU64(b, 48),
-    totalPrize:   readU64(b, 56),
-    isActive:     b[64] === 1,
-    winner:       new PublicKey(b.slice(65, 97)),
+    admin:        new PublicKey(b.slice(o,      o+32)),
+    ticketPrice:  readU64(b, o+32),
+    totalTickets: readU64(b, o+40),
+    totalPrize:   readU64(b, o+48),
+    isActive:     b[o+56] === 1,
+    winner:       new PublicKey(b.slice(o+57,   o+89)),
   };
 }
 
@@ -823,20 +817,16 @@ function renderDashboard() {
     el("inactive-wrap").style.display = "block";
   }
 
-  // Admin — solo visible si la wallet conectada es el admin del contrato
+  // Admin — solo visible si esta wallet es el admin del contrato
   if (isAdmin) {
     el("admin-wrap").style.display = "block";
     if (isActive) {
       el("btn-pick").style.display    = "inline-block";
       el("btn-restart").style.display = "none";
-      el("admin-desc-active").style.display = "block";
-      el("admin-desc-closed").style.display = "none";
       el("btn-pick").disabled = busy || Number(totalTickets) === 0;
     } else {
       el("btn-pick").style.display    = "none";
       el("btn-restart").style.display = "inline-block";
-      el("admin-desc-active").style.display = "none";
-      el("admin-desc-closed").style.display = "block";
       el("btn-restart").disabled = busy;
     }
   } else {
@@ -934,24 +924,15 @@ async function handleInit() {
 }
 
 async function handleBuy() {
-  if (!walletPubkey || busy) return;
+  if (!walletPubkey || !lotteryState || busy) return;
   busy = true; setBusy("btn-buy", true);
+  const num = Number(lotteryState.totalTickets) + 1;
+  openTxModal(`Comprando ticket #${num}`, `Precio: ${fmtSOL(lotteryState.ticketPrice, 2)}`);
   try {
-    // Leer estado fresco del chain para tener total_tickets exacto
-    const info = await connection.getAccountInfo(lotteryPDA(), "confirmed");
-    if (!info) throw new Error("Lotería no inicializada.");
-    const fresh = decodeLottery(info.data);
-    if (!fresh.isActive) throw new Error("La lotería está cerrada.");
-
-    const nextId = fresh.totalTickets + 1n; // BigInt
-    const num    = Number(nextId);
-    openTxModal(`Comprando ticket #${num}`, `Precio: ${fmtSOL(fresh.ticketPrice, 2)}`);
-
-    const disc = await discriminator("buy_ticket");
-    const pda  = lotteryPDA();
-    const tPda = ticketPDA(nextId);
-
-    const ix = new TransactionInstruction({
+    const disc  = await discriminator("buy_ticket");
+    const pda   = lotteryPDA();
+    const tPda  = ticketPDA(lotteryState.totalTickets, walletPubkey);
+    const ix    = new TransactionInstruction({
       programId: PROGRAM_ID,
       keys: [
         { pubkey: pda,                     isSigner: false, isWritable: true  },
@@ -979,9 +960,7 @@ async function handleBuy() {
 
 async function handleRestart() {
   if (!walletPubkey || !lotteryState || busy) return;
-  if (!confirm("¿Iniciar nueva ronda?
-
-El precio del ticket se mantiene igual.")) return;
+  if (!confirm("¿Iniciar nueva ronda? El precio del ticket se mantiene igual.")) return;
   busy = true; setBusy("btn-restart", true);
   openTxModal("Iniciando nueva ronda", "Reiniciando la lotería...");
   try {

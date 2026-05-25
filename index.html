@@ -41,7 +41,6 @@
       letter-spacing: 0.02em;
     }
 
-    /* ── Background ── */
     body::before {
       content: '';
       position: fixed; inset: 0; pointer-events: none; z-index: 0;
@@ -50,13 +49,9 @@
         radial-gradient(ellipse 600px 400px at -100px 80%, rgba(245,158,11,.06) 0%, transparent 60%);
     }
 
-    /* ── Layout ── */
     #root { position: relative; z-index: 1; }
     .wrap { max-width: 1000px; margin: 0 auto; padding: 0 24px; }
 
-    /* ════════════════════════════
-       HEADER
-    ════════════════════════════ */
     header {
       border-bottom: 1px solid var(--border);
       backdrop-filter: blur(12px);
@@ -87,7 +82,6 @@
       padding: 2px 8px; margin-left: 6px;
     }
 
-    /* Wallet button */
     #btn-wallet {
       font-family: var(--font); font-size: .8rem; font-weight: 600;
       letter-spacing: .08em; padding: 9px 20px;
@@ -101,14 +95,10 @@
     #btn-wallet.on:hover { border-color: var(--red); color: var(--red-hi); background: rgba(239,68,68,.06); }
     .wallet-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
 
-    /* Network status */
     .net-status { display: flex; align-items: center; gap: 6px; font-size: .72rem; color: var(--muted); }
     .net-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: blink 2s ease-in-out infinite; }
     @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
 
-    /* ════════════════════════════
-       WELCOME
-    ════════════════════════════ */
     #welcome {
       min-height: calc(100vh - 64px);
       display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -158,12 +148,8 @@
     }
     #no-phantom-msg a { color: var(--red-hi); }
 
-    /* ════════════════════════════
-       DASHBOARD
-    ════════════════════════════ */
     #dashboard { display: none; padding-bottom: 80px; }
 
-    /* ── Hero prize ── */
     .prize-hero {
       text-align: center; padding: 56px 0 48px;
       border-bottom: 1px solid var(--border);
@@ -191,10 +177,8 @@
     .prize-status.closed { background: rgba(239,68,68,.1); color: var(--red-hi); border: 1px solid rgba(239,68,68,.25); }
     .prize-status .pdot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: blink 2s ease-in-out infinite; }
 
-    /* ── Main grid ── */
     .main-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 28px; }
 
-    /* ── Cards ── */
     .card {
       background: var(--card); border: 1px solid var(--border);
       border-radius: 16px; padding: 28px; transition: border-color .2s;
@@ -212,7 +196,6 @@
       border: 1px solid rgba(99,102,241,.2);
     }
 
-    /* Wallet card */
     .addr-row {
       display: flex; align-items: center; gap: 8px;
       margin-bottom: 6px;
@@ -232,7 +215,6 @@
     .balance-sol { font-size: .85rem; color: var(--muted); font-weight: 400; margin-left: 4px; }
     .balance-sub { font-size: .78rem; color: var(--muted); margin-bottom: 28px; }
 
-    /* My tickets */
     .my-tickets {
       background: rgba(99,102,241,.07); border: 1px solid rgba(99,102,241,.15);
       border-radius: 10px; padding: 14px 16px; margin-bottom: 20px;
@@ -241,7 +223,6 @@
     .my-tickets-label { font-size: .72rem; color: var(--muted); letter-spacing: .1em; }
     .my-tickets-count { font-family: var(--mono); font-size: 1.4rem; font-weight: 700; color: var(--primary-hi); }
 
-    /* Buy button */
     .btn-buy {
       width: 100%; padding: 16px; border-radius: 12px; border: none;
       font-family: var(--font); font-size: .82rem; font-weight: 700;
@@ -266,7 +247,6 @@
       border-radius: 10px; font-size: .83rem; color: var(--muted-hi); line-height: 1.6;
     }
 
-    /* Stats card */
     .stat-row {
       display: flex; justify-content: space-between; align-items: center;
       padding: 13px 0; border-bottom: 1px solid var(--border);
@@ -287,7 +267,6 @@
     .status-pill.closed { background: rgba(239,68,68,.1); color: var(--red-hi); border: 1px solid rgba(239,68,68,.25); }
     .status-pill .sdot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
 
-    /* Winner banner */
     .winner-banner {
       margin-top: 20px; padding: 16px 18px;
       background: linear-gradient(135deg, rgba(245,158,11,.1) 0%, rgba(251,191,36,.05) 100%);
@@ -296,11 +275,9 @@
     .winner-banner-label { font-size: .65rem; font-weight: 700; letter-spacing: .2em; color: var(--gold); margin-bottom: 6px; }
     .winner-banner-addr { font-family: var(--mono); font-size: .75rem; color: var(--text); word-break: break-all; }
 
-    /* Not initialized */
     .not-init { text-align: center; padding: 28px 10px; }
     .not-init p { font-size: .84rem; color: var(--muted); line-height: 1.7; margin-bottom: 22px; font-weight: 300; }
 
-    /* ── Init / Admin buttons ── */
     .btn-init {
       font-family: var(--font); font-size: .78rem; font-weight: 600;
       letter-spacing: .1em; padding: 12px 26px;
@@ -311,7 +288,6 @@
     .btn-init:hover:not(:disabled) { border-color: var(--primary); color: var(--primary-hi); background: rgba(99,102,241,.08); }
     .btn-init:disabled { opacity: .35; cursor: not-allowed; }
 
-    /* ── Admin panel ── */
     .admin-wrap { margin-top: 20px; }
     .admin-card {
       background: var(--card); border: 1px solid rgba(239,68,68,.2);
@@ -333,7 +309,6 @@
     .btn-pick:hover:not(:disabled) { background: rgba(239,68,68,.1); box-shadow: 0 0 24px rgba(239,68,68,.2); }
     .btn-pick:disabled { opacity: .3; cursor: not-allowed; }
 
-    /* ── Refresh bar ── */
     .refresh-row {
       display: flex; align-items: center; gap: 8px;
       margin-top: 20px; padding-top: 16px;
@@ -347,9 +322,6 @@
     .refresh-btn:hover { color: var(--primary-hi); }
     .refresh-countdown { margin-left: auto; font-family: var(--mono); font-size: .68rem; }
 
-    /* ════════════════════════════
-       TRANSACTION MODAL
-    ════════════════════════════ */
     #tx-modal {
       display: none; position: fixed; inset: 0; z-index: 200;
       background: rgba(4,6,12,.85); backdrop-filter: blur(8px);
@@ -398,9 +370,6 @@
     }
     .tx-close-btn:hover { border-color: var(--primary); color: var(--primary-hi); }
 
-    /* ════════════════════════════
-       TOASTS
-    ════════════════════════════ */
     #toasts {
       position: fixed; top: 80px; right: 20px; z-index: 300;
       display: flex; flex-direction: column; gap: 8px; max-width: 340px;
@@ -423,9 +392,6 @@
     .tst-msg { font-size: .8rem; color: var(--muted-hi); line-height: 1.4; }
     .tst-msg a { color: var(--primary-hi); text-decoration: underline; }
 
-    /* ════════════════════════════
-       SKELETONS
-    ════════════════════════════ */
     .skel {
       background: linear-gradient(90deg, var(--border) 25%, var(--border-hi) 50%, var(--border) 75%);
       background-size: 200% 100%;
@@ -434,9 +400,6 @@
     }
     @keyframes skel-wave { from{background-position:200% 0} to{background-position:-200% 0} }
 
-    /* ════════════════════════════
-       RESPONSIVE
-    ════════════════════════════ */
     @media (max-width: 640px) {
       .main-grid { grid-template-columns: 1fr; }
       .prize-amount { font-size: 2.8rem; }
@@ -550,11 +513,8 @@
             <span class="card-title">ESTADO DE LA LOTERÍA</span>
           </div>
 
-          <!-- Not initialized -->
-          <div class="not-init" id="not-init-section">
-            <p>No se encontró una lotería activa en el contrato.<br/>Si eres el administrador, puedes inicializarla aquí.</p>
-            <button class="btn-init" id="btn-init" onclick="handleInit()">INICIALIZAR (0.1 SOL / ticket)</button>
-          </div>
+          <!-- Sección dinámica: se llena según el estado -->
+          <div class="not-init" id="not-init-section"></div>
 
           <!-- Lottery data -->
           <div id="lottery-data" style="display:none">
@@ -590,7 +550,7 @@
         </div>
       </div>
 
-      <!-- Admin panel -->
+      <!-- Admin panel (solo visible para admin cuando la lotería está activa) -->
       <div class="admin-wrap" id="admin-wrap" style="display:none">
         <div class="admin-card">
           <div class="admin-head">
@@ -656,6 +616,9 @@ const EXPLORER_URL = (sig) => `https://explorer.solana.com/tx/${sig}?cluster=dev
 const ADDR_URL     = (addr) => `https://explorer.solana.com/address/${addr}?cluster=devnet`;
 const connection   = new Connection(clusterApiUrl("devnet"), "confirmed");
 
+// ⚠️ CAMBIA ESTO POR TU DIRECCIÓN DE WALLET (admin)
+const ADMIN_PUBKEY = "TU_DIRECCION_DE_WALLET";
+
 // ══════════════════════════════════════════════
 //  STATE
 // ══════════════════════════════════════════════
@@ -718,8 +681,6 @@ function ticketPDA(id, buyer) {
 
 // ══════════════════════════════════════════════
 //  ACCOUNT DECODE
-//  Layout after 8-byte discriminator:
-//  admin(32) ticketPrice(8) totalTickets(8) totalPrize(8) isActive(1) winner(32)
 // ══════════════════════════════════════════════
 function decodeLottery(raw) {
   const b = new Uint8Array(raw); const o = 8;
@@ -753,13 +714,14 @@ async function fetchState() {
 }
 
 // ══════════════════════════════════════════════
-//  RENDER
+//  RENDER (actualizado con lógica de admin)
 // ══════════════════════════════════════════════
 function renderDashboard() {
   const ZERO = "11111111111111111111111111111111";
+  const isAdminConnected = walletPubkey && walletPubkey.toBase58() === ADMIN_PUBKEY;
 
   if (!lotteryState) {
-    el("not-init-section").style.display = "block";
+    // No hay cuenta de lotería
     el("lottery-data").style.display     = "none";
     el("buy-wrap").style.display         = "none";
     el("inactive-wrap").style.display    = "block";
@@ -768,11 +730,22 @@ function renderDashboard() {
     el("hero-tickets").textContent       = "0";
     el("hero-price").textContent         = "—";
     el("hero-status").innerHTML          = '';
+
+    // Solo el admin hardcodeado ve el botón de inicializar
+    if (isAdminConnected) {
+      el("not-init-section").style.display = "block";
+      el("not-init-section").innerHTML = `
+        <p>No se encontró una lotería activa en el contrato.</p>
+        <button class="btn-init" id="btn-init" onclick="handleInit()">INICIALIZAR (0.1 SOL / ticket)</button>
+      `;
+    } else {
+      el("not-init-section").style.display = "none";
+    }
     return;
   }
 
   const { admin, ticketPrice, totalTickets, totalPrize, isActive, winner } = lotteryState;
-  const isAdmin = walletPubkey && admin.toBase58() === walletPubkey.toBase58();
+  const isLotteryAdmin = walletPubkey && admin.toBase58() === walletPubkey.toBase58();
 
   // Hero
   el("hero-prize").textContent   = (Number(totalPrize) / LAMPORTS_PER_SOL).toFixed(4);
@@ -783,13 +756,12 @@ function renderDashboard() {
     : `<span id="hero-status" class="prize-status closed">CERRADA</span>`;
 
   // Stats
-  el("not-init-section").style.display = "none";
-  el("lottery-data").style.display     = "block";
-  el("d-price").textContent            = fmtSOL(ticketPrice, 2);
-  el("d-tickets").textContent          = totalTickets.toString();
-  el("d-prize").textContent            = fmtSOL(totalPrize);
-  el("d-admin").textContent            = short(admin);
-  el("d-status").innerHTML             = isActive
+  el("lottery-data").style.display = "block";
+  el("d-price").textContent        = fmtSOL(ticketPrice, 2);
+  el("d-tickets").textContent      = totalTickets.toString();
+  el("d-prize").textContent        = fmtSOL(totalPrize);
+  el("d-admin").textContent        = short(admin);
+  el("d-status").innerHTML         = isActive
     ? '<span class="status-pill active"><span class="sdot"></span>ACTIVA</span>'
     : '<span class="status-pill closed">CERRADA</span>';
 
@@ -802,29 +774,45 @@ function renderDashboard() {
   el("winner-banner").style.display = hasWinner ? "block" : "none";
   if (hasWinner) el("d-winner").textContent = winner.toBase58();
 
-  // Buy / inactive
+  // ─── Lógica de botones ───
   if (isActive) {
-    el("buy-wrap").style.display     = "block";
+    el("buy-wrap").style.display      = "block";
     el("inactive-wrap").style.display = "none";
     const btn = el("btn-buy");
     btn.textContent = `COMPRAR TICKET · ${fmtSOL(ticketPrice, 2)}`;
     btn.disabled    = busy;
-  } else {
-    el("buy-wrap").style.display     = "none";
-    el("inactive-wrap").style.display = "block";
-  }
 
-  // Admin
-  if (isAdmin) {
-    el("admin-wrap").style.display = "block";
-    el("btn-pick").disabled = busy || !isActive || Number(totalTickets) === 0;
+    // Ocultar sección de reinicio
+    el("not-init-section").style.display = "none";
+
+    // Admin panel (solo si es el admin de la lotería y está activa)
+    if (isLotteryAdmin) {
+      el("admin-wrap").style.display = "block";
+      el("btn-pick").disabled = busy || Number(totalTickets) === 0;
+    } else {
+      el("admin-wrap").style.display = "none";
+    }
   } else {
-    el("admin-wrap").style.display = "none";
+    // Lotería cerrada
+    el("buy-wrap").style.display      = "none";
+    el("inactive-wrap").style.display = "block";
+    el("admin-wrap").style.display    = "none";
+
+    // Mostrar botón de NUEVA RONDA solo al admin de la lotería
+    if (isLotteryAdmin) {
+      el("not-init-section").style.display = "block";
+      el("not-init-section").innerHTML = `
+        <p>La lotería anterior terminó. Inicia una nueva ronda.</p>
+        <button class="btn-init" id="btn-reset" onclick="handleReset()">NUEVA RONDA</button>
+      `;
+    } else {
+      el("not-init-section").style.display = "none";
+    }
   }
 }
 
 // ══════════════════════════════════════════════
-//  TX MODAL
+//  TX MODAL (sin cambios)
 // ══════════════════════════════════════════════
 function openTxModal(title, subtitle) {
   el("tx-title").textContent    = title;
@@ -864,7 +852,7 @@ function txError(msg) {
 }
 
 // ══════════════════════════════════════════════
-//  SEND TX
+//  SEND TX (sin cambios)
 // ══════════════════════════════════════════════
 async function sendTx(ixs) {
   const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
@@ -881,7 +869,7 @@ async function sendTx(ixs) {
 }
 
 // ══════════════════════════════════════════════
-//  INSTRUCTIONS
+//  INSTRUCTIONS (añadida handleReset)
 // ══════════════════════════════════════════════
 async function handleInit() {
   if (!walletPubkey || busy) return;
@@ -977,8 +965,42 @@ async function handlePickWinner() {
   busy = false; setBusy("btn-pick", false);
 }
 
+// ─── NUEVA FUNCIÓN: reset_lottery ───
+async function handleReset() {
+  if (!walletPubkey || !lotteryState || busy) return;
+  if (!confirm("¿Iniciar una nueva ronda con el mismo precio de ticket?")) return;
+  busy = true;
+  const resetBtn = el("btn-reset");
+  if (resetBtn) resetBtn.disabled = true;
+  openTxModal("Reiniciando lotería", "Habilitando nueva ronda...");
+  try {
+    const disc = await discriminator("reset_lottery");
+    const pda = lotteryPDA();
+    const ix = new TransactionInstruction({
+      programId: PROGRAM_ID,
+      keys: [
+        { pubkey: pda,          isSigner: false, isWritable: true },
+        { pubkey: walletPubkey, isSigner: true,  isWritable: true },
+      ],
+      data: disc,
+    });
+    const sig = await sendTx([ix]);
+    txSuccess(sig);
+    myTickets = 0;
+    el("my-tickets-count").textContent = "0";
+    toast("s", "NUEVA RONDA", "La lotería está activa otra vez 🎉");
+    await fetchState();
+  } catch (e) {
+    console.error(e);
+    txError(e.message);
+    toast("e", "ERROR", e.message.slice(0, 80));
+  }
+  busy = false;
+  if (resetBtn) resetBtn.disabled = false;
+}
+
 // ══════════════════════════════════════════════
-//  WALLET
+//  WALLET (sin cambios)
 // ══════════════════════════════════════════════
 async function handleWalletBtn() {
   walletPubkey ? disconnectWallet() : await connectWallet();
@@ -1024,7 +1046,7 @@ function disconnectWallet() {
 }
 
 // ══════════════════════════════════════════════
-//  AUTO-REFRESH + COUNTDOWN
+//  AUTO-REFRESH (sin cambios)
 // ══════════════════════════════════════════════
 function startRefresh() {
   stopRefresh();
@@ -1047,7 +1069,7 @@ function resetCountdown() {
 }
 
 // ══════════════════════════════════════════════
-//  HELPERS
+//  HELPERS (sin cambios)
 // ══════════════════════════════════════════════
 function el(id) { return document.getElementById(id); }
 
@@ -1072,7 +1094,7 @@ function toast(type, lbl, msg) {
 }
 
 // ══════════════════════════════════════════════
-//  INIT
+//  INIT (sin cambios)
 // ══════════════════════════════════════════════
 window.addEventListener("load", () => {
   if (window.solana?.isPhantom && window.solana.isConnected) {

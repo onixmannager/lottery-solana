@@ -616,7 +616,7 @@ async function handleFinalize(){
   const round=rounds.find(r=>r.id===selectedRoundId);
   if(!round||round.isFinalized||!round.admin.equals(walletPubkey)){alert("No eres el admin de esta ronda o ya está finalizada.");return;}
   
-  const roundId = round.id;   // ✅ guardar el ID antes de finalizar
+  const roundId = round.id;
   
   busy=true;
   openTxModal(`Finalizando ronda ${round.id}...`);
@@ -628,9 +628,13 @@ async function handleFinalize(){
     const ix1=new TransactionInstruction({programId:PROGRAM_ID,keys:[{pubkey:rPda,isSigner:false,isWritable:true},{pubkey:walletPubkey,isSigner:true,isWritable:false}],data:data1});
     await sendTx([ix1]);
     
+    // Esperar 2 segundos para que la blockchain propague el cambio
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
     await fetchAll();
     const updated = rounds.find(r => r.id === roundId);
-    if(!updated || !updated.isFinalized) throw new Error("No se finalizó correctamente");
+    console.log("Ronda después de finalizar:", updated);
+    if(!updated || !updated.isFinalized) throw new Error("No se finalizó correctamente o los datos tardan en propagarse.");
     
     // 2) Reclamar premio automáticamente
     if(updated.totalPrize > 0n && !updated.winner.equals(SystemProgram.programId)){

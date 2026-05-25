@@ -333,6 +333,16 @@
     .btn-pick:hover:not(:disabled) { background: rgba(239,68,68,.1); box-shadow: 0 0 24px rgba(239,68,68,.2); }
     .btn-pick:disabled { opacity: .3; cursor: not-allowed; }
 
+    .btn-restart {
+      font-family: var(--font); font-size: .8rem; font-weight: 600; letter-spacing: .1em;
+      padding: 13px 28px; border-radius: 10px; cursor: pointer; transition: all .2s;
+      background: transparent; border: 1px solid var(--green);
+      color: var(--green-hi); margin-top: 10px;
+    }
+    .btn-restart:hover:not(:disabled) { background: rgba(16,185,129,.1); box-shadow: 0 0 24px rgba(16,185,129,.2); }
+    .btn-restart:disabled { opacity: .3; cursor: not-allowed; }
+    .admin-btn-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+
     /* ── Refresh bar ── */
     .refresh-row {
       display: flex; align-items: center; gap: 8px;
@@ -597,13 +607,22 @@
             <span class="admin-badge">ADMIN</span>
             <span style="font-size:.85rem;font-weight:600;color:var(--red-hi)">Panel de Administrador</span>
           </div>
-          <p class="admin-desc">
+          <p class="admin-desc" id="admin-desc-active">
             Cierra la lotería y elige un ganador aleatorio usando el timestamp del bloque de Solana.<br/>
             <strong style="color:var(--red-hi);font-size:.78rem">⚠️ Esta acción es irreversible. El bote se transfiere al ganador automáticamente.</strong>
           </p>
-          <button class="btn-pick" id="btn-pick" onclick="handlePickWinner()">
-            CERRAR LOTERÍA Y ELEGIR GANADOR
-          </button>
+          <p class="admin-desc" id="admin-desc-closed" style="display:none">
+            La lotería ha terminado. Puedes iniciar una nueva ronda con el mismo contrato.<br/>
+            <strong style="color:var(--green-hi);font-size:.78rem">✅ El PDA ya existe — no hace falta re-deployar el contrato.</strong>
+          </p>
+          <div class="admin-btn-row">
+            <button class="btn-pick" id="btn-pick" onclick="handlePickWinner()">
+              CERRAR LOTERÍA Y ELEGIR GANADOR
+            </button>
+            <button class="btn-restart" id="btn-restart" onclick="handleRestart()" style="display:none">
+              🔄 REINICIAR NUEVA RONDA
+            </button>
+          </div>
         </div>
       </div>
 
@@ -759,10 +778,13 @@ function renderDashboard() {
   const ZERO = "11111111111111111111111111111111";
 
   if (!lotteryState) {
+    // Si no hay lotería, solo el admin puede inicializarla
+    // Como no tenemos admin guardado, mostramos la sección pero el contrato rechazará
+    // si no es el deployer original.
     el("not-init-section").style.display = "block";
     el("lottery-data").style.display     = "none";
     el("buy-wrap").style.display         = "none";
-    el("inactive-wrap").style.display    = "block";
+    el("inactive-wrap").style.display    = "none";
     el("admin-wrap").style.display       = "none";
     el("hero-prize").textContent         = "0.0000";
     el("hero-tickets").textContent       = "0";
@@ -814,10 +836,24 @@ function renderDashboard() {
     el("inactive-wrap").style.display = "block";
   }
 
-  // Admin
+  // Admin — solo visible para el wallet que creó la lotería
   if (isAdmin) {
     el("admin-wrap").style.display = "block";
-    el("btn-pick").disabled = busy || !isActive || Number(totalTickets) === 0;
+    if (isActive) {
+      // Lotería activa: mostrar botón cerrar, ocultar reiniciar
+      el("btn-pick").style.display     = "inline-block";
+      el("btn-restart").style.display  = "none";
+      el("admin-desc-active").style.display = "block";
+      el("admin-desc-closed").style.display = "none";
+      el("btn-pick").disabled = busy || Number(totalTickets) === 0;
+    } else {
+      // Lotería cerrada: ocultar cerrar, mostrar reiniciar
+      el("btn-pick").style.display     = "none";
+      el("btn-restart").style.display  = "inline-block";
+      el("admin-desc-active").style.display = "none";
+      el("admin-desc-closed").style.display = "block";
+      el("btn-restart").disabled = busy;
+    }
   } else {
     el("admin-wrap").style.display = "none";
   }
@@ -945,6 +981,39 @@ async function handleBuy() {
   busy = false;
   if (lotteryState) el("btn-buy").textContent = `COMPRAR TICKET · ${fmtSOL(lotteryState.ticketPrice, 2)}`;
   setBusy("btn-buy", false);
+}
+
+async function handleRestart() {
+  if (!walletPubkey || !lotteryState || busy) return;
+  if (!confirm("¿Iniciar una nueva ronda de lotería?\n\nSe reiniciarán los tickets y el bote. El precio del ticket se mantiene igual.")) return;
+  busy = true; setBusy("btn-restart", true);
+  openTxModal("Reiniciando lotería", "Iniciando nueva ronda en el contrato...");
+  try {
+    const disc        = await discriminator("restart");
+    const ticketPrice = lotteryState.ticketPrice; // mantiene el mismo precio
+    const data        = concat(disc, u64LE(ticketPrice));
+    const pda         = lotteryPDA();
+    const ix          = new TransactionInstruction({
+      programId: PROGRAM_ID,
+      keys: [
+        { pubkey: pda,                     isSigner: false, isWritable: true  },
+        { pubkey: walletPubkey,            isSigner: true,  isWritable: true  },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ],
+      data,
+    });
+    const sig = await sendTx([ix]);
+    txSuccess(sig);
+    myTickets = 0;
+    el("my-tickets-count").textContent = 0;
+    toast("s", "NUEVA RONDA INICIADA 🎲", "La lotería está activa de nuevo. ¡A por tickets!");
+    await fetchState();
+  } catch (e) {
+    console.error(e);
+    txError(e.message);
+    toast("e", "ERROR AL REINICIAR", e.message.slice(0, 80));
+  }
+  busy = false; setBusy("btn-restart", false);
 }
 
 async function handlePickWinner() {

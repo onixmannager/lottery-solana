@@ -1401,6 +1401,22 @@
       return `${m}m ${s.toString().padStart(2,'0')}s restantes`;
     }
 
+    function tickCountdowns() {
+      const nowTs = Math.floor(Date.now()/1000);
+      document.querySelectorAll('.round-countdown[data-endts]').forEach(el => {
+        const endTs = parseInt(el.dataset.endts);
+        const startTs = parseInt(el.dataset.startts);
+        const secsLeft = endTs - nowTs;
+        const urgent = secsLeft < 3600;
+        el.className = 'round-countdown' + (urgent ? ' urgent' : '');
+        if (nowTs < startTs) {
+          el.textContent = `⏱ Inicia ${new Date(startTs*1000).toLocaleString('es-ES',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}`;
+        } else {
+          el.textContent = `⏱ ${fmtCountdown(secsLeft)}`;
+        }
+      });
+    }
+
     function renderActiveRounds(){
       const container=el("rounds-container");
       const nowTs=Math.floor(Date.now()/1000);
@@ -1426,8 +1442,8 @@
         const secsLeft = r.endTime - nowTs;
         const countdownUrgent = secsLeft < 3600 ? 'urgent' : '';
         const countdownText = nowTs < r.startTime
-          ? `Inicia ${new Date(r.startTime*1000).toLocaleString('es-ES',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}`
-          : fmtCountdown(secsLeft);
+          ? `⏱ Inicia ${new Date(r.startTime*1000).toLocaleString('es-ES',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}`
+          : `⏱ ${fmtCountdown(secsLeft)}`;
         const canBuy = walletPubkey && isActive && r.playerCount < r.maxTickets && !busy;
         const isFull = r.playerCount >= r.maxTickets;
         let btnLabel = '🎟 Comprar ticket';
@@ -1437,7 +1453,7 @@
         else if (isFull) { btnLabel = 'Sold out'; btnClass += ' full'; btnDisabled = 'disabled'; }
         else if (!isActive) { btnLabel = '⏳ Aún no ha empezado'; btnDisabled = 'disabled'; }
         else if (!canBuy) { btnDisabled = 'disabled'; }
-        return `<div class="round-card" onclick="">
+        return `<div class="round-card">
           <div class="round-card-header">
             <span class="round-id">RONDA #${r.id}</span>
             <span class="round-status-badge ${statusClass}">${statusText}</span>
@@ -1448,7 +1464,7 @@
             <span>🏆 ${fmtSOL(r.totalPrize,2)}</span>
           </div>
           <div class="round-progress"><div class="round-progress-bar ${progressColorClass}" style="width:${progress}%;"></div></div>
-          <div class="round-countdown ${countdownUrgent}">⏱ ${countdownText}</div>
+          <div class="round-countdown ${countdownUrgent}" data-endts="${r.endTime}" data-startts="${r.startTime}">${countdownText}</div>
           <button class="${btnClass}" ${btnDisabled} onclick="event.stopPropagation();handleBuyDirect(${r.id})">${btnLabel}</button>
         </div>`;
       }).join('');
@@ -1694,8 +1710,8 @@
 
     window.addEventListener("load",()=>{
       renderWinnersFixed(); renderActivity();
-      // Live countdown ticker
-      setInterval(()=>{ if(walletPubkey && rounds.length) renderActiveRounds(); }, 1000);
+      // Live countdown ticker — only updates text, no re-render
+      setInterval(tickCountdowns, 1000);
       if(window.solana?.isPhantom&&window.solana.isConnected){
         window.solana.connect({onlyIfTrusted:true}).then(r=>{walletPubkey=r.publicKey;connectWallet();}).catch(()=>{});
       }

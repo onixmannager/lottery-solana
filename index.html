@@ -461,7 +461,6 @@ async function fetchAll(){
 function renderActiveRounds(){
   const container=el("rounds-container");
   const nowTs=Math.floor(Date.now()/1000);
-  // Solo rondas no finalizadas cuyo tiempo de fin aún no ha pasado (activas o próximas)
   const activeRounds = rounds.filter(r => !r.isFinalized && r.endTime >= nowTs);
   if(activeRounds.length===0){
     container.innerHTML="<p style='color:var(--muted);text-align:center;padding:20px;'>No hay rondas activas o próximas.</p>";
@@ -496,7 +495,6 @@ function renderFinishedRounds(){
     if (r.isFinalized) {
       const winnerStr = r.winner.equals(SystemProgram.programId) ? "Sin ganador" : short(r.winner,6);
       const prizeStr = r.totalPrize > 0n ? fmtSOL(r.totalPrize,2) : "0.00 ◎";
-      // ¿Es el ganador y queda premio por reclamar?
       const isWinner = walletPubkey && r.winner.equals(walletPubkey);
       const canClaim = isWinner && r.totalPrize > 0n;
       const claimBtn = canClaim
@@ -544,7 +542,6 @@ function renderFinishedRounds(){
 function selectRound(id){
   const nowTs=Math.floor(Date.now()/1000);
   const round = rounds.find(r=>r.id===id);
-  // No permitir seleccionar si está finalizada o si su tiempo terminó
   if(!round || round.isFinalized || round.endTime < nowTs) return;
   selectedRoundId = id;
   renderActiveRounds();
@@ -564,7 +561,6 @@ function updateSelectedRoundUI(){
   const canBuy=isActive&&round.playerCount<round.maxTickets;
   el("selected-round-info").innerHTML=`Ronda #${round.id} · ${fmtSOL(round.ticketPrice,2)} · ${round.playerCount}/${round.maxTickets} · Bote: ${fmtSOL(round.totalPrize,2)}<br>Estado: ${isActive?'ACTIVA':'PRÓXIMA'}`;
   el("btn-buy").disabled=!canBuy;
-  // El botón de finalizar ya no aparece en la vista activa (solo en historial)
   el("btn-finalize").style.display="none";
   const isWinner=walletPubkey&&round.isFinalized&&round.winner.equals(walletPubkey);
   el("btn-claim").style.display=(isWinner&&round.totalPrize>0n)?"inline-flex":"none";
@@ -652,19 +648,16 @@ async function finalizeRound(roundId){
   const round = rounds.find(r=>r.id===roundId);
   if(!round || round.isFinalized || !round.admin.equals(walletPubkey)) throw new Error("No puedes finalizar esta ronda.");
   const rPda = roundPDA(round.id);
-  // 1) Finalizar
   const disc1 = await discriminator("finalize_round");
   const data1 = concat(disc1, u64LE(BigInt(round.id)));
   const ix1 = new TransactionInstruction({programId:PROGRAM_ID,keys:[{pubkey:rPda,isSigner:false,isWritable:true},{pubkey:walletPubkey,isSigner:true,isWritable:false}],data:data1});
   await sendTx([ix1]);
 
-  // Esperar propagación
   await new Promise(resolve => setTimeout(resolve, 2000));
   await fetchAll();
   const updated = rounds.find(r => r.id === roundId);
   if(!updated || !updated.isFinalized) throw new Error("No se finalizó correctamente o los datos tardan en propagarse.");
 
-  // 2) Reclamar premio automáticamente
   if(updated.totalPrize > 0n && !updated.winner.equals(SystemProgram.programId)){
     const disc2 = await discriminator("claim_prize");
     const data2 = concat(disc2, u64LE(BigInt(roundId)));
@@ -702,7 +695,6 @@ async function handleFinalize(roundIdParam = null){
   busy = false;
 }
 
-// Llamada desde el botón del historial
 async function handleFinalizeFromHistory(roundId){
   await handleFinalize(roundId);
 }

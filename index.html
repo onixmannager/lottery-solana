@@ -1,1410 +1,1997 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SolLotto — Devnet</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
-  <script src="https://unpkg.com/@solana/web3.js@1.91.8/lib/index.iife.min.js"></script>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    :root {
-      --bg: #06080d;
-      --surface: #0a0f1a;
-      --surface-light: #111827;
-      --border: #1f2a3f;
-      --border-light: #2a3a5a;
-      --text: #e8ecf2;
-      --text-secondary: #8899b4;
-      --text-muted: #5a6a82;
-      --primary: #5b6cf0;
-      --primary-glow: #7b8cf5;
-      --gold: #f0b90b;
-      --gold-glow: #f5d742;
-      --green: #14b87a;
-      --green-glow: #2ee69b;
-      --red: #f04444;
-      --red-glow: #f76e6e;
-      --radius: 12px;
-      --radius-lg: 18px;
-      --shadow: 0 4px 24px rgba(0,0,0,0.3);
-      --font: 'Inter', sans-serif;
-      --mono: 'JetBrains Mono', monospace;
-    }
-    body {
-      font-family: var(--font);
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-      display: flex;
-    }
-    body::before {
-      content: '';
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      z-index: 0;
-      background:
-        radial-gradient(circle at 30% 20%, rgba(91,108,240,0.08) 0%, transparent 50%),
-        radial-gradient(circle at 70% 60%, rgba(240,185,11,0.05) 0%, transparent 50%);
-    }
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SolLotto — Protocolo de Lotería en Solana</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <script src="https://unpkg.com/@solana/web3.js@1.91.8/lib/index.iife.min.js">
+    </script>
+    <style>
+        :root {
+            --bg: #03050b;
+            --bg-alt: #060913;
+            --surface: #0b0f1c;
+            --card: #0f1324;
+            --card-hover: #131a2e;
+            --border: #18203a;
+            --border-hi: #243050;
+            --border-glow: #2e3d66;
+            --primary: #5b6cf0;
+            --primary-dim: #4a56c7;
+            --primary-hi: #7b8af8;
+            --primary-glow: rgba(91, 108, 240, 0.35);
+            --accent: #f0a020;
+            --accent-hi: #f5c44a;
+            --accent-glow: rgba(240, 160, 32, 0.4);
+            --green: #1ec98b;
+            --green-hi: #34e0a0;
+            --green-bg: rgba(30, 201, 139, 0.08);
+            --red: #f0445c;
+            --red-hi: #f76e80;
+            --red-bg: rgba(240, 68, 92, 0.08);
+            --text: #e4e8f2;
+            --text-dim: #a0aac0;
+            --muted: #5b6380;
+            --muted-hi: #7882a0;
+            --font: 'Inter', system-ui, -apple-system, sans-serif;
+            --mono: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
+            --sidebar-w: 272px;
+            --radius-sm: 8px;
+            --radius: 12px;
+            --radius-lg: 18px;
+            --radius-xl: 24px;
+            --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.3);
+            --shadow-elevated: 0 2px 4px rgba(0, 0, 0, 0.5), 0 8px 32px rgba(0, 0, 0, 0.4);
+            --shadow-glow-primary: 0 0 32px var(--primary-glow);
+            --shadow-glow-accent: 0 0 32px var(--accent-glow);
+            --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-smooth: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
 
-    /* ═══════ SIDEBAR ═══════ */
-    #sidebar {
-      width: 260px;
-      background: rgba(10,15,26,0.9);
-      backdrop-filter: blur(20px);
-      border-right: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      position: fixed;
-      top: 0;
-      left: 0;
-      height: 100vh;
-      z-index: 100;
-      transition: transform 0.3s ease;
-      box-shadow: var(--shadow);
-    }
-    .sidebar-logo {
-      padding: 24px 20px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .logo-icon {
-      width: 36px;
-      height: 36px;
-      background: linear-gradient(135deg, var(--primary), #7c4dff);
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 800;
-      font-size: 18px;
-      color: #fff;
-      box-shadow: 0 0 20px rgba(91,108,240,0.4);
-    }
-    .logo-text {
-      font-weight: 700;
-      font-size: 1rem;
-      letter-spacing: 0.05em;
-      color: var(--text);
-    }
-    .logo-text span {
-      color: var(--primary-glow);
-    }
-    .devnet-badge {
-      font-size: 0.6rem;
-      font-weight: 700;
-      letter-spacing: 0.2em;
-      background: rgba(91,108,240,0.15);
-      color: var(--primary-glow);
-      border: 1px solid rgba(91,108,240,0.3);
-      border-radius: 20px;
-      padding: 2px 8px;
-      margin-left: 6px;
-    }
-    .sidebar-nav {
-      flex: 1;
-      padding: 16px 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-    .nav-item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 12px 16px;
-      border-radius: 10px;
-      font-size: 0.85rem;
-      font-weight: 500;
-      letter-spacing: 0.03em;
-      color: var(--text-secondary);
-      background: transparent;
-      border: none;
-      cursor: pointer;
-      transition: all 0.2s;
-      font-family: var(--font);
-      width: 100%;
-      text-align: left;
-    }
-    .nav-item:hover {
-      background: var(--surface-light);
-      color: var(--text);
-    }
-    .nav-item.active {
-      background: var(--surface-light);
-      color: var(--text);
-      box-shadow: 0 2px 12px rgba(0,0,0,0.4);
-      border: 1px solid var(--border-light);
-      font-weight: 600;
-    }
-    .nav-icon {
-      width: 20px;
-      text-align: center;
-      font-size: 1rem;
-      opacity: 0.8;
-    }
-    .sidebar-footer {
-      padding: 12px;
-      border-top: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .network-indicator {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 12px;
-      font-size: 0.75rem;
-      color: var(--text-muted);
-    }
-    .net-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: var(--green);
-      box-shadow: 0 0 8px var(--green-glow);
-      animation: pulse-dot 2s infinite;
-    }
-    @keyframes pulse-dot {
-      0%,100% { opacity:1; }
-      50% { opacity:0.4; }
-    }
-    #btn-wallet {
-      font-family: var(--font);
-      font-size: 0.8rem;
-      font-weight: 600;
-      letter-spacing: 0.05em;
-      padding: 10px 16px;
-      border-radius: 8px;
-      border: 1px solid var(--border-light);
-      background: transparent;
-      color: var(--text-secondary);
-      cursor: pointer;
-      transition: all 0.2s;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      width: 100%;
-    }
-    #btn-wallet:hover {
-      border-color: var(--primary);
-      color: var(--primary-glow);
-      background: rgba(91,108,240,0.06);
-    }
-    #btn-wallet.on {
-      border-color: rgba(20,184,122,0.4);
-      color: var(--green-glow);
-      background: rgba(20,184,122,0.06);
-    }
-    .wallet-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: currentColor;
-      flex-shrink: 0;
-    }
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        html {
+            scroll-behavior: smooth;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        body {
+            font-family: var(--font);
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            letter-spacing: -0.01em;
+            display: flex;
+            line-height: 1.5;
+        }
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            background:
+                radial-gradient(ellipse 1000px 600px at 55% -120px, rgba(91, 108, 240, 0.07) 0%, transparent 65%),
+                radial-gradient(ellipse 700px 500px at -80px 75%, rgba(240, 160, 32, 0.04) 0%, transparent 55%),
+                radial-gradient(ellipse 400px 300px at 90% 90%, rgba(91, 108, 240, 0.03) 0%, transparent 60%);
+        }
+        #root {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            width: 100%;
+            min-height: 100vh;
+        }
 
-    /* Mobile toggle */
-    .sidebar-toggle {
-      display: none;
-      position: fixed;
-      top: 16px;
-      left: 16px;
-      z-index: 200;
-      background: var(--surface-light);
-      border: 1px solid var(--border-light);
-      border-radius: 8px;
-      width: 40px;
-      height: 40px;
-      cursor: pointer;
-      color: var(--text);
-      font-size: 1.2rem;
-      align-items: center;
-      justify-content: center;
-      backdrop-filter: blur(10px);
-    }
+        /* ═══════════ SIDEBAR ═══════════ */
+        #sidebar {
+            width: var(--sidebar-w);
+            background: rgba(6, 9, 19, 0.92);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            z-index: 200;
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            transition: transform var(--transition-smooth);
+            box-shadow: var(--shadow-card);
+        }
+        .sidebar-logo {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            padding: 20px 22px;
+            border-bottom: 1px solid var(--border);
+            height: 68px;
+            flex-shrink: 0;
+        }
+        .sidebar-logo .logo-mark {
+            width: 38px;
+            height: 38px;
+            border-radius: var(--radius-sm);
+            background: linear-gradient(135deg, #5b6cf0 0%, #8b5cf6 50%, #a78bfa 100%);
+            display: grid;
+            place-items: center;
+            flex-shrink: 0;
+            box-shadow: 0 0 22px rgba(91, 108, 240, 0.45);
+            position: relative;
+        }
+        .logo-mark svg {
+            width: 20px;
+            height: 20px;
+        }
+        .sidebar-logo .logo-name {
+            font-size: 1rem;
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            color: var(--text);
+            line-height: 1.1;
+        }
+        .sidebar-logo .logo-name em {
+            color: #a78bfa;
+            font-style: normal;
+            font-weight: 900;
+        }
+        .sidebar-logo .devnet-pill {
+            font-size: 0.58rem;
+            font-weight: 700;
+            letter-spacing: 0.16em;
+            background: rgba(91, 108, 240, 0.14);
+            color: var(--primary-hi);
+            border: 1px solid rgba(91, 108, 240, 0.28);
+            border-radius: 20px;
+            padding: 3px 8px;
+            margin-left: 2px;
+            text-transform: uppercase;
+        }
+        .sidebar-nav {
+            flex: 1;
+            padding: 18px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+        .sidebar-nav .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            padding: 12px 16px;
+            border-radius: var(--radius);
+            font-size: 0.82rem;
+            font-weight: 500;
+            letter-spacing: 0.02em;
+            color: var(--muted);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            border: 1px solid transparent;
+            background: transparent;
+            text-align: left;
+            font-family: var(--font);
+            width: 100%;
+            position: relative;
+        }
+        .nav-item:hover {
+            background: rgba(255, 255, 255, 0.02);
+            color: var(--text-dim);
+            border-color: rgba(255, 255, 255, 0.04);
+        }
+        .nav-item.active {
+            background: var(--card);
+            color: var(--text);
+            border-color: var(--border-hi);
+            box-shadow: 0 2px 16px rgba(0, 0, 0, 0.3);
+            font-weight: 600;
+        }
+        .nav-item .nav-icon {
+            width: 20px;
+            height: 20px;
+            flex-shrink: 0;
+            opacity: 0.7;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .nav-item.active .nav-icon {
+            opacity: 1;
+        }
+        .nav-item .nav-icon svg {
+            width: 18px;
+            height: 18px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 1.8;
+        }
+        .nav-item.active .nav-icon svg {
+            stroke: var(--primary-hi);
+        }
+        .nav-item .nav-badge {
+            margin-left: auto;
+            font-size: 0.64rem;
+            font-weight: 700;
+            background: var(--accent);
+            color: #000;
+            border-radius: 10px;
+            padding: 2px 9px;
+            animation: pulse-badge 2.2s ease-in-out infinite;
+            letter-spacing: 0.04em;
+        }
+        @keyframes pulse-badge {
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 0.65;
+                transform: scale(0.94);
+            }
+        }
+        .sidebar-footer {
+            padding: 14px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            gap: 9px;
+        }
+        .sidebar-footer .net-status {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            font-size: 0.7rem;
+            color: var(--muted);
+            padding: 0 6px;
+            font-weight: 500;
+        }
+        .net-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--green);
+            animation: blink 2.5s ease-in-out infinite;
+            box-shadow: 0 0 8px rgba(30, 201, 139, 0.5);
+        }
+        @keyframes blink {
+            0%,
+            100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.25;
+            }
+        }
+        #btn-wallet {
+            font-family: var(--font);
+            font-size: 0.76rem;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            padding: 11px 15px;
+            border-radius: var(--radius);
+            border: 1px solid var(--border-hi);
+            background: transparent;
+            color: var(--muted-hi);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            width: 100%;
+        }
+        #btn-wallet:hover {
+            border-color: var(--primary);
+            color: var(--primary-hi);
+            background: rgba(91, 108, 240, 0.07);
+            box-shadow: 0 0 20px rgba(91, 108, 240, 0.1);
+        }
+        #btn-wallet.on {
+            border-color: rgba(30, 201, 139, 0.35);
+            color: var(--green-hi);
+            background: rgba(30, 201, 139, 0.05);
+        }
+        #btn-wallet.on:hover {
+            border-color: var(--red);
+            color: var(--red-hi);
+            background: rgba(240, 68, 92, 0.06);
+        }
+        .wallet-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+            flex-shrink: 0;
+        }
+        .sidebar-toggle {
+            display: none;
+            position: fixed;
+            top: 18px;
+            left: 18px;
+            z-index: 300;
+            background: var(--card);
+            border: 1px solid var(--border-hi);
+            border-radius: var(--radius-sm);
+            width: 38px;
+            height: 38px;
+            cursor: pointer;
+            color: var(--text);
+            font-size: 1.1rem;
+            align-items: center;
+            justify-content: center;
+            box-shadow: var(--shadow-card);
+            transition: all var(--transition-fast);
+        }
+        .sidebar-toggle:hover {
+            border-color: var(--primary);
+            box-shadow: var(--shadow-glow-primary);
+        }
 
-    /* ═══════ MAIN ═══════ */
-    #main-area {
-      margin-left: 260px;
-      flex: 1;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      position: relative;
-      z-index: 1;
-    }
-    #welcome {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      padding: 60px 24px;
-    }
-    .welcome-badge {
-      display: inline-block;
-      font-size: 0.7rem;
-      font-weight: 700;
-      letter-spacing: 0.25em;
-      color: var(--gold);
-      background: rgba(240,185,11,0.1);
-      border: 1px solid rgba(240,185,11,0.2);
-      border-radius: 20px;
-      padding: 6px 16px;
-      margin-bottom: 32px;
-    }
-    .welcome-title {
-      font-size: clamp(2.2rem, 6vw, 3.8rem);
-      font-weight: 800;
-      line-height: 1.1;
-      margin-bottom: 20px;
-      color: #fff;
-    }
-    .welcome-title span {
-      background: linear-gradient(135deg, var(--primary), var(--gold));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-    .welcome-desc {
-      font-size: 1rem;
-      color: var(--text-secondary);
-      max-width: 500px;
-      line-height: 1.6;
-      margin-bottom: 48px;
-      font-weight: 300;
-    }
-    .btn-connect-main {
-      font-family: var(--font);
-      font-size: 0.9rem;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      padding: 16px 48px;
-      border-radius: 12px;
-      border: none;
-      cursor: pointer;
-      background: linear-gradient(135deg, var(--primary), #7c4dff);
-      color: #fff;
-      box-shadow: 0 0 40px rgba(91,108,240,0.4);
-      transition: all 0.25s;
-      position: relative;
-      overflow: hidden;
-    }
-    .btn-connect-main::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(135deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%);
-      transform: translateX(-100%);
-      transition: transform 0.5s;
-    }
-    .btn-connect-main:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 0 60px rgba(91,108,240,0.6);
-    }
-    .btn-connect-main:hover::after {
-      transform: translateX(100%);
-    }
-    #no-phantom-msg {
-      display: none;
-      margin-top: 24px;
-      background: rgba(240,68,68,0.1);
-      border: 1px solid rgba(240,68,68,0.25);
-      border-radius: 8px;
-      padding: 14px 20px;
-      font-size: 0.85rem;
-      color: var(--red-glow);
-    }
-    #no-phantom-msg a {
-      color: var(--red-glow);
-    }
+        /* ═══════════ MAIN ═══════════ */
+        #main-area {
+            margin-left: var(--sidebar-w);
+            flex: 1;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
 
-    #dashboard {
-      display: none;
-      flex: 1;
-      flex-direction: column;
-    }
-    #dashboard.active-db {
-      display: flex;
-    }
+        #welcome {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 60px 28px;
+        }
+        .w-badge {
+            display: inline-block;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.2em;
+            color: var(--accent);
+            background: rgba(240, 160, 32, 0.08);
+            border: 1px solid rgba(240, 160, 32, 0.2);
+            border-radius: 20px;
+            padding: 5px 16px;
+            margin-bottom: 32px;
+            text-transform: uppercase;
+        }
+        .w-title {
+            font-size: clamp(2.2rem, 6.5vw, 3.6rem);
+            font-weight: 900;
+            line-height: 1.08;
+            letter-spacing: -0.02em;
+            margin-bottom: 22px;
+            color: #fff;
+        }
+        .w-title span {
+            background: linear-gradient(135deg, var(--primary-hi) 0%, #a78bfa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .w-desc {
+            font-size: 0.98rem;
+            color: var(--text-dim);
+            max-width: 460px;
+            line-height: 1.8;
+            margin-bottom: 44px;
+            font-weight: 400;
+        }
+        .btn-connect-main {
+            font-family: var(--font);
+            font-size: 0.88rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            padding: 16px 44px;
+            border-radius: var(--radius-lg);
+            border: none;
+            cursor: pointer;
+            background: linear-gradient(135deg, #5b6cf0 0%, #7c5cf6 50%, #9b6cf0 100%);
+            color: #fff;
+            box-shadow: 0 0 50px rgba(91, 108, 240, 0.4), 0 0 100px rgba(91, 108, 240, 0.15);
+            transition: all var(--transition-smooth);
+            position: relative;
+            overflow: hidden;
+        }
+        .btn-connect-main::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, transparent 25%, rgba(255, 255, 255, 0.08) 50%, transparent 75%);
+            transform: translateX(-100%);
+            transition: transform 0.6s;
+        }
+        .btn-connect-main:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 0 70px rgba(91, 108, 240, 0.55), 0 0 140px rgba(91, 108, 240, 0.2);
+        }
+        .btn-connect-main:hover::after {
+            transform: translateX(100%);
+        }
+        #no-phantom-msg {
+            display: none;
+            margin-top: 22px;
+            background: var(--red-bg);
+            border: 1px solid rgba(240, 68, 92, 0.2);
+            border-radius: var(--radius);
+            padding: 13px 22px;
+            font-size: 0.84rem;
+            color: var(--red-hi);
+        }
+        #no-phantom-msg a {
+            color: var(--red-hi);
+            font-weight: 600;
+        }
 
-    /* ═══ PENDING CLAIMS BANNER (siempre visible si hay premios) ═══ */
-    #pending-claims-banner {
-      display: none;
-      background: linear-gradient(90deg, rgba(240,185,11,0.12), rgba(240,185,11,0.03));
-      border-bottom: 1px solid rgba(240,185,11,0.3);
-      padding: 16px 32px;
-      backdrop-filter: blur(10px);
-      z-index: 10;
-    }
-    .pcb-inner {
-      display: flex;
-      align-items: center;
-      gap: 20px;
-      flex-wrap: wrap;
-      justify-content: space-between;
-    }
-    .pcb-text {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      font-weight: 600;
-      color: var(--gold);
-    }
-    .pcb-amount {
-      font-family: var(--mono);
-      font-weight: 700;
-      font-size: 1.3rem;
-      color: var(--gold-glow);
-    }
-    .btn-claim-banner {
-      font-family: var(--font);
-      font-size: 0.8rem;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      padding: 12px 28px;
-      border-radius: 10px;
-      border: none;
-      cursor: pointer;
-      background: linear-gradient(135deg, var(--gold), #d4a00b);
-      color: #000;
-      box-shadow: 0 0 24px rgba(240,185,11,0.5);
-      transition: all 0.2s;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .btn-claim-banner:hover {
-      transform: scale(1.02);
-      box-shadow: 0 0 40px rgba(240,185,11,0.7);
-    }
+        #dashboard {
+            display: none;
+            flex: 1;
+            flex-direction: column;
+        }
+        #dashboard.active-db {
+            display: flex;
+        }
 
-    /* ═══ CONTENT SECTIONS ═══ */
-    .content-section {
-      display: none;
-      flex: 1;
-      padding: 0 40px 40px;
-      animation: fadeIn 0.2s ease;
-    }
-    .content-section.active-section {
-      display: block;
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(5px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
+        /* ── PENDING CLAIMS BANNER ── */
+        #pending-claims-banner {
+            display: none;
+            background: linear-gradient(135deg, rgba(240, 160, 32, 0.12), rgba(240, 160, 32, 0.03));
+            border-bottom: 1px solid rgba(240, 160, 32, 0.25);
+            padding: 18px 36px;
+            animation: slideDown 0.35s ease-out;
+        }
+        @keyframes slideDown {
+            from {
+                transform: translateY(-100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        .pcb-inner {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            flex-wrap: wrap;
+            justify-content: space-between;
+        }
+        .pcb-text {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .pcb-icon-circle {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(240, 160, 32, 0.15);
+            border: 2px solid rgba(240, 160, 32, 0.35);
+            display: grid;
+            place-items: center;
+            flex-shrink: 0;
+        }
+        .pcb-icon-circle svg {
+            width: 20px;
+            height: 20px;
+            stroke: var(--accent-hi);
+            fill: none;
+            stroke-width: 2;
+        }
+        .pcb-title {
+            font-weight: 700;
+            color: var(--accent-hi);
+            font-size: 0.92rem;
+            letter-spacing: 0.02em;
+        }
+        .pcb-amount {
+            font-family: var(--mono);
+            font-weight: 700;
+            color: var(--accent);
+            font-size: 1.15rem;
+        }
 
-    .section-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 28px 0 20px;
-      border-bottom: 1px solid var(--border);
-      margin-bottom: 24px;
-    }
-    .section-header-left h2 {
-      font-size: 1.6rem;
-      font-weight: 700;
-      color: #fff;
-      margin-bottom: 4px;
-    }
-    .section-header-left .subtitle {
-      font-size: 0.85rem;
-      color: var(--text-muted);
-    }
-    .admin-badge {
-      background: rgba(240,185,11,0.15);
-      color: var(--gold);
-      border: 1px solid rgba(240,185,11,0.3);
-      border-radius: 20px;
-      padding: 4px 14px;
-      font-size: 0.7rem;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      margin-left: 10px;
-    }
+        /* ── CONTENT SECTIONS ── */
+        .content-section {
+            display: none;
+            flex: 1;
+            padding: 0 36px 36px;
+        }
+        .content-section.active-section {
+            display: block;
+        }
+        .section-top-bar {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            padding: 28px 0 18px;
+            flex-wrap: wrap;
+            gap: 14px;
+        }
+        .section-label {
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 0.22em;
+            color: var(--muted);
+            text-transform: uppercase;
+            margin-bottom: 2px;
+        }
+        .section-title-main {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--text);
+            letter-spacing: -0.01em;
+        }
+        .admin-line {
+            font-size: 0.76rem;
+            color: var(--muted-hi);
+            margin-top: 2px;
+        }
+        .admin-line span {
+            font-family: var(--mono);
+            color: var(--accent);
+            font-weight: 500;
+        }
 
-    /* ═══ ROUND CARDS (grandes y atractivas) ═══ */
-    .rounds-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      gap: 24px;
-      margin-top: 8px;
-    }
-    .round-card {
-      background: var(--surface-light);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      padding: 28px 24px;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      position: relative;
-      overflow: hidden;
-    }
-    .round-card::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 0;
-      width: 100%;
-      height: 3px;
-      background: linear-gradient(90deg, var(--primary), var(--gold));
-      opacity: 0;
-      transition: opacity 0.3s;
-    }
-    .round-card:hover {
-      border-color: var(--border-light);
-      transform: translateY(-4px);
-      box-shadow: 0 12px 32px rgba(0,0,0,0.5);
-    }
-    .round-card:hover::before {
-      opacity: 1;
-    }
-    .round-card.selected {
-      border-color: var(--primary);
-      box-shadow: 0 0 0 2px var(--primary);
-    }
-    .round-card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 16px;
-    }
-    .round-id {
-      font-size: 0.8rem;
-      font-weight: 700;
-      letter-spacing: 0.15em;
-      color: var(--text-muted);
-    }
-    .round-status-badge {
-      font-size: 0.68rem;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      padding: 4px 12px;
-      border-radius: 20px;
-    }
-    .status-active {
-      background: rgba(20,184,122,0.15);
-      color: var(--green-glow);
-      border: 1px solid rgba(20,184,122,0.3);
-    }
-    .status-upcoming {
-      background: rgba(91,108,240,0.15);
-      color: var(--primary-glow);
-      border: 1px solid rgba(91,108,240,0.3);
-    }
-    .round-ticket-price {
-      font-family: var(--mono);
-      font-size: 2.4rem;
-      font-weight: 700;
-      color: var(--gold);
-      margin-bottom: 8px;
-    }
-    .round-meta {
-      display: flex;
-      gap: 16px;
-      font-size: 0.85rem;
-      color: var(--text-secondary);
-      margin-bottom: 14px;
-    }
-    .round-progress {
-      background: var(--bg);
-      border-radius: 6px;
-      height: 8px;
-      overflow: hidden;
-      margin: 16px 0;
-    }
-    .round-progress-bar {
-      height: 100%;
-      background: linear-gradient(90deg, var(--primary), var(--gold));
-      transition: width 0.3s;
-    }
-    .round-time {
-      font-size: 0.8rem;
-      color: var(--text-muted);
-    }
+        .rounds-grid {
+            display: grid;
+            gap: 16px;
+            grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+            margin-top: 18px;
+        }
+        .round-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            cursor: pointer;
+            transition: all var(--transition-smooth);
+            position: relative;
+            box-shadow: var(--shadow-card);
+        }
+        .round-card:hover {
+            border-color: var(--border-glow);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-elevated);
+            background: var(--card-hover);
+        }
+        .round-card.selected {
+            border-color: var(--primary);
+            box-shadow: 0 0 28px rgba(91, 108, 240, 0.3), var(--shadow-card);
+            background: var(--card-hover);
+        }
+        .round-card .round-id {
+            font-size: 0.66rem;
+            color: var(--muted);
+            font-weight: 700;
+            letter-spacing: 0.14em;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+        .round-card .round-price {
+            font-family: var(--mono);
+            font-size: 1.55rem;
+            font-weight: 700;
+            color: var(--accent-hi);
+            margin-bottom: 6px;
+            letter-spacing: -0.02em;
+        }
+        .round-card .round-meta {
+            font-size: 0.74rem;
+            color: var(--text-dim);
+            margin-bottom: 12px;
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            font-weight: 500;
+        }
+        .round-card .round-meta .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .round-card .round-meta .meta-label {
+            color: var(--muted);
+            font-size: 0.68rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .round-card .round-meta .meta-value {
+            font-weight: 700;
+            color: var(--text);
+        }
+        .round-card .round-time {
+            font-size: 0.71rem;
+            color: var(--muted);
+            margin-bottom: 12px;
+            font-weight: 500;
+        }
+        .round-progress {
+            background: var(--surface);
+            border-radius: 4px;
+            height: 5px;
+            overflow: hidden;
+            margin-bottom: 12px;
+        }
+        .round-progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            width: 0%;
+            transition: width 0.4s ease;
+            border-radius: 4px;
+        }
+        .round-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 13px;
+            border-radius: 20px;
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+        .status-active {
+            background: var(--green-bg);
+            color: var(--green-hi);
+            border: 1px solid rgba(30, 201, 139, 0.22);
+        }
+        .status-upcoming {
+            background: rgba(91, 108, 240, 0.08);
+            color: var(--primary-hi);
+            border: 1px solid rgba(91, 108, 240, 0.22);
+        }
+        .status-finished {
+            background: var(--red-bg);
+            color: var(--red-hi);
+            border: 1px solid rgba(240, 68, 92, 0.22);
+        }
 
-    /* ═══ ACTIONS PANEL (bajo la grid) ═══ */
-    #actions-container {
-      background: var(--surface-light);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      padding: 28px;
-      margin-top: 24px;
-      display: none;
-    }
-    #actions-container h3 {
-      font-size: 0.8rem;
-      letter-spacing: 0.15em;
-      color: var(--text-muted);
-      margin-bottom: 18px;
-      text-transform: uppercase;
-    }
-    .btn {
-      font-family: var(--font);
-      font-size: 0.85rem;
-      font-weight: 600;
-      letter-spacing: 0.08em;
-      padding: 14px 24px;
-      border-radius: 10px;
-      border: none;
-      cursor: pointer;
-      transition: all 0.2s;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-    }
-    .btn:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-      transform: none !important;
-    }
-    .btn-primary {
-      background: var(--primary);
-      color: #fff;
-      width: 100%;
-      box-shadow: 0 4px 18px rgba(91,108,240,0.3);
-    }
-    .btn-primary:hover:not(:disabled) {
-      background: #6b7cf5;
-      transform: translateY(-1px);
-    }
-    .btn-gold {
-      background: linear-gradient(135deg, var(--gold), #d4a00b);
-      color: #000;
-      font-weight: 700;
-      width: 100%;
-      box-shadow: 0 4px 18px rgba(240,185,11,0.3);
-    }
-    .btn-gold:hover:not(:disabled) {
-      transform: translateY(-1px);
-      box-shadow: 0 6px 24px rgba(240,185,11,0.5);
-    }
-    .btn-claim-highlight {
-      background: var(--gold);
-      color: #000;
-      font-weight: 700;
-      width: 100%;
-      box-shadow: 0 0 24px rgba(240,185,11,0.5);
-      animation: claim-glow 2s ease-in-out infinite;
-    }
-    @keyframes claim-glow {
-      0%,100% { box-shadow: 0 0 20px rgba(240,185,11,0.4); }
-      50% { box-shadow: 0 0 40px rgba(240,185,11,0.7); }
-    }
-    .btn-outline {
-      background: transparent;
-      border: 1px solid var(--border-light);
-      color: var(--text-secondary);
-      width: 100%;
-    }
-    .btn-outline:hover:not(:disabled) {
-      background: var(--surface-light);
-      color: #fff;
-      border-color: var(--primary);
-    }
+        /* ── ACTION PANEL ── */
+        #actions-container {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 26px;
+            margin-top: 22px;
+            display: none;
+            box-shadow: var(--shadow-card);
+        }
+        #actions-container h3 {
+            font-size: 0.7rem;
+            letter-spacing: 0.16em;
+            color: var(--muted);
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            font-weight: 700;
+        }
+        .btn {
+            font-family: var(--font);
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            padding: 14px 26px;
+            border-radius: var(--radius);
+            border: none;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 9px;
+        }
+        .btn:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #5b6cf0, #7c5cf6);
+            color: #fff;
+            box-shadow: 0 0 28px rgba(91, 108, 240, 0.25);
+            width: 100%;
+        }
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 0 40px rgba(91, 108, 240, 0.45);
+        }
+        .btn-gold {
+            background: linear-gradient(135deg, #f0a020, #e0891a);
+            color: #000;
+            font-weight: 700;
+            width: 100%;
+            box-shadow: 0 0 24px rgba(240, 160, 32, 0.3);
+        }
+        .btn-gold:hover:not(:disabled) {
+            box-shadow: 0 0 40px rgba(240, 160, 32, 0.5);
+            transform: translateY(-1px);
+        }
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border-hi);
+            color: var(--muted-hi);
+            width: 100%;
+        }
+        .btn-outline:hover:not(:disabled) {
+            background: var(--surface);
+            color: var(--text);
+            border-color: var(--border-glow);
+        }
+        .btn-claim-highlight {
+            background: linear-gradient(135deg, #f0a020, #f5c44a);
+            color: #000;
+            font-weight: 700;
+            width: 100%;
+            box-shadow: 0 0 30px rgba(240, 160, 32, 0.35);
+            animation: glow-claim 2.5s ease-in-out infinite;
+        }
+        @keyframes glow-claim {
+            0%,
+            100% {
+                box-shadow: 0 0 20px rgba(240, 160, 32, 0.3);
+            }
+            50% {
+                box-shadow: 0 0 45px rgba(240, 160, 32, 0.65);
+            }
+        }
+        .btn-claim-highlight:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 0 55px rgba(240, 160, 32, 0.7);
+        }
 
-    /* ═══ ADMIN FORM ═══ */
-    .admin-create-form {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      background: var(--surface-light);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 18px;
-      margin-bottom: 20px;
-    }
-    .admin-create-form input {
-      flex: 1 1 140px;
-      background: var(--bg);
-      border: 1px solid var(--border-light);
-      border-radius: 8px;
-      padding: 10px 14px;
-      color: var(--text);
-      font-family: var(--mono);
-      font-size: 0.8rem;
-    }
+        .admin-create-form {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 16px;
+            background: var(--surface);
+            border-radius: var(--radius);
+            padding: 15px;
+            border: 1px solid var(--border);
+        }
+        .admin-create-form input {
+            flex: 1 1 140px;
+            background: var(--bg);
+            border: 1px solid var(--border-hi);
+            border-radius: var(--radius-sm);
+            padding: 11px;
+            color: var(--text);
+            font-family: var(--mono);
+            font-size: 0.8rem;
+            transition: border-color var(--transition-fast);
+        }
+        .admin-create-form input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(91, 108, 240, 0.1);
+        }
+        .admin-create-form input::placeholder {
+            color: var(--muted);
+        }
 
-    /* ═══ WINNERS / ACTIVITY / HISTORY ═══ */
-    .list-container {
-      margin-top: 8px;
-    }
-    .winner-item, .history-item, .finished-item {
-      background: var(--surface-light);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 16px 20px;
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      transition: border-color 0.2s;
-    }
-    .winner-item:hover, .history-item:hover, .finished-item:hover {
-      border-color: var(--border-light);
-    }
-    .winner-rank {
-      width: 34px;
-      height: 34px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 700;
-      background: rgba(240,185,11,0.1);
-      color: var(--gold);
-      border: 1px solid rgba(240,185,11,0.3);
-      flex-shrink: 0;
-    }
-    .winner-info {
-      flex: 1;
-    }
-    .winner-addr {
-      font-family: var(--mono);
-      font-size: 0.8rem;
-      cursor: pointer;
-    }
-    .winner-meta {
-      font-size: 0.7rem;
-      color: var(--text-muted);
-    }
-    .prize-amount {
-      font-family: var(--mono);
-      font-weight: 700;
-      color: var(--gold);
-    }
-    .empty-state {
-      text-align: center;
-      padding: 60px 20px;
-      color: var(--text-muted);
-    }
+        /* ── WINNERS / ACTIVITY ── */
+        .winners-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 14px;
+        }
+        .winner-item {
+            background: var(--surface);
+            border-radius: var(--radius);
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            border: 1px solid transparent;
+            transition: all var(--transition-fast);
+        }
+        .winner-item:hover {
+            border-color: rgba(240, 160, 32, 0.18);
+            background: var(--card);
+        }
+        .winner-rank {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            font-size: 0.9rem;
+            font-weight: 800;
+            background: rgba(240, 160, 32, 0.08);
+            color: var(--accent);
+            border: 2px solid rgba(240, 160, 32, 0.2);
+            flex-shrink: 0;
+            font-family: var(--mono);
+        }
+        .winner-rank.r1 {
+            background: rgba(240, 160, 32, 0.18);
+            color: var(--accent-hi);
+            font-size: 1.2rem;
+            border-color: rgba(240, 160, 32, 0.4);
+            box-shadow: 0 0 16px rgba(240, 160, 32, 0.2);
+        }
+        .winner-info {
+            flex: 1;
+            min-width: 0;
+        }
+        .winner-addr {
+            font-family: var(--mono);
+            font-size: 0.8rem;
+            color: var(--text);
+            cursor: pointer;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-weight: 500;
+        }
+        .winner-addr:hover {
+            color: var(--accent);
+        }
+        .winner-meta {
+            font-size: 0.68rem;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+        .winner-prize {
+            font-family: var(--mono);
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--accent);
+            flex-shrink: 0;
+            text-align: right;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 48px 20px;
+            color: var(--muted);
+            font-size: 0.86rem;
+        }
+        .empty-state .es-icon {
+            font-size: 2.8rem;
+            margin-bottom: 14px;
+            opacity: 0.3;
+            font-weight: 300;
+        }
 
-    /* ═══ MODAL ═══ */
-    .modal-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      z-index: 999;
-      background: rgba(6,8,13,0.9);
-      backdrop-filter: blur(8px);
-      align-items: center;
-      justify-content: center;
-    }
-    .modal-overlay.flex {
-      display: flex;
-    }
-    .modal-box {
-      background: var(--surface-light);
-      border: 1px solid var(--border-light);
-      border-radius: var(--radius-lg);
-      padding: 40px;
-      width: 90%;
-      max-width: 460px;
-      text-align: center;
-    }
-    .tx-loader {
-      width: 60px;
-      height: 60px;
-      margin: 0 auto 24px;
-      border: 4px solid var(--border);
-      border-top-color: var(--primary);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .tx-icon {
-      width: 60px;
-      height: 60px;
-      border-radius: 50%;
-      margin: 0 auto 24px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 2rem;
-    }
-    .tx-icon.success { background: rgba(20,184,122,0.15); color: var(--green); }
-    .tx-icon.error { background: rgba(240,68,68,0.15); color: var(--red); }
-    .modal-title { font-size: 1.3rem; font-weight: 700; margin-bottom: 8px; }
-    .modal-desc { font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 20px; }
-    .tx-link {
-      display: inline-block;
-      margin-top: 16px;
-      color: var(--primary-glow);
-      text-decoration: none;
-      font-weight: 600;
-    }
-    .modal-btns { margin-top: 20px; display: flex; gap: 12px; justify-content: center; }
-    .mbtn {
-      font-family: var(--font);
-      font-size: 0.8rem;
-      font-weight: 600;
-      padding: 10px 24px;
-      border-radius: 8px;
-      border: none;
-      cursor: pointer;
-    }
-    .mbtn-secondary { background: var(--surface); color: var(--text-secondary); }
-    .mbtn-primary { background: var(--primary); color: #fff; }
+        .history-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 14px;
+        }
+        .history-item {
+            background: var(--surface);
+            border-radius: var(--radius);
+            padding: 15px 18px;
+            display: flex;
+            align-items: center;
+            gap: 13px;
+            border: 1px solid transparent;
+            transition: all var(--transition-fast);
+        }
+        .history-item:hover {
+            border-color: var(--border-hi);
+        }
+        .history-ico {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            font-size: 0.8rem;
+            font-weight: 700;
+            flex-shrink: 0;
+            font-family: var(--mono);
+            letter-spacing: 0.04em;
+        }
+        .history-ico.w {
+            background: rgba(240, 160, 32, 0.12);
+            color: var(--accent);
+            border: 2px solid rgba(240, 160, 32, 0.25);
+        }
+        .history-ico.f {
+            background: rgba(240, 68, 92, 0.1);
+            color: var(--red);
+            border: 2px solid rgba(240, 68, 92, 0.2);
+        }
+        .history-ico.t {
+            background: rgba(91, 108, 240, 0.1);
+            color: var(--primary-hi);
+            border: 2px solid rgba(91, 108, 240, 0.2);
+        }
+        .history-info {
+            flex: 1;
+        }
+        .history-t {
+            font-size: 0.83rem;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 4px;
+        }
+        .history-d {
+            font-size: 0.71rem;
+            color: var(--muted);
+            font-family: var(--mono);
+        }
+        .history-amt {
+            font-size: 0.84rem;
+            font-weight: 700;
+            font-family: var(--mono);
+            color: var(--accent);
+        }
 
-    /* ═══ NOT INITIALIZED ═══ */
-    #not-initialized {
-      display: none;
-      text-align: center;
-      padding: 80px 24px;
-    }
+        /* ── FINISHED ROUNDS ── */
+        .finished-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 14px;
+        }
+        .finished-item {
+            background: var(--surface);
+            border-radius: var(--radius);
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+            border: 1px solid var(--border);
+            flex-wrap: wrap;
+            transition: all var(--transition-fast);
+        }
+        .finished-item:hover {
+            border-color: var(--border-hi);
+            background: var(--card);
+        }
+        .finished-left {
+            display: flex;
+            align-items: center;
+            gap: 13px;
+        }
+        .finished-round-num {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: var(--accent);
+            font-family: var(--mono);
+        }
+        .finished-details {
+            font-size: 0.8rem;
+        }
+        .finished-details .winner {
+            color: var(--primary-hi);
+            font-family: var(--mono);
+            font-weight: 500;
+        }
+        .finished-details .prize {
+            color: var(--accent-hi);
+            font-weight: 700;
+        }
 
-    /* ═══ RESPONSIVE ═══ */
-    @media (max-width: 900px) {
-      #sidebar {
-        transform: translateX(-100%);
-      }
-      #sidebar.open {
-        transform: translateX(0);
-      }
-      .sidebar-toggle {
-        display: flex;
-      }
-      #main-area {
-        margin-left: 0;
-      }
-      .rounds-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-  </style>
+        /* ── MODALS ── */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 999;
+            background: rgba(3, 5, 11, 0.88);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.flex {
+            display: flex;
+        }
+        .modal-box {
+            background: var(--card);
+            border: 1px solid var(--border-glow);
+            border-radius: var(--radius-xl);
+            padding: 44px;
+            width: 92%;
+            max-width: 480px;
+            text-align: center;
+            animation: scaleIn 0.22s ease-out;
+            box-shadow: var(--shadow-elevated);
+        }
+        @keyframes scaleIn {
+            from {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+        .tx-loader {
+            width: 56px;
+            height: 56px;
+            margin: 0 auto 26px;
+            border: 4px solid var(--surface);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.9s linear infinite;
+        }
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+        .tx-icon-circle {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            margin: 0 auto 26px;
+            display: grid;
+            place-items: center;
+        }
+        .tx-icon-circle.success {
+            background: rgba(30, 201, 139, 0.12);
+            border: 2px solid rgba(30, 201, 139, 0.3);
+        }
+        .tx-icon-circle.error {
+            background: rgba(240, 68, 92, 0.1);
+            border: 2px solid rgba(240, 68, 92, 0.25);
+        }
+        .tx-icon-circle svg {
+            width: 26px;
+            height: 26px;
+        }
+        .tx-icon-circle.success svg {
+            stroke: var(--green-hi);
+        }
+        .tx-icon-circle.error svg {
+            stroke: var(--red-hi);
+        }
+        .modal-title {
+            font-size: 1.35rem;
+            font-weight: 800;
+            margin-bottom: 10px;
+            color: var(--text);
+            letter-spacing: -0.01em;
+        }
+        .modal-desc {
+            font-size: 0.86rem;
+            color: var(--text-dim);
+            margin-bottom: 26px;
+            line-height: 1.7;
+        }
+        .tx-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.76rem;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            color: var(--primary-hi);
+            text-decoration: none;
+            padding: 11px 20px;
+            border-radius: var(--radius-sm);
+            border: 1px solid rgba(91, 108, 240, 0.3);
+            background: rgba(91, 108, 240, 0.07);
+            transition: all var(--transition-fast);
+        }
+        .tx-link:hover {
+            background: rgba(91, 108, 240, 0.14);
+            border-color: rgba(91, 108, 240, 0.5);
+        }
+        .modal-btns {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 18px;
+        }
+        .mbtn {
+            font-family: var(--font);
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            padding: 12px 26px;
+            border-radius: var(--radius);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            border: none;
+        }
+        .mbtn-secondary {
+            background: var(--surface);
+            color: var(--muted-hi);
+            border: 1px solid var(--border-hi);
+        }
+        .mbtn-secondary:hover {
+            background: var(--card);
+            color: var(--text);
+        }
+        .mbtn-primary {
+            background: linear-gradient(135deg, #5b6cf0, #7c5cf6);
+            color: #fff;
+        }
+
+        #not-initialized {
+            display: none;
+            text-align: center;
+            padding: 70px 28px;
+        }
+        #not-initialized .ni-icon {
+            font-size: 4.5rem;
+            font-weight: 200;
+            opacity: 0.35;
+            margin-bottom: 24px;
+            color: var(--muted);
+        }
+        #not-initialized h2 {
+            margin: 20px 0 12px;
+            font-weight: 800;
+            font-size: 1.4rem;
+        }
+        #not-initialized p {
+            color: var(--text-dim);
+            margin-bottom: 22px;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 940px) {
+            #sidebar {
+                transform: translateX(-100%);
+                box-shadow: 6px 0 40px rgba(0, 0, 0, 0.6);
+            }
+            #sidebar.open {
+                transform: translateX(0);
+            }
+            .sidebar-toggle {
+                display: flex;
+            }
+            #main-area {
+                margin-left: 0;
+            }
+            .content-section {
+                padding: 0 18px 28px;
+            }
+            #pending-claims-banner {
+                padding: 15px 20px;
+            }
+            .section-top-bar {
+                padding: 18px 0 14px;
+            }
+            .modal-box {
+                padding: 30px 22px;
+            }
+        }
+    </style>
 </head>
 <body>
-  <button class="sidebar-toggle" id="sidebar-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+    <div id="root">
+        <!-- ═══ SIDEBAR TOGGLE (MÓVIL) ═══ -->
+        <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
 
-  <!-- ═══ SIDEBAR ═══ -->
-  <aside id="sidebar">
-    <div class="sidebar-logo">
-      <div class="logo-icon">🎟</div>
-      <div class="logo-text">SOL<span>LOTTO</span><span class="devnet-badge">DEVNET</span></div>
-    </div>
-    <nav class="sidebar-nav">
-      <button class="nav-item active" data-section="rounds" onclick="switchMainSection('rounds')">
-        <span class="nav-icon">◈</span> Rondas
-      </button>
-      <button class="nav-item" data-section="winners" onclick="switchMainSection('winners')">
-        <span class="nav-icon">◆</span> Ganadores
-      </button>
-      <button class="nav-item" data-section="activity" onclick="switchMainSection('activity')">
-        <span class="nav-icon">◉</span> Actividad
-      </button>
-      <button class="nav-item" data-section="history" onclick="switchMainSection('history')">
-        <span class="nav-icon">◷</span> Historial
-      </button>
-    </nav>
-    <div class="sidebar-footer">
-      <div class="network-indicator" id="net-status" style="display:none;">
-        <div class="net-dot"></div> Devnet
-      </div>
-      <button id="btn-wallet" onclick="handleWalletBtn()">
-        <span class="wallet-dot" id="wallet-dot" style="display:none;"></span>
-        <span id="wallet-label">CONECTAR WALLET</span>
-      </button>
-    </div>
-  </aside>
-
-  <!-- ═══ MAIN ═══ -->
-  <div id="main-area">
-    <div id="welcome">
-      <div class="welcome-badge">TRANSPARENTE · ON‑CHAIN</div>
-      <h1 class="welcome-title">Elige tu ronda<br><span>y prueba suerte</span></h1>
-      <p class="welcome-desc">Lotería descentralizada en Solana. Sin intermediarios. Resultados verificables en la blockchain.</p>
-      <button class="btn-connect-main" onclick="handleWalletBtn()">CONECTAR WALLET</button>
-      <div id="no-phantom-msg">No se detectó Phantom Wallet. <a href="https://phantom.app/" target="_blank">Instálala aquí</a>.</div>
-    </div>
-
-    <div id="dashboard">
-      <!-- Banner de premios por reclamar -->
-      <div id="pending-claims-banner">
-        <div class="pcb-inner">
-          <div class="pcb-text">
-            Tienes premios pendientes
-          </div>
-          <div style="display:flex;align-items:center;gap:16px;">
-            <span class="pcb-amount" id="pcb-amount">0.00 ◎</span>
-            <button class="btn-claim-banner" onclick="claimFromBanner()">RECLAMAR AHORA</button>
-          </div>
-        </div>
-      </div>
-
-      <div id="not-initialized">
-        <div style="font-size:3rem;margin-bottom:20px;">—</div>
-        <h2>Lotería no inicializada</h2>
-        <p style="color:var(--text-secondary);max-width:400px;margin:12px auto 24px;">La cuenta global aún no existe. Conéctate con la wallet administradora para crearla.</p>
-        <button class="btn-primary" style="max-width:260px;margin:0 auto;" onclick="handleInitialize()">INICIALIZAR LOTERÍA</button>
-      </div>
-
-      <div id="main-content" style="display:none;flex:1;flex-direction:column;">
-
-        <!-- SECCIÓN RONDAS -->
-        <div class="content-section active-section" id="section-rounds">
-          <div class="section-header">
-            <div class="section-header-left">
-              <h2>Rondas activas</h2>
-              <div class="subtitle"><span id="total-rounds">0</span> rondas en total · Admin: <span id="global-admin">...</span></div>
+        <!-- ═══ SIDEBAR ═══ -->
+        <aside id="sidebar">
+            <div class="sidebar-logo">
+                <div class="logo-mark">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/><path d="M12 2a14 14 0 0 0 0 20"/><path d="M12 2a14 14 0 0 1 0 20"/>
+                    </svg>
+                </div>
+                <div class="logo-name">SOL<em>LOTTO</em><span class="devnet-pill">DEVNET</span></div>
             </div>
-            <div id="create-round-btn-container" style="display:none;">
-              <button class="btn-outline" style="width:auto;padding:10px 20px;" onclick="toggleCreateForm()">+ Crear ronda</button>
+            <nav class="sidebar-nav">
+                <button class="nav-item active" data-section="rounds" onclick="switchMainSection('rounds')">
+                    <span class="nav-icon">
+                        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+                    </span>
+                    Rondas
+                </button>
+                <button class="nav-item" data-section="winners" onclick="switchMainSection('winners')">
+                    <span class="nav-icon">
+                        <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="5"/><path d="M8 14c-3 0-5 2-5 4v1h18v-1c0-2-2-4-5-4H8z"/><circle cx="12" cy="8" r="2" fill="currentColor"/></svg>
+                    </span>
+                    Ganadores
+                </button>
+                <button class="nav-item" data-section="activity" onclick="switchMainSection('activity')">
+                    <span class="nav-icon">
+                        <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                    </span>
+                    Actividad
+                </button>
+                <button class="nav-item" data-section="history" onclick="switchMainSection('history')">
+                    <span class="nav-icon">
+                        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    </span>
+                    Historial
+                </button>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="net-status" id="net-status" style="display:none;">
+                    <div class="net-dot"></div><span>Solana Devnet</span>
+                </div>
+                <button id="btn-wallet" onclick="handleWalletBtn()">
+                    <span class="wallet-dot" id="wallet-dot" style="display:none;"></span>
+                    <span id="wallet-label">Conectar Wallet</span>
+                </button>
             </div>
-          </div>
+        </aside>
 
-          <div id="create-round-form" class="admin-create-form" style="display:none;">
-            <input type="number" id="new-price" placeholder="Precio SOL" step="0.001" min="0.001">
-            <input type="datetime-local" id="new-start">
-            <input type="datetime-local" id="new-end">
-            <input type="number" id="new-max" placeholder="Max tickets" min="1">
-            <button class="btn-primary" style="width:auto;" onclick="handleCreateRound()">CREAR</button>
-          </div>
-
-          <div class="rounds-grid" id="rounds-container"></div>
-
-          <div id="actions-container">
-            <h3>Ronda seleccionada</h3>
-            <div id="selected-round-info" style="margin-bottom:16px;font-size:0.9rem;"></div>
-            <button class="btn btn-primary" id="btn-buy" onclick="handleBuy()">Comprar ticket</button>
-            <button class="btn btn-gold" id="btn-finalize" style="margin-top:10px;display:none;" onclick="handleFinalize()">Finalizar ronda y pagar</button>
-            <button class="btn btn-claim-highlight" id="btn-claim" style="margin-top:10px;display:none;" onclick="handleClaim()">Reclamar premio</button>
-          </div>
-        </div>
-
-        <!-- SECCIÓN GANADORES -->
-        <div class="content-section" id="section-winners">
-          <div class="section-header">
-            <div class="section-header-left">
-              <h2>Ganadores</h2>
-              <div class="subtitle">Historial de premios entregados</div>
+        <!-- ═══ MAIN AREA ═══ -->
+        <div id="main-area">
+            <!-- Welcome -->
+            <div id="welcome">
+                <div class="w-badge">Protocolo Multi‑Ronda</div>
+                <h1 class="w-title">Elige tu ronda<br /><span>y prueba suerte</span></h1>
+                <p class="w-desc">Crea rondas con diferentes precios y horarios. Solo el admin finaliza la ronda; cualquiera puede reclamar el premio acumulado en <strong>SOL</strong>.</p>
+                <button class="btn-connect-main" onclick="handleWalletBtn()">CONECTAR WALLET</button>
+                <div id="no-phantom-msg">No se detectó Phantom Wallet. <a href="https://phantom.app/" target="_blank">Instálala aquí</a>.</div>
             </div>
-          </div>
-          <div class="list-container" id="winners-list"></div>
-        </div>
 
-        <!-- SECCIÓN ACTIVIDAD -->
-        <div class="content-section" id="section-activity">
-          <div class="section-header">
-            <div class="section-header-left">
-              <h2>Actividad reciente</h2>
-              <div class="subtitle">Transacciones y eventos</div>
-            </div>
-          </div>
-          <div class="list-container" id="history-list"></div>
-        </div>
+            <!-- Dashboard -->
+            <div id="dashboard">
+                <!-- Pending claims banner -->
+                <div id="pending-claims-banner">
+                    <div class="pcb-inner">
+                        <div class="pcb-text">
+                            <div class="pcb-icon-circle">
+                                <svg viewBox="0 0 24 24"><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-6"/><polyline points="12 2 12 12"/><polyline points="17 7 12 2 7 7"/></svg>
+                            </div>
+                            <span class="pcb-title">Tienes premios por reclamar</span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+                            <span class="pcb-amount" id="pcb-amount">0.00 SOL</span>
+                            <button class="btn btn-claim-highlight" style="width:auto;padding:10px 20px;font-size:0.76rem;" onclick="claimFromBanner()">RECLAMAR AHORA</button>
+                        </div>
+                    </div>
+                </div>
 
-        <!-- SECCIÓN HISTORIAL -->
-        <div class="content-section" id="section-history">
-          <div class="section-header">
-            <div class="section-header-left">
-              <h2>Rondas finalizadas</h2>
-              <div class="subtitle">Archivo de sorteos anteriores</div>
+                <!-- Not initialized -->
+                <div id="not-initialized">
+                    <div class="ni-icon">&#9678;</div>
+                    <h2>Lotería no inicializada</h2>
+                    <p>La cuenta global aún no existe en la blockchain.<br />Conéctate con la wallet administradora y crea la lotería.</p>
+                    <button class="btn-primary" style="max-width:320px;margin:22px auto;" onclick="handleInitialize()">INICIALIZAR LOTERÍA</button>
+                </div>
+
+                <!-- Main content -->
+                <div id="main-content" style="display:none;flex:1;flex-direction:column;">
+                    <!-- ── SECCIÓN RONDAS ── -->
+                    <div class="content-section active-section" id="section-rounds">
+                        <div class="section-top-bar">
+                            <div>
+                                <div class="section-label">Lotería Multi‑Ronda</div>
+                                <div class="section-title-main"><span id="total-rounds">0</span> rondas creadas</div>
+                                <div class="admin-line">Admin: <span id="global-admin">...</span></div>
+                            </div>
+                            <div id="create-round-btn-container" style="display:none;">
+                                <button class="btn btn-outline" style="width:auto;padding:10px 20px;" onclick="toggleCreateForm()">+ CREAR RONDA</button>
+                            </div>
+                        </div>
+
+                        <div id="create-round-form" style="display:none;" class="admin-create-form">
+                            <input type="number" id="new-price" placeholder="Precio (SOL)" step="0.001" min="0.001">
+                            <input type="datetime-local" id="new-start">
+                            <input type="datetime-local" id="new-end">
+                            <input type="number" id="new-max" placeholder="Max tickets" min="1">
+                            <button class="btn btn-primary" style="width:auto;" onclick="handleCreateRound()">CREAR</button>
+                        </div>
+
+                        <div class="rounds-grid" id="rounds-container"></div>
+
+                        <!-- Action panel -->
+                        <div id="actions-container">
+                            <h3>Acción para ronda seleccionada</h3>
+                            <div id="selected-round-info" style="margin-bottom:16px; font-size:.85rem;"></div>
+                            <button class="btn btn-primary" id="btn-buy" onclick="handleBuy()">COMPRAR TICKET</button>
+                            <button class="btn btn-gold" id="btn-finalize" style="margin-top:10px; display:none;" onclick="handleFinalize()">FINALIZAR RONDA Y PAGAR</button>
+                            <button class="btn btn-claim-highlight" id="btn-claim" style="margin-top:10px; display:none;" onclick="handleClaim()">RECLAMAR PREMIO</button>
+                        </div>
+                    </div>
+
+                    <!-- ── SECCIÓN GANADORES ── -->
+                    <div class="content-section" id="section-winners">
+                        <div class="section-top-bar">
+                            <div>
+                                <div class="section-label">Hall of Fame</div>
+                                <div class="section-title-main">Ganadores históricos</div>
+                            </div>
+                        </div>
+                        <div class="winners-list" id="winners-list"></div>
+                    </div>
+
+                    <!-- ── SECCIÓN ACTIVIDAD ── -->
+                    <div class="content-section" id="section-activity">
+                        <div class="section-top-bar">
+                            <div>
+                                <div class="section-label">Registro</div>
+                                <div class="section-title-main">Actividad reciente</div>
+                            </div>
+                        </div>
+                        <div class="history-list" id="history-list"></div>
+                    </div>
+
+                    <!-- ── SECCIÓN HISTORIAL ── -->
+                    <div class="content-section" id="section-history">
+                        <div class="section-top-bar">
+                            <div>
+                                <div class="section-label">Archivo</div>
+                                <div class="section-title-main">Rondas finalizadas</div>
+                            </div>
+                        </div>
+                        <div id="finished-rounds-section" style="display:none;">
+                            <div class="finished-list" id="finished-rounds-list"></div>
+                        </div>
+                        <div id="no-finished-msg" class="empty-state" style="display:none;">
+                            <div class="es-icon">&#9674;</div>
+                            <div>No hay rondas finalizadas aún.</div>
+                        </div>
+                    </div>
+                </div>
             </div>
-          </div>
-          <div id="finished-rounds-section" style="display:none;">
-            <div class="list-container" id="finished-rounds-list"></div>
-          </div>
-          <div id="no-finished-msg" class="empty-state" style="display:none;">No hay rondas finalizadas todavía.</div>
         </div>
-      </div>
     </div>
-  </div>
 
-  <!-- TX MODAL -->
-  <div id="tx-modal" class="modal-overlay" onclick="closeTxModal()">
-    <div class="modal-box" onclick="event.stopPropagation()">
-      <div id="tx-loading"><div class="tx-loader"></div><div class="modal-title">Procesando...</div><div class="modal-desc" id="tx-desc-loading">Esperando confirmación...</div></div>
-      <div id="tx-success" style="display:none;"><div class="tx-icon success">✓</div><div class="modal-title">¡Éxito!</div><div class="modal-desc" id="tx-desc-success"></div><a id="tx-link" class="tx-link" href="#" target="_blank">Ver en Solscan ↗</a><div class="modal-btns"><button class="mbtn mbtn-secondary" onclick="closeTxModal()">CERRAR</button></div></div>
-      <div id="tx-error" style="display:none;"><div class="tx-icon error">✕</div><div class="modal-title">Error</div><div class="modal-desc" id="tx-desc-error"></div><div class="modal-btns"><button class="mbtn mbtn-secondary" onclick="closeTxModal()">CERRAR</button></div></div>
+    <!-- TX MODAL -->
+    <div id="tx-modal" class="modal-overlay" onclick="closeTxModal()">
+        <div class="modal-box" onclick="event.stopPropagation()">
+            <div id="tx-loading">
+                <div class="tx-loader"></div>
+                <div class="modal-title">Procesando...</div>
+                <div class="modal-desc" id="tx-desc-loading">Esperando confirmación en Solana Devnet...</div>
+            </div>
+            <div id="tx-success" style="display:none;">
+                <div class="tx-icon-circle success">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <div class="modal-title">Transacción exitosa</div>
+                <div class="modal-desc" id="tx-desc-success"></div>
+                <a id="tx-link" class="tx-link" href="#" target="_blank">Ver en Solscan</a>
+                <div class="modal-btns"><button class="mbtn mbtn-secondary" onclick="closeTxModal()">CERRAR</button></div>
+            </div>
+            <div id="tx-error" style="display:none;">
+                <div class="tx-icon-circle error">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </div>
+                <div class="modal-title">Error</div>
+                <div class="modal-desc" id="tx-desc-error"></div>
+                <div class="modal-btns"><button class="mbtn mbtn-secondary" onclick="closeTxModal()">CERRAR</button></div>
+            </div>
+        </div>
     </div>
-  </div>
 
-  <script>
-    // ══════════════════════════════════════
-    // LÓGICA EXACTAMENTE IGUAL A LA VERSIÓN FUNCIONAL
-    // (sin cambios en las funciones, IDs mantenidos)
-    // ══════════════════════════════════════
-    const { Connection, PublicKey, SystemProgram, Transaction, TransactionInstruction } = solanaWeb3;
-    const PROGRAM_ID = new PublicKey("AZFvRwhuBiUbj4wvLu1EbZVdLgcYrYpHm3nRttDS4Vx3");
-    const RPC = "https://api.devnet.solana.com";
-    const EXPLORER = "https://solscan.io";
-    const MAX_PLAYERS = 10;
-    const HOF_KEY = "sollotto_winners_v2";
+    <script>
+        const { Connection, PublicKey, SystemProgram, Transaction, TransactionInstruction } = solanaWeb3;
+        const PROGRAM_ID = new PublicKey("AZFvRwhuBiUbj4wvLu1EbZVdLgcYrYpHm3nRttDS4Vx3");
+        const RPC = "https://api.devnet.solana.com";
+        const EXPLORER = "https://solscan.io";
+        const MAX_PLAYERS = 10;
+        const HOF_KEY = "sollotto_winners_v2";
 
-    const conn = new Connection(RPC, "confirmed");
-    let walletPubkey = null;
-    let globalState = null;
-    let rounds = [];
-    let selectedRoundId = null;
-    let busy = false;
-    let currentMainSection = 'rounds';
-    let activityLog = JSON.parse(localStorage.getItem("sollotto_activity")||"[]");
-    let refreshTimer = null;
-    let pendingClaimRoundId = null;
+        const conn = new Connection(RPC, "confirmed");
+        let walletPubkey = null;
+        let globalState = null;
+        let rounds = [];
+        let selectedRoundId = null;
+        let busy = false;
+        let currentMainSection = 'rounds';
+        let activityLog = JSON.parse(localStorage.getItem("sollotto_activity") || "[]");
+        let refreshTimer = null;
+        let pendingClaimRoundId = null;
 
-    const el = id => document.getElementById(id);
-    function utf8(s) { return new TextEncoder().encode(s); }
-    function u64LE(n) { const b = new ArrayBuffer(8); new DataView(b).setBigUint64(0, n, true); return new Uint8Array(b); }
-    function i64LE(n) { const b = new ArrayBuffer(8); new DataView(b).setBigInt64(0, n, true); return new Uint8Array(b); }
-    function concat(...arrs) { const len = arrs.reduce((a,b)=>a+b.length,0); const res = new Uint8Array(len); let off=0; for(const a of arrs){res.set(a,off);off+=a.length;} return res; }
-    function short(pk,n=4){if(!pk)return"...";const s=pk.toBase58?pk.toBase58():pk.toString();return s.slice(0,n)+"..."+s.slice(-n);}
-    function fmtSOL(lam,dec=4){return(Number(lam)/1e9).toFixed(dec)+" ◎";}
-    async function discriminator(name){const hash=await crypto.subtle.digest("SHA-256",utf8(`global:${name}`));return new Uint8Array(hash).slice(0,8);}
+        const el = id => document.getElementById(id);
 
-    function globalPDA(){return PublicKey.findProgramAddressSync([utf8("global")],PROGRAM_ID)[0];}
-    function roundPDA(roundId){return PublicKey.findProgramAddressSync([utf8("round"),u64LE(BigInt(roundId))],PROGRAM_ID)[0];}
-    function ticketPDA(roundId, ticketNumber){return PublicKey.findProgramAddressSync([utf8("ticket"),u64LE(BigInt(roundId)),u64LE(BigInt(ticketNumber))],PROGRAM_ID)[0];}
+        function utf8(s) { return new TextEncoder().encode(s); }
 
-    function switchMainSection(section) {
-      currentMainSection = section;
-      document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active-section'));
-      document.getElementById('section-' + section).classList.add('active-section');
-      document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
-      document.querySelector(`.nav-item[data-section="${section}"]`).classList.add('active');
-      if (section === 'rounds') updateSelectedRoundUI();
-      document.getElementById('sidebar').classList.remove('open');
-    }
+        function u64LE(n) { const b = new ArrayBuffer(8);
+            new DataView(b).setBigUint64(0, n, true); return new Uint8Array(b); }
 
-    function addActivity(icon,cls,title,detail,amount){
-      activityLog.unshift({icon,cls,title,detail,amount,time:new Date().toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"})});
-      if(activityLog.length>30) activityLog.pop();
-      localStorage.setItem("sollotto_activity",JSON.stringify(activityLog));
-      renderActivity();
-    }
-    function renderActivity(){
-      const c=el("history-list");
-      if(!c) return;
-      if(!activityLog.length){c.innerHTML='<div class="empty-state">No hay actividad reciente.</div>';return;}
-      c.innerHTML=activityLog.map(a=>`<div class="history-item"><div class="history-ico ${a.cls}">${a.icon}</div><div class="history-info"><div class="history-t">${a.title}</div><div class="history-d">${a.detail} · ${a.time}</div></div>${a.amount?`<div class="prize-amount">${a.amount}</div>`:""}</div>`).join("");
-    }
+        function i64LE(n) { const b = new ArrayBuffer(8);
+            new DataView(b).setBigInt64(0, n, true); return new Uint8Array(b); }
 
-    function loadWinners(){try{return JSON.parse(localStorage.getItem(HOF_KEY)||"[]");}catch{return[];}}
-    function saveWinner(entry){const list=loadWinners();list.unshift(entry);localStorage.setItem(HOF_KEY,JSON.stringify(list.slice(0,50)));}
-    function renderWinners(){
-      const list=loadWinners();
-      const c=el("winners-list");
-      if(!c) return;
-      if(!list.length){c.innerHTML='<div class="empty-state">Aún no hay ganadores.</div>';return;}
-      c.innerHTML=list.map((w,i)=>{
-        const medal=i===0?"1":i===1?"2":i===2?"3":"·";
-        const rankClass=i===0?"r1":"";
-        return `<div class="winner-item"><div class="winner-rank ${rankClass}">${medal}</div><div class="winner-info"><div class="winner-addr" onclick="copyText('${w.address}')">${w.address}</div><div class="winner-meta">Ronda ${w.round} · ${w.date}</div></div><div class="prize-amount">${w.prize}<div class="winner-meta"><a href="${EXPLORER}/tx/${w.sig}?cluster=devnet" target="_blank">ver tx ↗</a></div></div></div>`;
-      }).join("");
-    }
-    function copyText(t){navigator.clipboard.writeText(t).then(()=>{});}
+        function concat(...arrs) { const len = arrs.reduce((a, b) => a + b.length, 0); const res = new Uint8Array(len);
+            let off = 0; for (const a of arrs) { res.set(a, off);
+                off += a.length; } return res; }
 
-    async function fetchAll(){
-      try{
-        const gPDA=globalPDA();
-        const gInfo=await conn.getAccountInfo(gPDA);
-        if(!gInfo){
-          globalState=null; rounds=[];
-          el("rounds-container").innerHTML="";
-          el("actions-container").style.display="none";
-          el("create-round-btn-container").style.display="none";
-          el("finished-rounds-section").style.display="none";
-          el("no-finished-msg").style.display="none";
-          el("not-initialized").style.display=walletPubkey?"block":"none";
-          el("main-content").style.display="none";
-          el("pending-claims-banner").style.display="none";
-          return;
-        }
-        el("not-initialized").style.display="none";
-        el("main-content").style.display="flex";
-        const gData=gInfo.data;
-        globalState={
-          admin: new PublicKey(gData.slice(8,40)),
-          roundCount: Number(new DataView(gData.buffer,gData.byteOffset+40,8).getBigUint64(0,true))
-        };
-        el("total-rounds").textContent=globalState.roundCount;
-        el("global-admin").textContent=short(globalState.admin,6);
+        function short(pk, n = 4) { if (!pk) return "..."; const s = pk.toBase58 ? pk.toBase58() : pk.toString(); return s.slice(
+                0, n) + "..." + s.slice(-n); }
 
-        const isGlobalAdmin=walletPubkey&&globalState.admin.equals(walletPubkey);
-        el("create-round-btn-container").style.display=isGlobalAdmin?"block":"none";
+        function fmtSOL(lam, dec = 4) { return (Number(lam) / 1e9).toFixed(dec) + " SOL"; }
+        async function discriminator(name) { const hash = await crypto.subtle.digest("SHA-256", utf8(`global:${name}`)); return new Uint8Array(
+                hash).slice(0, 8); }
 
-        rounds=[];
-        for(let i=0;i<globalState.roundCount;i++){
-          try{
-            const rPDA=roundPDA(i);
-            const rInfo=await conn.getAccountInfo(rPDA);
-            if(!rInfo) continue;
-            const data=rInfo.data;
-            const MIN_DATA_LEN=8+8+8+8+8+MAX_PLAYERS*32+8+32+1+8+32+1;
-            if(data.length<MIN_DATA_LEN) continue;
-            let offset=8;
-            const id=Number(new DataView(data.buffer,data.byteOffset+offset,8).getBigUint64(0,true)); offset+=8;
-            const ticketPrice=new DataView(data.buffer,data.byteOffset+offset,8).getBigUint64(0,true); offset+=8;
-            const startTime=Number(new DataView(data.buffer,data.byteOffset+offset,8).getBigInt64(0,true)); offset+=8;
-            const endTime=Number(new DataView(data.buffer,data.byteOffset+offset,8).getBigInt64(0,true)); offset+=8;
-            const maxTickets=new DataView(data.buffer,data.byteOffset+offset,8).getBigUint64(0,true); offset+=8;
-            const players=[];
-            for(let j=0;j<MAX_PLAYERS;j++){ players.push(new PublicKey(data.slice(offset,offset+32))); offset+=32; }
-            const playerCount=Number(new DataView(data.buffer,data.byteOffset+offset,8).getBigUint64(0,true)); offset+=8;
-            const winner=new PublicKey(data.slice(offset,offset+32)); offset+=32;
-            const isFinalized=data[offset]!==0; offset+=1;
-            const totalPrize=new DataView(data.buffer,data.byteOffset+offset,8).getBigUint64(0,true); offset+=8;
-            const admin=new PublicKey(data.slice(offset,offset+32)); offset+=32;
-            const bump=data[offset];
-            rounds.push({id,ticketPrice,startTime,endTime,maxTickets,players,playerCount,winner,isFinalized,totalPrize,admin,bump});
-          }catch(e){console.warn("fetch round error",i,e);}
+        function globalPDA() { return PublicKey.findProgramAddressSync([utf8("global")], PROGRAM_ID)[0]; }
+
+        function roundPDA(roundId) { return PublicKey.findProgramAddressSync([utf8("round"), u64LE(BigInt(roundId))], PROGRAM_ID)[
+                0
+            ]; }
+
+        function ticketPDA(roundId, ticketNumber) { return PublicKey.findProgramAddressSync([utf8("ticket"), u64LE(BigInt(roundId)),
+                u64LE(BigInt(ticketNumber))
+            ], PROGRAM_ID)[0]; }
+
+        /* ── Navegación principal ── */
+        function switchMainSection(section) {
+            currentMainSection = section;
+            document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active-section'));
+            const sec = document.getElementById('section-' + section);
+            if (sec) sec.classList.add('active-section');
+            document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+            const navBtn = document.querySelector(`.nav-item[data-section="${section}"]`);
+            if (navBtn) navBtn.classList.add('active');
+            if (section === 'rounds') {
+                updateSelectedRoundUI();
+            }
+            document.getElementById('sidebar').classList.remove('open');
         }
 
-        if(selectedRoundId !== null){
-          const nowTs = Math.floor(Date.now()/1000);
-          const sel = rounds.find(r=>r.id===selectedRoundId);
-          if(!sel || sel.isFinalized || sel.endTime < nowTs) selectedRoundId = null;
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
         }
 
-        updatePendingClaimsBanner();
-        renderActiveRounds();
-        renderFinishedRounds();
-        updateSelectedRoundUI();
-        renderWinners();
-        renderActivity();
-      }catch(e){console.error("fetchAll",e);}
-    }
+        /* ── Actividad ── */
+        function addActivity(icon, cls, title, detail, amount) {
+            activityLog.unshift({ icon, cls, title, detail, amount, time: new Date().toLocaleTimeString("es-ES", { hour: "2-digit",
+                    minute: "2-digit" }) });
+            if (activityLog.length > 30) activityLog.pop();
+            localStorage.setItem("sollotto_activity", JSON.stringify(activityLog));
+            renderActivity();
+        }
 
-    function updatePendingClaimsBanner() {
-      const banner = el("pending-claims-banner");
-      if (!walletPubkey) { banner.style.display = "none"; pendingClaimRoundId = null; return; }
-      const claimableRound = rounds.find(r =>
-        r.isFinalized && r.totalPrize > 0n && r.winner.equals(walletPubkey)
-      );
-      if (claimableRound) {
-        banner.style.display = "block";
-        el("pcb-amount").textContent = fmtSOL(claimableRound.totalPrize, 4);
-        pendingClaimRoundId = claimableRound.id;
-      } else {
-        banner.style.display = "none";
-        pendingClaimRoundId = null;
-      }
-    }
+        function renderActivity() {
+            const c = el("history-list");
+            if (!c) return;
+            if (!activityLog.length) { c.innerHTML =
+                    '<div class="empty-state"><div class="es-icon">&#9678;</div><div>No hay actividad reciente</div></div>'; return; }
+            c.innerHTML = activityLog.map(a =>
+                `<div class="history-item"><div class="history-ico ${a.cls}">${a.icon}</div><div class="history-info"><div class="history-t">${a.title}</div><div class="history-d">${a.detail} · ${a.time}</div></div>${a.amount?`<div class="history-amt">${a.amount}</div>`:""}</div>`
+            ).join("");
+        }
 
-    function claimFromBanner() {
-      if (pendingClaimRoundId !== null) handleClaimFromHistory(pendingClaimRoundId);
-    }
+        /* ── Ganadores ── */
+        function loadWinners() { try { return JSON.parse(localStorage.getItem(HOF_KEY) || "[]"); } catch { return []; } }
 
-    function renderActiveRounds(){
-      const container=el("rounds-container");
-      const nowTs=Math.floor(Date.now()/1000);
-      const activeRounds = rounds.filter(r => !r.isFinalized && r.endTime >= nowTs);
-      if(activeRounds.length===0){
-        container.innerHTML="<p style='color:var(--text-muted);text-align:center;padding:40px;'>No hay rondas activas en este momento.</p>";
-        return;
-      }
-      container.innerHTML=activeRounds.map(r=>{
-        let statusClass='status-upcoming',statusText='Próxima';
-        if(nowTs>=r.startTime){statusClass='status-active';statusText='Activa';}
-        const progress=r.maxTickets>0n?Math.min(100,(Number(r.playerCount)/Number(r.maxTickets))*100):0;
-        return `<div class="round-card ${selectedRoundId===r.id?'selected':''}" onclick="selectRound(${r.id})">
-          <div class="round-card-header">
-            <span class="round-id">RONDA #${r.id}</span>
-            <span class="round-status-badge ${statusClass}">${statusText}</span>
-          </div>
-          <div class="round-ticket-price">${fmtSOL(r.ticketPrice,2)}</div>
-          <div class="round-meta">
-            <span>👥 ${r.playerCount}/${r.maxTickets}</span>
-            <span>🏆 ${fmtSOL(r.totalPrize,2)}</span>
-          </div>
-          <div class="round-progress"><div class="round-progress-bar" style="width:${progress}%;"></div></div>
-          <div class="round-time">${new Date(r.startTime*1000).toLocaleString()} → ${new Date(r.endTime*1000).toLocaleString()}</div>
-        </div>`;
-      }).join('');
-    }
+        function saveWinner(entry) { const list = loadWinners();
+            list.unshift(entry);
+            localStorage.setItem(HOF_KEY, JSON.stringify(list.slice(0, 50))); }
 
-    function renderFinishedRounds(){
-      const nowTs = Math.floor(Date.now()/1000);
-      const finished = rounds.filter(r => r.isFinalized || (r.endTime < nowTs && !r.isFinalized));
-      const section = el("finished-rounds-section");
-      const list = el("finished-rounds-list");
-      const noMsg = el("no-finished-msg");
-      if(finished.length === 0){
-        if(section) section.style.display = "none";
-        if(noMsg) noMsg.style.display = "block";
-        return;
-      }
-      if(section) section.style.display = "block";
-      if(noMsg) noMsg.style.display = "none";
-      if(!list) return;
-      list.innerHTML = finished.map(r => {
-        if (r.isFinalized) {
-          const winnerStr = r.winner.equals(SystemProgram.programId) ? "Sin ganador" : short(r.winner,6);
-          const prizeStr = r.totalPrize > 0n ? fmtSOL(r.totalPrize,2) : "0.00 ◎";
-          const isWinner = walletPubkey && r.winner.equals(walletPubkey);
-          const canClaim = isWinner && r.totalPrize > 0n;
-          const claimBtn = canClaim
-            ? `<button class="btn-claim-highlight" style="padding:8px 16px;font-size:0.72rem;width:auto;" onclick="event.stopPropagation();handleClaimFromHistory(${r.id})">Reclamar</button>`
-            : '';
-          return `<div class="finished-item">
-            <div class="finished-left">
-              <span class="finished-round-num">#${r.id}</span>
-              <div class="finished-details">
-                <div>Precio: ${fmtSOL(r.ticketPrice,2)} · Tickets: ${r.playerCount}/${r.maxTickets}</div>
-                <div>Ganador: <span class="winner">${winnerStr}</span></div>
+        function renderWinners() {
+            const list = loadWinners();
+            const c = el("winners-list");
+            if (!c) return;
+            if (!list.length) { c.innerHTML =
+                    '<div class="empty-state"><div class="es-icon">&#9674;</div><div>Aún no hay ganadores registrados</div></div>'; return; }
+            c.innerHTML = list.map((w, i) => {
+                const rankNum = i + 1;
+                const rankDisplay = rankNum <= 3 ? ['1.º', '2.º', '3.º'][i] : `#${rankNum}`;
+                const rankClass = i === 0 ? "r1" : "";
+                return `<div class="winner-item"><div class="winner-rank ${rankClass}">${rankDisplay}</div><div class="winner-info"><div class="winner-addr" onclick="copyText('${w.address}')">${w.address}</div><div class="winner-meta">Ronda ${w.round} · ${w.date}</div></div><div class="winner-prize">${w.prize}<div class="winner-meta"><a href="${EXPLORER}/tx/${w.sig}?cluster=devnet" target="_blank">ver tx</a></div></div></div>`;
+            }).join("");
+        }
+
+        function copyText(t) { navigator.clipboard.writeText(t).then(() => {}); }
+
+        /* ── Fetch principal ── */
+        async function fetchAll() {
+            try {
+                const gPDA = globalPDA();
+                const gInfo = await conn.getAccountInfo(gPDA);
+                if (!gInfo) {
+                    globalState = null;
+                    rounds = [];
+                    el("rounds-container").innerHTML = "";
+                    el("actions-container").style.display = "none";
+                    el("create-round-btn-container").style.display = "none";
+                    el("finished-rounds-section").style.display = "none";
+                    el("no-finished-msg").style.display = "none";
+                    el("not-initialized").style.display = walletPubkey ? "block" : "none";
+                    el("main-content").style.display = "none";
+                    el("pending-claims-banner").style.display = "none";
+                    return;
+                }
+                el("not-initialized").style.display = "none";
+                el("main-content").style.display = "flex";
+                const gData = gInfo.data;
+                globalState = {
+                    admin: new PublicKey(gData.slice(8, 40)),
+                    roundCount: Number(new DataView(gData.buffer, gData.byteOffset + 40, 8).getBigUint64(0, true))
+                };
+                el("total-rounds").textContent = globalState.roundCount;
+                el("global-admin").textContent = short(globalState.admin, 6);
+
+                const isGlobalAdmin = walletPubkey && globalState.admin.equals(walletPubkey);
+                el("create-round-btn-container").style.display = isGlobalAdmin ? "block" : "none";
+
+                rounds = [];
+                for (let i = 0; i < globalState.roundCount; i++) {
+                    try {
+                        const rPDA = roundPDA(i);
+                        const rInfo = await conn.getAccountInfo(rPDA);
+                        if (!rInfo) continue;
+                        const data = rInfo.data;
+                        const MIN_DATA_LEN = 8 + 8 + 8 + 8 + 8 + MAX_PLAYERS * 32 + 8 + 32 + 1 + 8 + 32 + 1;
+                        if (data.length < MIN_DATA_LEN) continue;
+                        let offset = 8;
+                        const id = Number(new DataView(data.buffer, data.byteOffset + offset, 8).getBigUint64(0, true));
+                        offset += 8;
+                        const ticketPrice = new DataView(data.buffer, data.byteOffset + offset, 8).getBigUint64(0, true);
+                        offset += 8;
+                        const startTime = Number(new DataView(data.buffer, data.byteOffset + offset, 8).getBigInt64(0, true));
+                        offset += 8;
+                        const endTime = Number(new DataView(data.buffer, data.byteOffset + offset, 8).getBigInt64(0, true));
+                        offset += 8;
+                        const maxTickets = new DataView(data.buffer, data.byteOffset + offset, 8).getBigUint64(0, true);
+                        offset += 8;
+                        const players = [];
+                        for (let j = 0; j < MAX_PLAYERS; j++) { players.push(new PublicKey(data.slice(offset, offset +
+                                32)));
+                            offset += 32; }
+                        const playerCount = Number(new DataView(data.buffer, data.byteOffset + offset, 8).getBigUint64(0,
+                            true));
+                        offset += 8;
+                        const winner = new PublicKey(data.slice(offset, offset + 32));
+                        offset += 32;
+                        const isFinalized = data[offset] !== 0;
+                        offset += 1;
+                        const totalPrize = new DataView(data.buffer, data.byteOffset + offset, 8).getBigUint64(0, true);
+                        offset += 8;
+                        const admin = new PublicKey(data.slice(offset, offset + 32));
+                        offset += 32;
+                        const bump = data[offset];
+                        rounds.push({ id, ticketPrice, startTime, endTime, maxTickets, players, playerCount, winner,
+                            isFinalized, totalPrize, admin, bump });
+                    } catch (e) { console.warn("fetch round error", i, e); }
+                }
+
+                if (selectedRoundId !== null) {
+                    const nowTs = Math.floor(Date.now() / 1000);
+                    const sel = rounds.find(r => r.id === selectedRoundId);
+                    if (!sel || sel.isFinalized || sel.endTime < nowTs) selectedRoundId = null;
+                }
+
+                updatePendingClaimsBanner();
+                renderActiveRounds();
+                renderFinishedRounds();
+                updateSelectedRoundUI();
+                renderWinners();
+                renderActivity();
+            } catch (e) { console.error("fetchAll", e); }
+        }
+
+        function updatePendingClaimsBanner() {
+            const banner = el("pending-claims-banner");
+            if (!walletPubkey) { banner.style.display = "none";
+                pendingClaimRoundId = null; return; }
+            const claimableRound = rounds.find(r =>
+                r.isFinalized && r.totalPrize > 0n && r.winner.equals(walletPubkey)
+            );
+            if (claimableRound) {
+                banner.style.display = "block";
+                el("pcb-amount").textContent = fmtSOL(claimableRound.totalPrize, 4);
+                pendingClaimRoundId = claimableRound.id;
+            } else {
+                banner.style.display = "none";
+                pendingClaimRoundId = null;
+            }
+        }
+
+        function claimFromBanner() {
+            if (pendingClaimRoundId !== null) {
+                handleClaimFromHistory(pendingClaimRoundId);
+            }
+        }
+
+        function renderActiveRounds() {
+            const container = el("rounds-container");
+            const nowTs = Math.floor(Date.now() / 1000);
+            const activeRounds = rounds.filter(r => !r.isFinalized && r.endTime >= nowTs);
+            if (activeRounds.length === 0) {
+                container.innerHTML =
+                    "<p style='color:var(--muted);text-align:center;padding:24px;font-size:0.88rem;'>No hay rondas activas o próximas en este momento.</p>";
+                return;
+            }
+            container.innerHTML = activeRounds.map(r => {
+                let statusClass = 'status-upcoming',
+                    statusText = 'PRÓXIMA';
+                if (nowTs >= r.startTime) { statusClass = 'status-active';
+                    statusText = 'ACTIVA'; }
+                const progress = r.maxTickets > 0n ? Math.min(100, (Number(r.playerCount) / Number(r.maxTickets)) *
+                    100) : 0;
+                const isSelected = selectedRoundId === r.id;
+                return `<div class="round-card ${isSelected?'selected':''}" onclick="selectRound(${r.id})">
+              <div class="round-id">RONDA #${r.id}</div>
+              <div class="round-price">${fmtSOL(r.ticketPrice,3)}</div>
+              <div class="round-meta">
+                <span class="meta-item"><span class="meta-label">Jugadores</span> <span class="meta-value">${r.playerCount}/${r.maxTickets}</span></span>
+                <span class="meta-item"><span class="meta-label">Bote</span> <span class="meta-value">${fmtSOL(r.totalPrize,2)}</span></span>
               </div>
-            </div>
-            <div style="display:flex;align-items:center;gap:12px;">
-              <div class="prize-amount">${prizeStr}</div>
-              ${claimBtn}
-            </div>
-          </div>`;
-        } else {
-          const isAdmin = walletPubkey && r.admin.equals(walletPubkey);
-          let actionBtn = '';
-          if (isAdmin) {
-            actionBtn = `<button class="btn-outline" style="padding:8px 16px;font-size:0.72rem;width:auto;" onclick="event.stopPropagation();handleFinalizeFromHistory(${r.id})">Finalizar</button>`;
-          }
-          return `<div class="finished-item">
-            <div class="finished-left">
-              <span class="finished-round-num">#${r.id}</span>
-              <div class="finished-details">
-                <div>Precio: ${fmtSOL(r.ticketPrice,2)} · Tickets: ${r.playerCount}/${r.maxTickets}</div>
-                <div>Estado: Pendiente de finalizar</div>
-              </div>
-            </div>
-            ${actionBtn}
-          </div>`;
+              <div class="round-time">${new Date(r.startTime*1000).toLocaleString()} &rarr; ${new Date(r.endTime*1000).toLocaleString()}</div>
+              <div class="round-progress"><div class="round-progress-bar" style="width:${progress}%;"></div></div>
+              <span class="round-status ${statusClass}">${statusText}</span>
+            </div>`;
+            }).join('');
         }
-      }).join("");
-    }
 
-    function selectRound(id){
-      const nowTs=Math.floor(Date.now()/1000);
-      const round = rounds.find(r=>r.id===id);
-      if(!round || round.isFinalized || round.endTime < nowTs) return;
-      selectedRoundId = id;
-      renderActiveRounds();
-      updateSelectedRoundUI();
-    }
-
-    function updateSelectedRoundUI(){
-      const nowTs=Math.floor(Date.now()/1000);
-      const round = rounds.find(r=>r.id===selectedRoundId);
-      const actions = el("actions-container");
-      if(!round || round.isFinalized || round.endTime < nowTs){
-        if(actions) actions.style.display="none";
-        return;
-      }
-      if(actions) actions.style.display="block";
-      const isActive=!round.isFinalized&&nowTs>=round.startTime&&nowTs<=round.endTime;
-      const canBuy=isActive&&round.playerCount<round.maxTickets;
-      el("selected-round-info").innerHTML=`Ronda #${round.id} · ${fmtSOL(round.ticketPrice,2)} · ${round.playerCount}/${round.maxTickets} · Bote: ${fmtSOL(round.totalPrize,2)}`;
-      el("btn-buy").disabled=!canBuy;
-      el("btn-finalize").style.display="none";
-      const isWinner=walletPubkey&&round.isFinalized&&round.winner.equals(walletPubkey);
-      el("btn-claim").style.display=(isWinner&&round.totalPrize>0n)?"inline-flex":"none";
-    }
-
-    async function sendTx(ixs){
-      const{blockhash}=await conn.getLatestBlockhash();
-      const tx=new Transaction();tx.recentBlockhash=blockhash;tx.feePayer=walletPubkey;
-      ixs.forEach(ix=>tx.add(ix));
-      const signed=await window.solana.signTransaction(tx);
-      const sig=await conn.sendRawTransaction(signed.serialize());
-      await conn.confirmTransaction(sig,"confirmed");
-      return sig;
-    }
-    function openTxModal(desc){el("tx-desc-loading").textContent=desc;el("tx-loading").style.display="block";el("tx-success").style.display="none";el("tx-error").style.display="none";el("tx-modal").classList.add("flex");}
-    function txSuccess(sig){el("tx-desc-success").textContent=`Firma: ${short(sig,8)}`;el("tx-link").href=`${EXPLORER}/tx/${sig}?cluster=devnet`;el("tx-loading").style.display="none";el("tx-success").style.display="block";}
-    function txError(msg){el("tx-desc-error").textContent=msg.slice(0,200);el("tx-loading").style.display="none";el("tx-error").style.display="block";}
-    function closeTxModal(){el("tx-modal").classList.remove("flex");}
-
-    function startPolling() {
-      if (refreshTimer) clearInterval(refreshTimer);
-      refreshTimer = setInterval(() => {
-        if (!busy && walletPubkey) fetchAll();
-      }, 15000);
-    }
-    function stopPolling() {
-      if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
-    }
-
-    async function handleInitialize(){
-      if(!walletPubkey||busy)return;
-      busy=true; openTxModal("Creando cuenta global...");
-      try{
-        const disc=await discriminator("initialize"); const gPda=globalPDA();
-        const ix=new TransactionInstruction({programId:PROGRAM_ID,keys:[{pubkey:gPda,isSigner:false,isWritable:true},{pubkey:walletPubkey,isSigner:true,isWritable:true},{pubkey:SystemProgram.programId,isSigner:false,isWritable:false}],data:disc});
-        const sig=await sendTx([ix]); txSuccess(sig);
-        addActivity("✓","t","Lotería inicializada","",null);
-        await fetchAll();
-      }catch(e){txError(e.message);}
-      busy=false;
-    }
-    async function handleCreateRound(){
-      if(!walletPubkey||!globalState||busy)return;
-      const price=parseFloat(el("new-price").value);
-      const startStr=el("new-start").value; const endStr=el("new-end").value; const max=parseInt(el("new-max").value);
-      if(isNaN(price)||price<=0||!startStr||!endStr||isNaN(max)||max<=0){alert("Completa todos los campos.");return;}
-      const startTs=Math.floor(new Date(startStr).getTime()/1000); const endTs=Math.floor(new Date(endStr).getTime()/1000);
-      if(endTs<=startTs){alert("La fecha de fin debe ser posterior.");return;}
-      busy=true; openTxModal(`Creando ronda...`);
-      try{
-        const disc=await discriminator("create_round");
-        const data=concat(disc,u64LE(BigInt(Math.floor(price*1e9))),i64LE(BigInt(startTs)),i64LE(BigInt(endTs)),u64LE(BigInt(max)));
-        const gPda=globalPDA(); const rPda=roundPDA(globalState.roundCount);
-        const ix=new TransactionInstruction({programId:PROGRAM_ID,keys:[{pubkey:gPda,isSigner:false,isWritable:true},{pubkey:rPda,isSigner:false,isWritable:true},{pubkey:walletPubkey,isSigner:true,isWritable:true},{pubkey:SystemProgram.programId,isSigner:false,isWritable:false}],data});
-        const sig=await sendTx([ix]); txSuccess(sig);
-        addActivity("+","t",`Ronda #${globalState.roundCount} creada`,`${price} SOL / max ${max}`,null);
-        el("new-price").value="";el("new-start").value="";el("new-end").value="";el("new-max").value="";
-        el("create-round-form").style.display="none";
-        await fetchAll();
-      }catch(e){txError(e.message);}
-      busy=false;
-    }
-    async function handleBuy(){
-      if(!walletPubkey||selectedRoundId===null||busy)return;
-      const round=rounds.find(r=>r.id===selectedRoundId);
-      if(!round||round.isFinalized)return;
-      busy=true; openTxModal(`Comprando ticket...`);
-      try{
-        const disc=await discriminator("buy_ticket"); const data=concat(disc,u64LE(BigInt(round.id)));
-        const rPda=roundPDA(round.id); const nextTicketNum=BigInt(round.playerCount)+1n;
-        const tPda=ticketPDA(round.id,nextTicketNum);
-        const ix=new TransactionInstruction({programId:PROGRAM_ID,keys:[{pubkey:rPda,isSigner:false,isWritable:true},{pubkey:tPda,isSigner:false,isWritable:true},{pubkey:walletPubkey,isSigner:true,isWritable:true},{pubkey:SystemProgram.programId,isSigner:false,isWritable:false}],data});
-        const sig=await sendTx([ix]); txSuccess(sig);
-        addActivity("🎟","t",`Ticket ronda ${round.id}`,`${short(walletPubkey,6)}`,fmtSOL(round.ticketPrice,2));
-        await fetchAll();
-      }catch(e){txError(e.message);}
-      busy=false;
-    }
-    async function finalizeRound(roundId){
-      const round = rounds.find(r=>r.id===roundId);
-      if(!round || round.isFinalized || !round.admin.equals(walletPubkey)) throw new Error("No puedes finalizar esta ronda.");
-      if(round.playerCount === 0) throw new Error("No hay tickets vendidos.");
-      const rPda = roundPDA(round.id);
-      const MAX_ATTEMPTS = 5; let lastError = null;
-      for(let attempt = 0; attempt < MAX_ATTEMPTS; attempt++){
-        try {
-          const slot = await conn.getSlot("confirmed");
-          const winnerIndex = Number(BigInt(slot) % BigInt(round.playerCount));
-          const winnerPubkey = round.players[winnerIndex];
-          if(!winnerPubkey) throw new Error(`No se encontró jugador en índice ${winnerIndex}`);
-          el("tx-desc-loading").textContent = `Intento ${attempt+1}: ganador ${short(winnerPubkey,6)}...`;
-          const disc = await discriminator("finalize_round");
-          const data = concat(disc, u64LE(BigInt(round.id)));
-          const ix = new TransactionInstruction({programId: PROGRAM_ID, keys: [
-            {pubkey: rPda, isSigner: false, isWritable: true},
-            {pubkey: walletPubkey, isSigner: true, isWritable: true},
-            {pubkey: winnerPubkey, isSigner: false, isWritable: true},
-            {pubkey: SystemProgram.programId, isSigner: false, isWritable: false}
-          ], data});
-          const sig = await sendTx([ix]);
-          saveWinner({address: winnerPubkey.toBase58(), prize: fmtSOL(round.totalPrize, 4), round: round.id, date: new Date().toLocaleDateString("es-ES"), sig});
-          addActivity("🏆","w",`Ganador ronda ${round.id}`,`${short(winnerPubkey,8)}`,fmtSOL(round.totalPrize,4));
-          txSuccess(sig);
-          return;
-        } catch(e) {
-          lastError = e;
-          if(e.message && e.message.includes("WrongWinnerAccount")){ await new Promise(r => setTimeout(r, 500)); continue; }
-          throw e;
+        function renderFinishedRounds() {
+            const nowTs = Math.floor(Date.now() / 1000);
+            const finished = rounds.filter(r => r.isFinalized || (r.endTime < nowTs && !r.isFinalized));
+            const section = el("finished-rounds-section");
+            const list = el("finished-rounds-list");
+            const noMsg = el("no-finished-msg");
+            if (finished.length === 0) {
+                if (section) section.style.display = "none";
+                if (noMsg) noMsg.style.display = "block";
+                return;
+            }
+            if (section) section.style.display = "block";
+            if (noMsg) noMsg.style.display = "none";
+            if (!list) return;
+            list.innerHTML = finished.map(r => {
+                if (r.isFinalized) {
+                    const winnerStr = r.winner.equals(SystemProgram.programId) ? "Sin ganador" : short(r.winner, 6);
+                    const prizeStr = r.totalPrize > 0n ? fmtSOL(r.totalPrize, 2) : "0.00 SOL";
+                    const isWinner = walletPubkey && r.winner.equals(walletPubkey);
+                    const canClaim = isWinner && r.totalPrize > 0n;
+                    const claimBtn = canClaim ?
+                        `<button class="btn btn-claim-highlight" style="padding:9px 18px;font-size:0.73rem;width:auto;" onclick="event.stopPropagation();handleClaimFromHistory(${r.id})">Reclamar</button>` :
+                        '';
+                    return `<div class="finished-item">
+                <div class="finished-left">
+                  <div class="finished-round-num">#${r.id}</div>
+                  <div class="finished-details">
+                    <div>Precio: ${fmtSOL(r.ticketPrice,3)} &middot; Tickets: ${r.playerCount}/${r.maxTickets}</div>
+                    <div>Ganador: <span class="winner">${winnerStr}</span></div>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:12px;">
+                  <div class="finished-details" style="text-align:right;">
+                    <div class="prize">${prizeStr}</div>
+                    <a href="${EXPLORER}/account/${roundPDA(r.id).toBase58()}?cluster=devnet" target="_blank" style="font-size:0.7rem;color:var(--muted);">ver cuenta</a>
+                  </div>
+                  ${claimBtn}
+                </div>
+              </div>`;
+                } else {
+                    const isAdmin = walletPubkey && r.admin.equals(walletPubkey);
+                    let actionBtn = '';
+                    if (isAdmin) {
+                        actionBtn =
+                            `<button class="btn btn-outline" style="padding:9px 18px;font-size:0.73rem;width:auto;" onclick="event.stopPropagation();handleFinalizeFromHistory(${r.id})">Finalizar</button>`;
+                    }
+                    return `<div class="finished-item">
+                <div class="finished-left">
+                  <div class="finished-round-num">#${r.id}</div>
+                  <div class="finished-details">
+                    <div>Precio: ${fmtSOL(r.ticketPrice,3)} &middot; Tickets: ${r.playerCount}/${r.maxTickets}</div>
+                    <div>Estado: <span style="color:var(--muted-hi);">Pendiente de finalizar</span></div>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:12px;">
+                  ${actionBtn}
+                  <a href="${EXPLORER}/account/${roundPDA(r.id).toBase58()}?cluster=devnet" target="_blank" style="font-size:0.7rem;color:var(--muted);">ver cuenta</a>
+                </div>
+              </div>`;
+                }
+            }).join("");
         }
-      }
-      throw new Error(`No se pudo finalizar tras ${MAX_ATTEMPTS} intentos. ${lastError?.message||""}`);
-    }
-    async function handleFinalize(roundIdParam = null){
-      const targetRoundId = roundIdParam ?? selectedRoundId;
-      if(!walletPubkey || targetRoundId === null || busy) return;
-      busy = true; openTxModal(`Finalizando ronda ${targetRoundId}...`);
-      try {
-        await finalizeRound(targetRoundId);
-        await fetchAll();
-        if (selectedRoundId === targetRoundId) selectedRoundId = null;
-      } catch(e) { txError(e.message); }
-      busy = false;
-    }
-    async function handleFinalizeFromHistory(roundId){ await handleFinalize(roundId); }
 
-    async function handleClaim(){
-      if(!walletPubkey||selectedRoundId===null||busy)return;
-      const round=rounds.find(r=>r.id===selectedRoundId);
-      if(!round||!round.isFinalized||round.totalPrize<=0n)return;
-      busy=true; openTxModal(`Reclamando premio...`);
-      try{
-        const disc=await discriminator("claim_prize"); const data=concat(disc,u64LE(BigInt(round.id)));
-        const rPda=roundPDA(round.id);
-        const ix=new TransactionInstruction({programId:PROGRAM_ID,keys:[{pubkey:rPda,isSigner:false,isWritable:true},{pubkey:round.winner,isSigner:false,isWritable:true},{pubkey:SystemProgram.programId,isSigner:false,isWritable:false}],data});
-        const sig=await sendTx([ix]); txSuccess(sig);
-        addActivity("💰","w",`Premio reclamado ronda ${round.id}`,`${short(round.winner,8)}`,fmtSOL(round.totalPrize,4));
-        await fetchAll();
-      }catch(e){txError(e.message);}
-      busy=false;
-    }
-    async function handleClaimFromHistory(roundId){
-      if(!walletPubkey || busy) return;
-      const round = rounds.find(r => r.id === roundId);
-      if(!round || !round.isFinalized || round.totalPrize <= 0n) return;
-      if(!round.winner.equals(walletPubkey)) { alert("Solo el ganador puede reclamar."); return; }
-      busy = true; openTxModal(`Reclamando premio...`);
-      try {
-        const disc = await discriminator("claim_prize"); const data = concat(disc, u64LE(BigInt(roundId)));
-        const rPda = roundPDA(roundId);
-        const ix = new TransactionInstruction({programId: PROGRAM_ID, keys: [
-          {pubkey: rPda, isSigner: false, isWritable: true},
-          {pubkey: round.winner, isSigner: false, isWritable: true},
-          {pubkey: SystemProgram.programId, isSigner: false, isWritable: false}
-        ], data});
-        const sig = await sendTx([ix]); txSuccess(sig);
-        addActivity("💰","w",`Premio reclamado ronda ${roundId}`,`${short(round.winner,8)}`,fmtSOL(round.totalPrize,4));
-        await fetchAll(); renderWinners();
-      } catch(e) { txError(e.message); }
-      busy = false;
-    }
+        function selectRound(id) {
+            const nowTs = Math.floor(Date.now() / 1000);
+            const round = rounds.find(r => r.id === id);
+            if (!round || round.isFinalized || round.endTime < nowTs) return;
+            selectedRoundId = id;
+            renderActiveRounds();
+            updateSelectedRoundUI();
+        }
 
-    function toggleCreateForm(){
-      const form=el("create-round-form");
-      form.style.display=form.style.display==="none"?"flex":"none";
-    }
+        function updateSelectedRoundUI() {
+            const nowTs = Math.floor(Date.now() / 1000);
+            const round = rounds.find(r => r.id === selectedRoundId);
+            const actions = el("actions-container");
+            if (!round || round.isFinalized || round.endTime < nowTs) {
+                if (actions) actions.style.display = "none";
+                return;
+            }
+            if (actions) actions.style.display = "block";
+            const isActive = !round.isFinalized && nowTs >= round.startTime && nowTs <= round.endTime;
+            const canBuy = isActive && round.playerCount < round.maxTickets;
+            const si = el("selected-round-info");
+            if (si) si.innerHTML =
+                `Ronda #${round.id} &middot; Precio: ${fmtSOL(round.ticketPrice,3)} &middot; ${round.playerCount}/${round.maxTickets} jugadores &middot; <strong>Bote: ${fmtSOL(round.totalPrize,2)}</strong><br>Estado: ${isActive?'ACTIVA':'PRÓXIMA'}`;
+            const btnBuy = el("btn-buy");
+            if (btnBuy) btnBuy.disabled = !canBuy;
+            const btnFin = el("btn-finalize");
+            if (btnFin) btnFin.style.display = "none";
+            const isWinner = walletPubkey && round.isFinalized && round.winner.equals(walletPubkey);
+            const btnClaim = el("btn-claim");
+            if (btnClaim) btnClaim.style.display = (isWinner && round.totalPrize > 0n) ? "inline-flex" : "none";
+        }
 
-    async function handleWalletBtn(){walletPubkey?disconnectWallet():await connectWallet();}
-    async function connectWallet(){
-      if(!window.solana?.isPhantom){el("no-phantom-msg").style.display="block";return;}
-      try{
-        const resp=await window.solana.connect(); walletPubkey=resp.publicKey;
-        el("btn-wallet").classList.add("on");
-        el("wallet-label").textContent=`Desconectar · ${short(walletPubkey,4)}`;
-        el("wallet-dot").style.display="inline-block";
-        el("net-status").style.display="flex";
-        el("welcome").style.display="none";
-        el("dashboard").classList.add("active-db");
-        await fetchAll(); startPolling();
-      }catch(e){}
-    }
-    function disconnectWallet(){
-      window.solana?.disconnect();
-      walletPubkey=null;globalState=null;rounds=[];selectedRoundId=null;
-      el("btn-wallet").classList.remove("on");
-      el("wallet-label").textContent="CONECTAR WALLET";
-      el("wallet-dot").style.display="none";
-      el("net-status").style.display="none";
-      el("welcome").style.display="flex";
-      el("dashboard").classList.remove("active-db");
-      el("pending-claims-banner").style.display="none";
-      stopPolling();
-    }
+        /* ── Transacciones ── */
+        async function sendTx(ixs) {
+            const { blockhash } = await conn.getLatestBlockhash();
+            const tx = new Transaction();
+            tx.recentBlockhash = blockhash;
+            tx.feePayer = walletPubkey;
+            ixs.forEach(ix => tx.add(ix));
+            const signed = await window.solana.signTransaction(tx);
+            const sig = await conn.sendRawTransaction(signed.serialize());
+            await conn.confirmTransaction(sig, "confirmed");
+            return sig;
+        }
 
-    window.addEventListener("load",()=>{
-      renderWinners(); renderActivity();
-      if(window.solana?.isPhantom&&window.solana.isConnected){
-        window.solana.connect({onlyIfTrusted:true}).then(r=>{walletPubkey=r.publicKey;connectWallet();}).catch(()=>{});
-      }
-    });
-    window.solana?.on?.("disconnect",disconnectWallet);
-    window.solana?.on?.("accountChanged",pk=>{if(pk){walletPubkey=pk;fetchAll();startPolling();}else disconnectWallet();});
-  </script>
+        function openTxModal(desc) { el("tx-desc-loading").textContent = desc;
+            el("tx-loading").style.display = "block";
+            el("tx-success").style.display = "none";
+            el("tx-error").style.display = "none";
+            el("tx-modal").classList.add("flex"); }
+
+        function txSuccess(sig) { el("tx-desc-success").textContent = `Firma: ${short(sig,8)}`;
+            el("tx-link").href = `${EXPLORER}/tx/${sig}?cluster=devnet`;
+            el("tx-loading").style.display = "none";
+            el("tx-success").style.display = "block"; }
+
+        function txError(msg) { el("tx-desc-error").textContent = msg.slice(0, 200);
+            el("tx-loading").style.display = "none";
+            el("tx-error").style.display = "block"; }
+
+        function closeTxModal() { el("tx-modal").classList.remove("flex"); }
+
+        /* ── Polling ── */
+        function startPolling() {
+            if (refreshTimer) clearInterval(refreshTimer);
+            refreshTimer = setInterval(() => {
+                if (!busy && walletPubkey) fetchAll();
+            }, 15000);
+        }
+
+        function stopPolling() {
+            if (refreshTimer) { clearInterval(refreshTimer);
+                refreshTimer = null; }
+        }
+
+        /* ── Acciones ── */
+        async function handleInitialize() {
+            if (!walletPubkey || busy) return;
+            busy = true;
+            openTxModal("Creando cuenta global en Solana Devnet...");
+            try {
+                const disc = await discriminator("initialize");
+                const gPda = globalPDA();
+                const ix = new TransactionInstruction({ programId: PROGRAM_ID, keys: [{ pubkey: gPda, isSigner: false,
+                        isWritable: true }, { pubkey: walletPubkey, isSigner: true, isWritable: true }, { pubkey: SystemProgram
+                            .programId, isSigner: false, isWritable: false }
+                    ], data: disc });
+                const sig = await sendTx([ix]);
+                txSuccess(sig);
+                addActivity("INI", "t", "Lotería inicializada", "", null);
+                await fetchAll();
+            } catch (e) { txError(e.message); }
+            busy = false;
+        }
+
+        async function handleCreateRound() {
+            if (!walletPubkey || !globalState || busy) return;
+            const price = parseFloat(el("new-price").value);
+            const startStr = el("new-start").value;
+            const endStr = el("new-end").value;
+            const max = parseInt(el("new-max").value);
+            if (isNaN(price) || price <= 0 || !startStr || !endStr || isNaN(max) || max <= 0) { alert(
+                    "Completa todos los campos correctamente."); return; }
+            const startTs = Math.floor(new Date(startStr).getTime() / 1000);
+            const endTs = Math.floor(new Date(endStr).getTime() / 1000);
+            if (endTs <= startTs) { alert("La fecha de fin debe ser posterior al inicio."); return; }
+            busy = true;
+            openTxModal(`Creando ronda con precio ${price} SOL...`);
+            try {
+                const disc = await discriminator("create_round");
+                const data = concat(disc, u64LE(BigInt(Math.floor(price * 1e9))), i64LE(BigInt(startTs)), i64LE(BigInt(
+                    endTs)), u64LE(BigInt(max)));
+                const gPda = globalPDA();
+                const rPda = roundPDA(globalState.roundCount);
+                const ix = new TransactionInstruction({ programId: PROGRAM_ID, keys: [{ pubkey: gPda, isSigner: false,
+                        isWritable: true }, { pubkey: rPda, isSigner: false, isWritable: true }, { pubkey: walletPubkey,
+                        isSigner: true, isWritable: true }, { pubkey: SystemProgram.programId, isSigner: false,
+                        isWritable: false }
+                    ], data });
+                const sig = await sendTx([ix]);
+                txSuccess(sig);
+                addActivity("NEW", "t", `Ronda #${globalState.roundCount} creada`, `${price} SOL / max ${max}`, null);
+                el("new-price").value = "";
+                el("new-start").value = "";
+                el("new-end").value = "";
+                el("new-max").value = "";
+                el("create-round-form").style.display = "none";
+                await fetchAll();
+            } catch (e) { txError(e.message); }
+            busy = false;
+        }
+
+        async function handleBuy() {
+            if (!walletPubkey || selectedRoundId === null || busy) return;
+            const round = rounds.find(r => r.id === selectedRoundId);
+            if (!round || round.isFinalized) return;
+            busy = true;
+            openTxModal(`Comprando ticket para ronda ${round.id}...`);
+            try {
+                const disc = await discriminator("buy_ticket");
+                const data = concat(disc, u64LE(BigInt(round.id)));
+                const rPda = roundPDA(round.id);
+                const nextTicketNum = BigInt(round.playerCount) + 1n;
+                const tPda = ticketPDA(round.id, nextTicketNum);
+                const ix = new TransactionInstruction({ programId: PROGRAM_ID, keys: [{ pubkey: rPda, isSigner: false,
+                        isWritable: true }, { pubkey: tPda, isSigner: false, isWritable: true }, { pubkey: walletPubkey,
+                        isSigner: true, isWritable: true }, { pubkey: SystemProgram.programId, isSigner: false,
+                        isWritable: false }
+                    ], data });
+                const sig = await sendTx([ix]);
+                txSuccess(sig);
+                addActivity("TKT", "t", `Ticket ronda ${round.id}`, `${short(walletPubkey,6)}`, fmtSOL(round.ticketPrice,
+                    3));
+                await fetchAll();
+            } catch (e) { txError(e.message); }
+            busy = false;
+        }
+
+        async function finalizeRound(roundId) {
+            const round = rounds.find(r => r.id === roundId);
+            if (!round || round.isFinalized || !round.admin.equals(walletPubkey)) throw new Error(
+                "No puedes finalizar esta ronda.");
+            if (round.playerCount === 0) throw new Error("No hay tickets vendidos en esta ronda.");
+            const rPda = roundPDA(round.id);
+            const MAX_ATTEMPTS = 5;
+            let lastError = null;
+            for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+                try {
+                    const slot = await conn.getSlot("confirmed");
+                    const winnerIndex = Number(BigInt(slot) % BigInt(round.playerCount));
+                    const winnerPubkey = round.players[winnerIndex];
+                    if (!winnerPubkey) throw new Error(`No se encontró jugador en índice ${winnerIndex}`);
+                    el("tx-desc-loading").textContent =
+                        `Intento ${attempt+1}: ganador estimado ${short(winnerPubkey,6)}, enviando transacción...`;
+                    const disc = await discriminator("finalize_round");
+                    const data = concat(disc, u64LE(BigInt(round.id)));
+                    const ix = new TransactionInstruction({ programId: PROGRAM_ID, keys: [{ pubkey: rPda, isSigner: false,
+                            isWritable: true }, { pubkey: walletPubkey, isSigner: true, isWritable: true }, { pubkey: winnerPubkey,
+                            isSigner: false, isWritable: true
+                        }, { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }], data });
+                    const sig = await sendTx([ix]);
+                    saveWinner({ address: winnerPubkey.toBase58(), prize: fmtSOL(round.totalPrize, 4), round: round.id,
+                        date: new Date().toLocaleDateString("es-ES"), sig });
+                    addActivity("WIN", "w", `Ganador ronda ${round.id}`, `${short(winnerPubkey,8)}`, fmtSOL(round.totalPrize,
+                        4));
+                    txSuccess(sig);
+                    return;
+                } catch (e) {
+                    lastError = e;
+                    if (e.message && e.message.includes("WrongWinnerAccount")) { await new Promise(r => setTimeout(r,
+                            500)); continue; }
+                    throw e;
+                }
+            }
+            throw new Error(`No se pudo finalizar tras ${MAX_ATTEMPTS} intentos. ${lastError?.message||""}`);
+        }
+
+        async function handleFinalize(roundIdParam = null) {
+            const targetRoundId = roundIdParam ?? selectedRoundId;
+            if (!walletPubkey || targetRoundId === null || busy) return;
+            busy = true;
+            openTxModal(`Finalizando ronda ${targetRoundId}...`);
+            try {
+                await finalizeRound(targetRoundId);
+                await fetchAll();
+                if (selectedRoundId === targetRoundId) selectedRoundId = null;
+            } catch (e) { txError(e.message); }
+            busy = false;
+        }
+        async function handleFinalizeFromHistory(roundId) { await handleFinalize(roundId); }
+
+        async function handleClaim() {
+            if (!walletPubkey || selectedRoundId === null || busy) return;
+            const round = rounds.find(r => r.id === selectedRoundId);
+            if (!round || !round.isFinalized || round.totalPrize <= 0n) return;
+            busy = true;
+            openTxModal(`Reclamando premio de la ronda ${round.id}...`);
+            try {
+                const disc = await discriminator("claim_prize");
+                const data = concat(disc, u64LE(BigInt(round.id)));
+                const rPda = roundPDA(round.id);
+                const ix = new TransactionInstruction({ programId: PROGRAM_ID, keys: [{ pubkey: rPda, isSigner: false,
+                        isWritable: true }, { pubkey: round.winner, isSigner: false, isWritable: true }, { pubkey: SystemProgram
+                            .programId, isSigner: false, isWritable: false }
+                    ], data });
+                const sig = await sendTx([ix]);
+                txSuccess(sig);
+                addActivity("CLM", "w", `Premio reclamado ronda ${round.id}`, `${short(round.winner,8)}`, fmtSOL(round
+                    .totalPrize, 4));
+                await fetchAll();
+            } catch (e) { txError(e.message); }
+            busy = false;
+        }
+        async function handleClaimFromHistory(roundId) {
+            if (!walletPubkey || busy) return;
+            const round = rounds.find(r => r.id === roundId);
+            if (!round || !round.isFinalized || round.totalPrize <= 0n) return;
+            if (!round.winner.equals(walletPubkey)) { alert("Solo el ganador puede reclamar el premio."); return; }
+            busy = true;
+            openTxModal(`Reclamando premio de la ronda ${roundId}...`);
+            try {
+                const disc = await discriminator("claim_prize");
+                const data = concat(disc, u64LE(BigInt(roundId)));
+                const rPda = roundPDA(roundId);
+                const ix = new TransactionInstruction({ programId: PROGRAM_ID, keys: [{ pubkey: rPda, isSigner: false,
+                        isWritable: true }, { pubkey: round.winner, isSigner: false, isWritable: true }, { pubkey: SystemProgram
+                            .programId, isSigner: false, isWritable: false }
+                    ], data });
+                const sig = await sendTx([ix]);
+                txSuccess(sig);
+                addActivity("CLM", "w", `Premio reclamado ronda ${roundId}`, `${short(round.winner,8)}`, fmtSOL(round.totalPrize,
+                    4));
+                await fetchAll();
+                renderWinners();
+            } catch (e) { txError(e.message); }
+            busy = false;
+        }
+
+        function toggleCreateForm() {
+            const form = el("create-round-form");
+            form.style.display = form.style.display === "none" ? "flex" : "none";
+        }
+
+        /* ── Wallet ── */
+        async function handleWalletBtn() { walletPubkey ? disconnectWallet() : await connectWallet(); }
+        async function connectWallet() {
+            if (!window.solana?.isPhantom) { el("no-phantom-msg").style.display = "block"; return; }
+            try {
+                const resp = await window.solana.connect();
+                walletPubkey = resp.publicKey;
+                el("btn-wallet").classList.add("on");
+                el("wallet-label").textContent = `Desconectar · ${short(walletPubkey,4)}`;
+                el("wallet-dot").style.display = "inline-block";
+                el("net-status").style.display = "flex";
+                el("welcome").style.display = "none";
+                el("dashboard").classList.add("active-db");
+                await fetchAll();
+                startPolling();
+            } catch (e) {}
+        }
+
+        function disconnectWallet() {
+            window.solana?.disconnect();
+            walletPubkey = null;
+            globalState = null;
+            rounds = [];
+            selectedRoundId = null;
+            el("btn-wallet").classList.remove("on");
+            el("wallet-label").textContent = "Conectar Wallet";
+            el("wallet-dot").style.display = "none";
+            el("net-status").style.display = "none";
+            el("welcome").style.display = "flex";
+            el("dashboard").classList.remove("active-db");
+            el("pending-claims-banner").style.display = "none";
+            stopPolling();
+        }
+
+        window.addEventListener("load", () => {
+            renderWinners();
+            renderActivity();
+            if (window.solana?.isPhantom && window.solana.isConnected) {
+                window.solana.connect({ onlyIfTrusted: true }).then(r => { walletPubkey = r.publicKey;
+                    connectWallet(); }).catch(() => {});
+            }
+        });
+        window.solana?.on?.("disconnect", disconnectWallet);
+        window.solana?.on?.("accountChanged", pk => { if (pk) { walletPubkey = pk;
+                fetchAll();
+                startPolling(); } else disconnectWallet(); });
+    </script>
 </body>
 </html>

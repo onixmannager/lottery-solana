@@ -1,0 +1,548 @@
+use anchor_lang::prelude::*;
+use anchor_spl::token::{self, Mint, MintTo, Token, TokenAccount, Transfer};
+
+declare_id!("TU_NUEVO_PROGRAM_ID"); // ¡Cámbialo al hacer deploy!
+
+#[program]
+pub mod lottery {
+    use super::*;
+
+    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
+        let global = &mut ctx.accounts.global;
+        global.admin = ctx.accounts.payer.key();
+        global.round_count = 0;
+        // La mint de LottoSol se crea externamente o aquí mismo usando CPI.
+        // Por simplicidad asumimos que el mint ya existe y lo guardamos.
+        // Si prefieres crearla en el initialize, añade la CPI correspondiente.
+        global.lottosol_mint = ctx.accounts.lottosol_mint.key();
+        global.treasury = ctx.accounts.treasury.key();
+        Ok(())
+    }
+
+    pub fn create_round(
+        ctx: Context<CreateRound>,
+        ticket_price: u64,
+        start_time: i64,
+        end_time: i64,
+        max_tickets: u64,
+    ) -> Result<()> {
+        let global = &mut ctx.accounts.global;
+        require_keys_eq!(global.admin, ctx.accounts.admin.key(), LotteryError::Unauthorized);
+
+        let round = &mut ctx.accounts.round;
+        round.id = global.round_count;
+        round.ticket_price = ticket_price;
+        round.start_time = start_time;
+        round.end_time = end_time;
+        round.max_tickets = max_tickets;
+        round.player_count = 0;
+        round.winner = Pubkey::default();
+        round.is_finalized = false;
+        round.total_prize = 0;
+        round.admin = ctx.accounts.admin.key();
+        round.bump = ctx.bumps.round;
+        round.staking_pool = 0;
+        round.total_staked = 0;
+        round.staking_finalized = false;
+
+        global.round_count += 1;
+        Ok(())
+    }
+
+    pub fn buy_ticket(ctx: Context<BuyTicket>, round_id: u64) -> Result<()> {
+        let round = &mut ctx.accounts.round;
+        let clock = Clock::get()?;
+
+        require!(!round.is_finalized, LotteryError::RoundAlreadyFinalized);
+        require!(
+            clock.unix_timestamp >= round.start_time && clock.unix_timestamp <= round.end_time,
+            LotteryError::RoundNotActive
+        );
+        require!(round.player_count < round.max_tickets, LotteryError::RoundFull);
+
+        // Transferir SOL a la cuenta de la ronda
+        let cpi = CpiContext::new(
+            ctx.accounts.system_program.to_account_info(),
+            anchor_lang::system_program::Transfer {
+                from: ctx.accounts.buyer.to_account_info(),
+                to: round.to_account_info(),
+            },
+        );
+        anchor_lang::system_program::transfer(cpi, round.ticket_price)?;
+
+        round.player_count += 1;
+        round.total_prize += round.ticket_price;
+
+        // Mintear LottoSol 1:1 al comprador
+        let seeds = &[b"mint_authority".as_ref(), &[ctx.bumps.mint_authority]];
+        let signer = &[&seeds[..]];
+        let mint_cpi = CpiContext::new_with_signer(
+            ctx.accounts.token_program.to_account_info(),
+            MintTo {
+                mint: ctx.accounts.lottosol_mint.to_account_info(),
+                to: ctx.accounts.buyer_lottosol_ata.to_account_info(),
+                authority: ctx.accounts.mint_authority.to_account_info(),
+            },
+            signer,
+        );
+        token::mint_to(mint_cpi, round.ticket_price)?;
+
+        let ticket = &mut ctx.accounts.ticket;
+        ticket.owner = ctx.accounts.buyer.key();
+        ticket.round_id = round_id;
+        ticket.ticket_number = round.player_count;
+
+        Ok(())
+    }
+
+    pub fn stake(ctx: Context<Stake>, round_id: u64, amount: u64) -> Result<()> {
+        let round = &mut ctx.accounts.round;
+        let clock = Clock::get()?;
+
+        require!(!round.staking_finalized, LotteryError::StakingAlreadyFinalized);
+        require!(clock.unix_timestamp <= round.end_time, LotteryError::RoundEnded);
+
+        // Transferir LottoSol del usuario al vault de staking
+        let cpi = CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            Transfer {
+                from: ctx.accounts.user_lottosol_ata.to_account_info(),
+                to: ctx.accounts.staking_vault.to_account_info(),
+                authority: ctx.accounts.user.to_account_info(),
+            },
+        );
+        token::transfer(cpi, amount)?;
+
+        // Registrar stake del usuario
+        let stake_entry = &mut ctx.accounts.stake_entry;
+        stake_entry.user = ctx.accounts.user.key();
+        stake_entry.round_id = round_id;
+        stake_entry.amount = amount;
+        stake_entry.claimed = false;
+        stake_entry.bump = ctx.bumps.stake_entry;
+
+        round.total_staked += amount;
+
+        Ok(())
+    }
+
+    pub fn finalize_round(ctx: Context<FinalizeRound>, _round_id: u64) -> Result<()> {
+        let winner_share: u64;
+        let treasury_share: u64;
+        let staking_pool: u64;
+
+        {
+            let round = &mut ctx.accounts.round;
+            require_keys_eq!(round.admin, ctx.accounts.admin.key(), LotteryError::Unauthorized);
+            let clock = Clock::get()?;
+            require!(!round.is_finalized, LotteryError::RoundAlreadyFinalized);
+            require!(clock.unix_timestamp >= round.end_time, LotteryError::RoundStillActive);
+            require!(round.player_count > 0, LotteryError::NoTickets);
+
+            let winner_index = (clock.slot % round.player_count) + 1;
+            require!(
+                ctx.accounts.ticket.ticket_number == winner_index,
+                LotteryError::WrongWinnerAccount
+            );
+            round.winner = ctx.accounts.ticket.owner;
+            round.is_finalized = true;
+
+            // Cálculo de reparto: 90% ganador, 5% tesorería, 5% stakers
+            let total = round.total_prize;
+            winner_share = total * 90 / 100;
+            treasury_share = total * 5 / 100;
+            staking_pool = total - winner_share - treasury_share; // el 5% restante
+
+            round.total_prize = winner_share; // lo que queda para el ganador
+            round.staking_pool = staking_pool;
+            round.staking_finalized = true;
+        }
+
+        // Transferir SOL al ganador
+        ctx.accounts.round.sub_lamports(winner_share)?;
+        **ctx.accounts.winner.to_account_info().try_borrow_mut_lamports()? += winner_share;
+
+        // Transferir SOL a tesorería
+        ctx.accounts.round.sub_lamports(treasury_share)?;
+        **ctx.accounts.treasury.to_account_info().try_borrow_mut_lamports()? += treasury_share;
+
+        // Los fondos del staking_pool se quedan en la cuenta de la ronda hasta que los stakers reclamen.
+        // Ya están reservados porque reducimos total_prize a solo winner_share.
+
+        Ok(())
+    }
+
+    pub fn claim_staking_reward(ctx: Context<ClaimStakingReward>, _round_id: u64) -> Result<()> {
+        let round = &ctx.accounts.round;
+        require!(round.staking_finalized, LotteryError::StakingNotFinalized);
+        require!(!ctx.accounts.stake_entry.claimed, LotteryError::AlreadyClaimed);
+
+        let user_stake = ctx.accounts.stake_entry.amount;
+        let total_staked = round.total_staked;
+        require!(total_staked > 0, LotteryError::NoStakers);
+
+        let reward = (user_stake as u128)
+            .checked_mul(round.staking_pool as u128)
+            .unwrap()
+            .checked_div(total_staked as u128)
+            .unwrap() as u64;
+
+        require!(reward > 0, LotteryError::NoReward);
+
+        // Marcar como reclamado
+        ctx.accounts.stake_entry.claimed = true;
+
+        // Transferir SOL del round al staker
+        ctx.accounts.round.sub_lamports(reward)?;
+        **ctx.accounts.user.to_account_info().try_borrow_mut_lamports()? += reward;
+
+        Ok(())
+    }
+
+    pub fn claim_prize(ctx: Context<ClaimPrize>, _round_id: u64) -> Result<()> {
+        let round = &mut ctx.accounts.round;
+        require!(round.is_finalized, LotteryError::RoundNotFinalized);
+        require_keys_eq!(round.winner, ctx.accounts.winner.key(), LotteryError::NotWinner);
+        require!(round.total_prize > 0, LotteryError::NoPrize);
+
+        let prize = round.total_prize;
+        round.total_prize = 0;
+
+        round.sub_lamports(prize)?;
+        **ctx.accounts.winner.to_account_info().try_borrow_mut_lamports()? += prize;
+
+        Ok(())
+    }
+
+    pub fn emergency_finalize(
+        ctx: Context<EmergencyFinalize>,
+        _round_id: u64,
+        winner_override: Pubkey,
+    ) -> Result<()> {
+        // Similar a finalize_round pero con ganador forzado
+        let round = &mut ctx.accounts.round;
+        require_keys_eq!(round.admin, ctx.accounts.admin.key(), LotteryError::Unauthorized);
+        require!(!round.is_finalized, LotteryError::RoundAlreadyFinalized);
+
+        round.winner = winner_override;
+        round.is_finalized = true;
+
+        let total = round.total_prize;
+        let winner_share = total * 90 / 100;
+        let treasury_share = total * 5 / 100;
+        let staking_pool = total - winner_share - treasury_share;
+
+        round.total_prize = winner_share;
+        round.staking_pool = staking_pool;
+        round.staking_finalized = true;
+
+        ctx.accounts.round.sub_lamports(winner_share)?;
+        **ctx.accounts.winner_override.to_account_info().try_borrow_mut_lamports()? += winner_share;
+
+        ctx.accounts.round.sub_lamports(treasury_share)?;
+        **ctx.accounts.treasury.to_account_info().try_borrow_mut_lamports()? += treasury_share;
+
+        Ok(())
+    }
+}
+
+// ---------- Contextos de instrucción ----------
+
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + std::mem::size_of::<LotteryGlobal>(),
+        seeds = [b"global"],
+        bump
+    )]
+    pub global: Account<'info, LotteryGlobal>,
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    /// CHECK: Es la mint de LottoSol que debe existir previamente (o se crea aquí)
+    pub lottosol_mint: Account<'info, Mint>,
+    /// CHECK: Wallet de tesorería
+    pub treasury: AccountInfo<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct CreateRound<'info> {
+    #[account(mut, seeds = [b"global"], bump)]
+    pub global: Account<'info, LotteryGlobal>,
+
+    #[account(
+        init,
+        payer = admin,
+        space = 8 + std::mem::size_of::<Round>(),
+        seeds = [b"round", global.round_count.to_le_bytes().as_ref()],
+        bump
+    )]
+    pub round: Account<'info, Round>,
+
+    #[account(mut)]
+    pub admin: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+#[instruction(round_id: u64)]
+pub struct BuyTicket<'info> {
+    #[account(
+        mut,
+        seeds = [b"round", round_id.to_le_bytes().as_ref()],
+        bump = round.bump
+    )]
+    pub round: Account<'info, Round>,
+
+    #[account(
+        init,
+        payer = buyer,
+        space = 8 + std::mem::size_of::<Ticket>(),
+        seeds = [
+            b"ticket",
+            round_id.to_le_bytes().as_ref(),
+            (round.player_count + 1).to_le_bytes().as_ref()
+        ],
+        bump
+    )]
+    pub ticket: Account<'info, Ticket>,
+
+    #[account(mut)]
+    pub buyer: Signer<'info>,
+
+    // Mint de LottoSol (ya guardada en global)
+    #[account(mut)]
+    pub lottosol_mint: Account<'info, Mint>,
+
+    // Autoridad de minteo (PDA)
+    /// CHECK: Es la PDA que firma el mint_to
+    #[account(seeds = [b"mint_authority"], bump)]
+    pub mint_authority: AccountInfo<'info>,
+
+    // Cuenta de tokens LottoSol del comprador (ATA)
+    #[account(
+        init_if_needed,
+        payer = buyer,
+        associated_token::mint = lottosol_mint,
+        associated_token::authority = buyer,
+    )]
+    pub buyer_lottosol_ata: Account<'info, TokenAccount>,
+
+    pub system_program: Program<'info, System>,
+    pub token_program: Program<'info, Token>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub rent: Sysvar<'info, Rent>,
+}
+
+#[derive(Accounts)]
+#[instruction(round_id: u64, amount: u64)]
+pub struct Stake<'info> {
+    #[account(
+        mut,
+        seeds = [b"round", round_id.to_le_bytes().as_ref()],
+        bump = round.bump
+    )]
+    pub round: Account<'info, Round>,
+
+    #[account(mut)]
+    pub user: Signer<'info>,
+
+    // Cuenta de LottoSol del usuario
+    #[account(
+        mut,
+        associated_token::mint = lottosol_mint,
+        associated_token::authority = user,
+    )]
+    pub user_lottosol_ata: Account<'info, TokenAccount>,
+
+    pub lottosol_mint: Account<'info, Mint>,
+
+    // Vault de staking de la ronda (token account PDA)
+    #[account(
+        init_if_needed,
+        payer = user,
+        associated_token::mint = lottosol_mint,
+        associated_token::authority = staking_vault_authority,
+    )]
+    pub staking_vault: Account<'info, TokenAccount>,
+
+    /// CHECK: PDA que será la autoridad del vault de staking (puede ser el round o una específica)
+    #[account(seeds = [b"staking_vault_authority", round_id.to_le_bytes().as_ref()], bump)]
+    pub staking_vault_authority: AccountInfo<'info>,
+
+    #[account(
+        init,
+        payer = user,
+        space = 8 + std::mem::size_of::<StakeEntry>(),
+        seeds = [b"stake", round_id.to_le_bytes().as_ref(), user.key().as_ref()],
+        bump
+    )]
+    pub stake_entry: Account<'info, StakeEntry>,
+
+    pub system_program: Program<'info, System>,
+    pub token_program: Program<'info, Token>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub rent: Sysvar<'info, Rent>,
+}
+
+#[derive(Accounts)]
+#[instruction(_round_id: u64)]
+pub struct FinalizeRound<'info> {
+    #[account(mut, seeds = [b"round", _round_id.to_le_bytes().as_ref()], bump = round.bump)]
+    pub round: Account<'info, Round>,
+
+    #[account(mut)]
+    pub admin: Signer<'info>,
+
+    #[account(mut)]
+    pub ticket: Account<'info, Ticket>,
+
+    #[account(mut)]
+    pub winner: AccountInfo<'info>,
+
+    /// CHECK: Treasury wallet from global
+    #[account(mut, address = global.treasury)]
+    pub treasury: AccountInfo<'info>,
+
+    #[account(seeds = [b"global"], bump)]
+    pub global: Account<'info, LotteryGlobal>,
+
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+#[instruction(_round_id: u64)]
+pub struct ClaimStakingReward<'info> {
+    #[account(mut, seeds = [b"round", _round_id.to_le_bytes().as_ref()], bump = round.bump)]
+    pub round: Account<'info, Round>,
+
+    #[account(mut)]
+    pub user: Signer<'info>,
+
+    #[account(
+        mut,
+        seeds = [b"stake", _round_id.to_le_bytes().as_ref(), user.key().as_ref()],
+        bump = stake_entry.bump
+    )]
+    pub stake_entry: Account<'info, StakeEntry>,
+
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+#[instruction(_round_id: u64)]
+pub struct ClaimPrize<'info> {
+    #[account(mut, seeds = [b"round", _round_id.to_le_bytes().as_ref()], bump = round.bump)]
+    pub round: Account<'info, Round>,
+
+    #[account(mut)]
+    pub winner: AccountInfo<'info>,
+
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+#[instruction(_round_id: u64, winner_override: Pubkey)]
+pub struct EmergencyFinalize<'info> {
+    #[account(mut, seeds = [b"round", _round_id.to_le_bytes().as_ref()], bump = round.bump)]
+    pub round: Account<'info, Round>,
+
+    #[account(mut)]
+    pub admin: Signer<'info>,
+
+    #[account(mut)]
+    pub winner_override: AccountInfo<'info>,
+
+    /// CHECK: Treasury from global
+    #[account(mut, address = global.treasury)]
+    pub treasury: AccountInfo<'info>,
+
+    #[account(seeds = [b"global"], bump)]
+    pub global: Account<'info, LotteryGlobal>,
+
+    pub system_program: Program<'info, System>,
+}
+
+// ---------- Estructuras de datos ----------
+
+#[account]
+pub struct LotteryGlobal {
+    pub admin: Pubkey,
+    pub round_count: u64,
+    pub lottosol_mint: Pubkey,
+    pub treasury: Pubkey,
+}
+
+#[account]
+pub struct Round {
+    pub id: u64,
+    pub ticket_price: u64,
+    pub start_time: i64,
+    pub end_time: i64,
+    pub max_tickets: u64,
+    pub player_count: u64,
+    pub winner: Pubkey,
+    pub is_finalized: bool,
+    pub total_prize: u64,        // 90% para el ganador
+    pub admin: Pubkey,
+    pub bump: u8,
+    pub staking_pool: u64,       // 5% para stakers
+    pub total_staked: u64,       // Total LottoSol apostados en esta ronda
+    pub staking_finalized: bool,
+}
+
+#[account]
+pub struct Ticket {
+    pub owner: Pubkey,
+    pub round_id: u64,
+    pub ticket_number: u64,
+}
+
+#[account]
+pub struct StakeEntry {
+    pub user: Pubkey,
+    pub round_id: u64,
+    pub amount: u64,
+    pub claimed: bool,
+    pub bump: u8,
+}
+
+// ---------- Errores ----------
+
+#[error_code]
+pub enum LotteryError {
+    #[msg("No autorizado")]
+    Unauthorized,
+    #[msg("Ronda ya finalizada")]
+    RoundAlreadyFinalized,
+    #[msg("Ronda no activa")]
+    RoundNotActive,
+    #[msg("Ronda llena")]
+    RoundFull,
+    #[msg("Ronda aún activa")]
+    RoundStillActive,
+    #[msg("No hay tickets")]
+    NoTickets,
+    #[msg("No finalizada")]
+    RoundNotFinalized,
+    #[msg("No eres el ganador")]
+    NotWinner,
+    #[msg("Sin premio")]
+    NoPrize,
+    #[msg("Winner incorrecto")]
+    WrongWinnerAccount,
+    #[msg("Staking ya finalizado")]
+    StakingAlreadyFinalized,
+    #[msg("La ronda ya terminó")]
+    RoundEnded,
+    #[msg("Staking no finalizado")]
+    StakingNotFinalized,
+    #[msg("Ya reclamaste tu recompensa")]
+    AlreadyClaimed,
+    #[msg("No hay stakers")]
+    NoStakers,
+    #[msg("Sin recompensa")]
+    NoReward,
+}

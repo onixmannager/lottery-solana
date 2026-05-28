@@ -395,14 +395,14 @@ function parseRound(data) {
   const dv = new DataView(data.buffer, data.byteOffset);
   let o = 8; // skip discriminator
   const id          = Number(dv.getBigUint64(o, true)); o += 8;
-  const ticketPrice = dv.getBigUint64(o, true); o += 8;
+  const ticketPrice = dv.getBigUint64(o, true); o += 8;  // kept as BigInt for lamport precision
   const startTime   = Number(dv.getBigInt64(o, true)); o += 8;
   const endTime     = Number(dv.getBigInt64(o, true)); o += 8;
-  const maxTickets  = dv.getBigUint64(o, true); o += 8;
+  const maxTickets  = Number(dv.getBigUint64(o, true)); o += 8;  // normalizado a Number
   const playerCount = Number(dv.getBigUint64(o, true)); o += 8;
   const winner      = new PublicKey(data.slice(o, o+32)); o += 32;
   const isFinalized = data[o] !== 0; o += 1;
-  const totalPrize  = dv.getBigUint64(o, true); o += 8;
+  const totalPrize  = dv.getBigUint64(o, true); o += 8;  // kept as BigInt for lamport precision
   const admin       = new PublicKey(data.slice(o, o+32)); o += 32;
   const bump        = data[o];
   return { id, ticketPrice, startTime, endTime, maxTickets, playerCount, winner, isFinalized, totalPrize, admin, bump };
@@ -592,7 +592,10 @@ async function fetchAll() {
 function updatePendingClaimsBanner() {
   const banner = el("pending-claims-banner");
   if(!walletPubkey) { banner.style.display="none"; pendingClaimRoundId=null; return; }
-  const claimableRound = rounds.find(r => r.isFinalized && r.totalPrize>0n && r.winner.equals(walletPubkey));
+  const claimableRound = rounds.find(r => {
+    try { return r.isFinalized && r.totalPrize>0n && r.winner.equals(walletPubkey); }
+    catch(e) { return false; }
+  });
   if(claimableRound) {
     banner.style.display = "block";
     el("pcb-amount").innerHTML = fmtSOL(claimableRound.totalPrize, 4);
@@ -642,15 +645,15 @@ function renderActiveRounds() {
     const isActive = nowTs >= r.startTime;
     const statusClass = isActive ? 'status-active' : 'status-upcoming';
     const statusText = isActive ? 'Activa' : 'Próxima';
-    const progress = r.maxTickets>0n ? Math.min(100,(r.playerCount/Number(r.maxTickets))*100) : 0;
+    const progress = r.maxTickets > 0 ? Math.min(100, (r.playerCount / r.maxTickets) * 100) : 0;
     const progressColorClass = progress>=90?'full':progress>=70?'almost-full':'';
     const secsLeft = r.endTime - nowTs;
     const countdownUrgent = secsLeft<3600 ? 'urgent' : '';
     const countdownText = nowTs < r.startTime
       ? `⏱ Inicia ${new Date(r.startTime*1000).toLocaleString('es-ES',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}`
       : `⏱ ${fmtCountdown(secsLeft)}`;
-    const canBuy = walletPubkey && isActive && r.playerCount < Number(r.maxTickets);
-    const isFull = r.playerCount >= Number(r.maxTickets);
+    const canBuy = walletPubkey && isActive && r.playerCount < r.maxTickets;
+    const isFull = r.playerCount >= r.maxTickets;
     let btnLabel = '🎟 Comprar ticket', btnClass='card-buy-btn', btnDisabled='';
     if(!walletPubkey) { btnLabel='Conecta tu wallet'; btnDisabled='disabled'; }
     else if(isFull) { btnLabel='Sold out'; btnClass+=' full'; btnDisabled='disabled'; }
@@ -699,9 +702,10 @@ function renderFinishedRoundsPaged(finishedArr) {
   let html = '<div class="list-container">';
   html += slice.map(r => {
     if(r.isFinalized) {
-      const winnerStr = r.winner.equals(PublicKey.default) ? "Sin ganador" : short(r.winner,6);
+      const isDefaultPubkey = r.winner.equals(SystemProgram.programId) || r.winner.toBase58() === "11111111111111111111111111111111";
+      const winnerStr = isDefaultPubkey ? "Sin ganador" : short(r.winner,6);
       const prizeStr = r.totalPrize>0n ? fmtSOL(r.totalPrize,2) : "0.00";
-      const isWinner = walletPubkey && r.winner.equals(walletPubkey);
+      const isWinner = walletPubkey && (() => { try { return r.winner.equals(walletPubkey); } catch(e){ return false; } })();
       const canClaim = isWinner && r.totalPrize>0n;
       const claimBtn = canClaim ? `<button class="btn-claim-highlight" style="padding:8px 14px;font-size:0.72rem;width:auto;" onclick="event.stopPropagation();handleClaimFromHistory(${r.id})">Reclamar</button>` : '';
       return `<div class="finished-item">
@@ -890,7 +894,11 @@ async function finalizeRound(roundId) {
       return;
     } catch(e) {
       lastError = e;
-      if(e.message&&e.message.includes("WrongWinnerAccount")) { await new Promise(r=>setTimeout(r,600)); continue; }
+      if(e.message && e.message.includes("WrongWinnerAccount")) {
+        // Esperar al menos 2 slots (~800ms) para que el slot cambie
+        await new Promise(r=>setTimeout(r, 900));
+        continue;
+      }
       throw e;
     }
   }
@@ -917,7 +925,9 @@ async function handleClaimFromHistory(roundId) {
   if(!walletPubkey||busy) return;
   const round = rounds.find(r=>r.id===roundId);
   if(!round||!round.isFinalized||round.totalPrize<=0n) return;
-  if(!round.winner.equals(walletPubkey)) { alert("Solo el ganador puede reclamar."); return; }
+  let isWinner = false;
+  try { isWinner = round.winner.equals(walletPubkey); } catch(e) {}
+  if(!isWinner) { alert("Solo el ganador puede reclamar."); busy=false; return; }
   busy=true; openTxModal("Reclamando premio...");
   try {
     const disc = await discriminator("claim_prize");
@@ -951,8 +961,9 @@ async function connectWallet() {
     el("welcome").style.display = "none";
     el("dashboard").classList.add("active-db");
     await fetchAll(); startPolling();
-  } catch(e) {}
-}
+  } catch(e) {
+    if(e.message && !e.message.includes("rejected")) console.warn("wallet connect error", e);
+  }
 function disconnectWallet() {
   window.solana?.disconnect();
   walletPubkey=null; globalState=null; rounds=[];
@@ -970,7 +981,16 @@ window.addEventListener("load", () => {
   renderWinnersFixed(); renderActivity();
   setInterval(tickCountdowns, 1000);
   if(window.solana?.isPhantom && window.solana.isConnected) {
-    window.solana.connect({onlyIfTrusted:true}).then(r=>{walletPubkey=r.publicKey;connectWallet();}).catch(()=>{});
+    window.solana.connect({onlyIfTrusted:true}).then(async r=>{
+      walletPubkey = r.publicKey;
+      el("btn-wallet").classList.add("on");
+      el("wallet-label").textContent = `Desconectar · ${short(walletPubkey,4)}`;
+      el("wallet-dot").style.display = "inline-block";
+      el("net-status").style.display = "flex";
+      el("welcome").style.display = "none";
+      el("dashboard").classList.add("active-db");
+      await fetchAll(); startPolling();
+    }).catch(()=>{});
   }
 });
 window.solana?.on?.("disconnect", disconnectWallet);

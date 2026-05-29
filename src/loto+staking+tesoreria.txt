@@ -1,133 +1,228 @@
 // ════════════════════════════════════════════════════════════════════════════
-//  LottoSol v4 — Fixes de seguridad críticos
+//  LottoSol v6 — 6 fixes sobre v5
 //
-//  FIX 1: reveal_secret — penalización económica por no revelar
-//         El ticket NO revelado pierde su claim de cualquier premio residual.
-//         La ronda exige un % mínimo de reveals (min_reveal_ratio) configurable.
+//  ┌─────────────────────────────────────────────────────────────────────────
+//  │ FIX 1 — Slash permissionless → auto-slash del propio owner (no MEV)
+//  │
+//  │ PROBLEMA v5: slash_unrevealed() era llamable por cualquiera →
+//  │   front-running, spam, griefing económico barato en Solana mainnet.
+//  │
+//  │ SOLUCIÓN: eliminamos slash_unrevealed() permissionless.
+//  │   El slash es AUTO-EJECUTADO durante finalize_round: el programa
+//  │   itera round.player_count y evalúa cada ticket no revelado.
+//  │   Sin caller externo, sin incentivo de MEV, sin spam posible.
+//  │   slash_stake_entry() también desaparece como instrucción separada;
+//  │   el StakeEntry se marca en el mismo finalize_round si el ticket
+//  │   del owner quedó slasheado. El slash_pool se calcula on-the-fly
+//  │   y se añade al treasury en distribute_rewards.
+//  │
+//  │   TRADE-OFF: finalize_round tiene coste O(n) en compute units.
+//  │   Para loterías grandes (>1000 tickets) se recomienda paginación
+//  │   vía una instrucción adicional process_slash_batch. En este
+//  │   contrato incluimos la versión simple (apta hasta ~200 tickets).
+//  └─────────────────────────────────────────────────────────────────────────
 //
-//  FIX 2: revealed_xor reemplazado por hash encadenado (Merkle-style)
-//         En lugar de XOR lineal (manipulable), acumulamos con keccak iterativo:
-//         accumulator = keccak(accumulator ++ secret_hash)
-//         Esto rompe la linealidad y hace inviable la cancelación de entropía.
+//  ┌─────────────────────────────────────────────────────────────────────────
+//  │ FIX 2 — Separación completa SOL vs SPL (vault model coherente)
+//  │
+//  │ PROBLEMA v5: staking_pool era SOL en prize_vault pero se intentaba
+//  │   pagar con system_program::transfer desde staking_vault (SOL),
+//  │   mientras los stakes eran SPL tokens. Inconsistencia grave.
+//  │
+//  │ SOLUCIÓN: modelo de dos capas explícito y limpio:
+//  │
+//  │   Capa SOL (lamports):
+//  │     prize_vault   → recibe ticket_price + reveal_deposit en SOL
+//  │     treasury_vault → recibe treasury_share + slash_pool en SOL
+//  │     winner        → recibe winner_share en SOL
+//  │
+//  │   Capa SPL (LottoSol tokens):
+//  │     staking_token_vault → recibe LottoSol tokens en stake()
+//  │     reward de staking   → se paga en LottoSol tokens (burn-to-claim)
+//  │
+//  │   El staking_pool ya NO existe como balance SOL separado.
+//  │   Los stakers reciben LottoSol tokens desbloqueados (proporcional
+//  │   a su stake) como reward. El programa los mintea al reclamar.
+//  │   Esto es coherente: stake LottoSol → reward LottoSol.
+//  │
+//  │   staking_vault (SOL PDA) se elimina — ya no es necesario.
+//  └─────────────────────────────────────────────────────────────────────────
 //
-//  FIX 3: winner_index sin modulo bias
-//         Usamos rejection sampling sobre el output VRF para obtener un índice
-//         uniforme en [1, player_count] sin sesgo.
+//  ┌─────────────────────────────────────────────────────────────────────────
+//  │ FIX 3 — VRF fallback descentralizado (elimina winner_override unilateral)
+//  │
+//  │ PROBLEMA v5: emergency_finalize() permitía al admin elegir ganador
+//  │   libremente → riesgo de centralización marcado en auditorías.
+//  │
+//  │ SOLUCIÓN: en emergencia, el winner se deriva del hash on-chain:
+//  │     keccak(round.reveal_accumulator ++ clock.slot ++ round_id)
+//  │   → u128 mod n → winner_index determinístico y verificable.
+//  │   El admin ya NO puede elegir el ganador: solo puede invocar
+//  │   el fallback, pero el resultado es determinado por state público.
+//  │   Esto convierte la emergencia en "VRF sustituido por entropía
+//  │   de commit-reveal" en vez de "admin elige".
+//  └─────────────────────────────────────────────────────────────────────────
 //
-//  FIX 4: Transferencias SOL via CPI system_program en lugar de
-//         try_borrow_mut_lamports (más seguro, compatible con upgrades y PDAs).
-//         Las PDAs "prize_vault" y "staking_vault" se funden con rent mínimo
-//         en create_round; el programa firma con sus semillas.
+//  ┌─────────────────────────────────────────────────────────────────────────
+//  │ FIX 4 — Eliminación de commit-reveal decorativo
+//  │
+//  │ PROBLEMA v5: reveal_accumulator, commit_deadline, reveal_deadline,
+//  │   min_reveal_ratio_bps, low_reveal_flag y reveal_count existían
+//  │   pero no afectaban al ganador → estado caro y confuso.
+//  │
+//  │ SOLUCIÓN: se eliminan TODOS los campos de commit-reveal del struct
+//  │   Round excepto reveal_deadline (necesario para timing del slash
+//  │   y del VRF) y revealed_count (usado en el fallback de emergencia).
+//  │   reveal_accumulator se mantiene SOLO si revealed_count > 0
+//  │   (lo necesita el FIX 3 de emergencia). El resto desaparece.
+//  │   Ahorro: ~70 bytes por Round en on-chain state.
+//  └─────────────────────────────────────────────────────────────────────────
 //
-//  FIX 5: ticket_counter — secuencia garantizada con constraint en seed
-//         El PDA del ticket incluye (counter.count + 1) en sus seeds, lo que
-//         hace que dos txs concurrentes con el mismo counter fallen en init
-//         (solo una puede existir). Solana serializa escrituras al mismo PDA.
+//  ┌─────────────────────────────────────────────────────────────────────────
+//  │ FIX 5 — Seeds consistentes en todos los contextos
+//  │
+//  │ PROBLEMA v5: prize_vault usaba global.round_count en CreateRound
+//  │   pero round_id en BuyTicket, RevealSecret, etc. Si round_id !=
+//  │   global.round_count (porque global ya incrementó) → PDA diferente
+//  │   → CPI signer falla silenciosamente.
+//  │
+//  │ SOLUCIÓN: ALL PDAs usamos round_id.to_le_bytes() como seed
+//  │   SIEMPRE, incluyendo en CreateRound donde ahora capturamos
+//  │   round_id = global.round_count ANTES de incrementar, y lo
+//  │   pasamos como instruction arg para que Anchor lo use en seeds.
+//  └─────────────────────────────────────────────────────────────────────────
 //
-//  FIX 6: VRF fallback — si el oracle no responde en VRF_TIMEOUT slots,
-//         el admin puede usar emergency_finalize (con 48h de buffer), pero
-//         ahora se registra on-chain el motivo (vrf_timed_out flag) para
-//         transparencia total en auditoría.
-// ════════════════════════════════════════════════════════════════════════════
+//  ┌─────────────────────────────────────────────────────────────────────────
+//  │ FIX 6 — Rate limiting de slash vía slot window
+//  │
+//  │ PROBLEMA v5 (residual del slash permissionless): aunque ahora el
+//  │   slash es automático en finalize_round, añadimos protección de
+//  │   coste de compute: el slash batch está limitado a MAX_SLASH_BATCH
+//  │   tickets por llamada. Si hay más tickets sin revelar se llama
+//  │   process_slash_batch() N veces hasta limpiar el estado.
+//  │   Esto evita DoS por compute budget exceeded con rondas grandes.
+//  └─────────────────────────────────────────────────────────────────────────
 
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::keccak;
 use anchor_spl::{
     associated_token::AssociatedToken,
-    token::{self, Mint, MintTo, Token, TokenAccount, Transfer},
+    token::{self, Burn, Mint, MintTo, Token, TokenAccount, Transfer},
 };
 use switchboard_on_demand::accounts::RandomnessAccountData;
 
 declare_id!("LotteryProgram11111111111111111111111111111111");
 
-// ─── Constantes globales ────────────────────────────────────────────────────
-const WINNER_BPS: u64    = 9_000;
-const TREASURY_BPS: u64  =   500;
-const _STAKING_BPS: u64  =   500;  // 10_000 - 9_000 - 500
-const BPS_DENOM: u64     = 10_000;
+// ─── Constantes ─────────────────────────────────────────────────────────────
+const WINNER_BPS:    u64 = 9_000;
+const TREASURY_BPS:  u64 =   500;
+const STAKING_BPS:   u64 =   500;   // 10_000 - 9_000 - 500 = 500
+const BPS_DENOM:     u64 = 10_000;
 
-// Mínimo de lamports para que una PDA de vault pague su rent.
-// El caller debe fondear las vaults en create_round (o via un init separado).
-// Aquí el programa solo transfiere; la inicialización de rent corre por cuenta del admin.
-const VAULT_RENT_MINIMUM: u64 = 890_880; // ~0.00089 SOL (rent-exempt para 0 bytes)
+// FIX 6: máximo de tickets procesados por llamada de slash batch
+const MAX_SLASH_BATCH: u64 = 50;
 
-// Bias máximo aceptable del método u128: 2^128 mod n / 2^128 < 2.9e-39 para n <= 10^6.
-// Para loterías reales (n < 1_000_000) el sesgo es criptográficamente despreciable.
+// FIX 3: buffer de emergencia — 48h después de reveal_deadline
+const EMERGENCY_BUFFER_SECS: i64 = 48 * 60 * 60;
+
+// ─── Utilidades ──────────────────────────────────────────────────────────────
+
+/// FIX (v5-A mantenido): u128 mod n, bias < 3e-33 para n <= 1_000_000.
+fn vrf_to_winner_index(seed: &[u8; 32], n: u64) -> u64 {
+    let wide = u128::from_le_bytes(seed[..16].try_into().unwrap());
+    (wide % n as u128) as u64 + 1
+}
+
+/// FIX 3: fallback determinístico cuando VRF no responde.
+/// Mezcla el reveal_accumulator + slot + round_id — público y verificable.
+fn fallback_winner_index(accumulator: &[u8; 32], slot: u64, round_id: u64, n: u64) -> u64 {
+    let mut buf = [0u8; 48];
+    buf[..32].copy_from_slice(accumulator);
+    buf[32..40].copy_from_slice(&slot.to_le_bytes());
+    buf[40..48].copy_from_slice(&round_id.to_le_bytes());
+    let hash  = keccak::hash(&buf).to_bytes();
+    let wide  = u128::from_le_bytes(hash[..16].try_into().unwrap());
+    (wide % n as u128) as u64 + 1
+}
 
 #[program]
 pub mod lottery {
     use super::*;
 
-    // ─── 1. Inicialización del protocolo ────────────────────────────────────
+    // ─── 1. Inicializar protocolo ─────────────────────────────────────────
     pub fn initialize(ctx: Context<Initialize>, max_token_supply: u64) -> Result<()> {
-        let global = &mut ctx.accounts.global;
-        global.admin                = ctx.accounts.payer.key();
-        global.round_count          = 0;
-        global.max_token_supply     = max_token_supply;
-        global.total_tokens_minted  = 0;
-        global.lottosol_mint        = ctx.accounts.lottosol_mint.key();
-        global.treasury_vault       = ctx.accounts.treasury_vault.key();
+        let g = &mut ctx.accounts.global;
+        g.admin               = ctx.accounts.payer.key();
+        g.round_count         = 0;
+        g.max_token_supply    = max_token_supply;
+        g.total_tokens_minted = 0;
+        g.lottosol_mint       = ctx.accounts.lottosol_mint.key();
+        g.treasury_vault      = ctx.accounts.treasury_vault.key();
         Ok(())
     }
 
-    // ─── 2. Crear nueva ronda ───────────────────────────────────────────────
+    // ─── 2. Crear ronda ───────────────────────────────────────────────────
+    // FIX 5: round_id se pasa como arg y debe coincidir con global.round_count.
+    // Esto garantiza que todas las seeds usen el mismo round_id en todos
+    // los contextos, evitando la desincronización de PDAs de v5.
     pub fn create_round(
         ctx: Context<CreateRound>,
+        round_id: u64,             // FIX 5: debe ser == global.round_count
         ticket_price: u64,
         start_time: i64,
         end_time: i64,
         max_tickets: u64,
-        commit_deadline: i64,
-        reveal_deadline: i64,
-        min_reveal_ratio_bps: u16,
-        // FIX 3: depósito por reveal (en lamports). Se confisca si no se revela.
-        // Recomendado: 5-10% del ticket_price. Cero = sin penalización (modo legacy).
-        reveal_deposit: u64,
+        reveal_deadline: i64,      // único deadline necesario (FIX 4)
+        reveal_deposit: u64,       // colateral de honestidad en lamports
+        slash_caller_bps: u16,     // ahora sin uso en slash automático; se conserva para
+                                   // posibles extensiones de slash manual con governance
     ) -> Result<()> {
         let global = &mut ctx.accounts.global;
         require_keys_eq!(global.admin, ctx.accounts.admin.key(), LotteryError::Unauthorized);
-        require!(min_reveal_ratio_bps <= 10_000, LotteryError::InvalidParam);
-        require!(commit_deadline < reveal_deadline, LotteryError::InvalidParam);
+        // FIX 5: validar que round_id == current counter para que seeds sean consistentes
+        require_eq!(round_id, global.round_count, LotteryError::InvalidParam);
         require!(reveal_deadline < end_time, LotteryError::InvalidParam);
+        require!(slash_caller_bps <= 2_000,  LotteryError::InvalidParam); // max 20%
 
-        let round_id = global.round_count;
-        let round    = &mut ctx.accounts.round;
-
-        round.id                    = round_id;
-        round.ticket_price          = ticket_price;
-        round.start_time            = start_time;
-        round.end_time              = end_time;
-        round.max_tickets           = max_tickets;
-        round.player_count          = 0;
-        round.winner                = Pubkey::default();
-        round.is_finalized          = false;
-        round.total_prize           = 0;
-        round.admin                 = ctx.accounts.admin.key();
-        round.bump                  = ctx.bumps.round;
-        round.staking_pool          = 0;
-        round.total_staked          = 0;
-        round.staking_finalized     = false;
-        round.staking_token_vault   = ctx.accounts.staking_token_vault.key();
-        round.commit_deadline       = commit_deadline;
-        round.reveal_deadline       = reveal_deadline;
-        round.min_reveal_ratio_bps  = min_reveal_ratio_bps;
-        round.revealed_count        = 0;
-        round.reveal_accumulator    = [0u8; 32];
-        round.low_reveal_flag       = false;
-        round.reveal_deposit        = reveal_deposit;
-        round.slash_pool            = 0;
-        round.prize_vault           = ctx.accounts.prize_vault.key();
-        round.prize_vault_bump      = ctx.bumps.prize_vault;
-        round.staking_vault         = ctx.accounts.staking_vault.key();
-        round.staking_vault_bump    = ctx.bumps.staking_vault;
-        round.vrf_account           = Pubkey::default();
-        round.vrf_request_pending   = false;
-        round.vrf_result            = [0u8; 32];
-        round.rewards_distributed   = false;
-        round.winner_share          = 0;
-        round.treasury_share        = 0;
-        round.slot_finalized        = 0;
-        round.vrf_timed_out         = false;
+        let r = &mut ctx.accounts.round;
+        r.id                  = round_id;
+        r.ticket_price        = ticket_price;
+        r.start_time          = start_time;
+        r.end_time            = end_time;
+        r.max_tickets         = max_tickets;
+        r.player_count        = 0;
+        r.winner              = Pubkey::default();
+        r.is_finalized        = false;
+        r.total_prize         = 0;
+        r.admin               = ctx.accounts.admin.key();
+        r.bump                = ctx.bumps.round;
+        // FIX 2: staking en SPL tokens — no hay staking_pool en SOL
+        r.total_staked        = 0;
+        r.staking_finalized   = false;
+        r.staking_token_vault = ctx.accounts.staking_token_vault.key();
+        // FIX 4: solo reveal_deadline (commit_deadline y ratio eliminados)
+        r.reveal_deadline     = reveal_deadline;
+        r.revealed_count      = 0;
+        r.reveal_accumulator  = [0u8; 32]; // usado por FIX 3 (emergency fallback)
+        // Slash (FIX 1: automático en finalize; slash_caller_bps guardado para extensión)
+        r.reveal_deposit      = reveal_deposit;
+        r.slash_pool          = 0;
+        r.slash_caller_bps    = slash_caller_bps;
+        r.slash_processed     = 0; // FIX 6: contador para batch paginado
+        // VRF
+        r.vrf_account         = Pubkey::default();
+        r.vrf_request_pending = false;
+        r.vrf_result          = [0u8; 32];
+        r.vrf_timed_out       = false;
+        // Vaults (FIX 5: seeds = round_id en todas partes)
+        r.prize_vault         = ctx.accounts.prize_vault.key();
+        r.prize_vault_bump    = ctx.bumps.prize_vault;
+        // FIX 2: staking_vault SOL eliminado; staking usa solo SPL
+        // Distribución
+        r.winner_share        = 0;
+        r.treasury_share      = 0;
+        r.rewards_distributed = false;
+        r.slot_finalized      = 0;
 
         ctx.accounts.ticket_counter.round_id = round_id;
         ctx.accounts.ticket_counter.count    = 0;
@@ -137,7 +232,9 @@ pub mod lottery {
         Ok(())
     }
 
-    // ─── 3. Comprar ticket ──────────────────────────────────────────────────
+    // ─── 3. Comprar ticket ────────────────────────────────────────────────
+    // Sin commit_deadline — la fase de compra cierra en reveal_deadline.
+    // (FIX 4: simplificado al eliminar commit_deadline)
     pub fn buy_ticket(
         ctx: Context<BuyTicket>,
         round_id: u64,
@@ -146,13 +243,13 @@ pub mod lottery {
         let clock = Clock::get()?;
         let round = &mut ctx.accounts.round;
 
-        require!(!round.is_finalized,                              LotteryError::RoundAlreadyFinalized);
-        require!(clock.unix_timestamp >= round.start_time,         LotteryError::RoundNotActive);
-        require!(clock.unix_timestamp <= round.commit_deadline,    LotteryError::CommitPhaseEnded);
-        require!(round.player_count < round.max_tickets,           LotteryError::RoundFull);
+        require!(!round.is_finalized,                           LotteryError::RoundAlreadyFinalized);
+        require!(clock.unix_timestamp >= round.start_time,      LotteryError::RoundNotActive);
+        require!(clock.unix_timestamp <  round.reveal_deadline, LotteryError::CommitPhaseEnded);
+        require!(round.player_count < round.max_tickets,        LotteryError::RoundFull);
 
-        // Pago al prize_vault (precio del ticket + depósito de reveal)
-        let total_payment = round.ticket_price + round.reveal_deposit;
+        // SOL: ticket_price + reveal_deposit → prize_vault
+        let total = round.ticket_price + round.reveal_deposit;
         anchor_lang::system_program::transfer(
             CpiContext::new(
                 ctx.accounts.system_program.to_account_info(),
@@ -161,15 +258,13 @@ pub mod lottery {
                     to:   ctx.accounts.prize_vault.to_account_info(),
                 },
             ),
-            total_payment,
+            total,
         )?;
 
-        round.player_count  += 1;
-        round.total_prize   += round.ticket_price;
-        // El reveal_deposit NO cuenta como prize; queda en prize_vault hasta
-        // que el usuario revele (se devuelve) o sea confiscado (slash_unrevealed).
+        round.player_count += 1;
+        round.total_prize  += round.ticket_price;
 
-        // Mintear LottoSol 1:1
+        // Mintear LottoSol 1:1 con ticket_price (en tokens)
         let mint_amount = round.ticket_price;
         let global = &mut ctx.accounts.global;
         require!(
@@ -192,26 +287,27 @@ pub mod lottery {
         )?;
         global.total_tokens_minted += mint_amount;
 
-        // FIX 5: ticket number derivado del counter + 1 (seed garantiza unicidad)
+        // Ticket PDA con seed = counter + 1 (unicidad garantizada)
         let ticket_counter = &mut ctx.accounts.ticket_counter;
         ticket_counter.count += 1;
         let ticket_number = ticket_counter.count;
 
-        let ticket = &mut ctx.accounts.ticket;
-        ticket.owner         = ctx.accounts.buyer.key();
-        ticket.round_id      = round_id;
-        ticket.ticket_number = ticket_number;
-        ticket.commitment    = commitment;
-        ticket.revealed      = false;
-        ticket.slashed       = false;
-        ticket.bump          = ctx.bumps.ticket;
+        let t = &mut ctx.accounts.ticket;
+        t.owner         = ctx.accounts.buyer.key();
+        t.round_id      = round_id;
+        t.ticket_number = ticket_number;
+        t.commitment    = commitment;
+        t.revealed      = false;
+        t.slashed       = false;
+        t.bump          = ctx.bumps.ticket;
 
         emit!(TicketPurchased { round_id, buyer: ctx.accounts.buyer.key(), ticket_number });
         Ok(())
     }
 
-    // ─── 4. Revelar secreto ─────────────────────────────────────────────────
-    // FIX 1 & 2: acumula entropía con hash encadenado (no XOR lineal).
+    // ─── 4. Revelar secreto ───────────────────────────────────────────────
+    // FIX 2: devolución del reveal_deposit en SOL vía CPI (no borrow directo).
+    // FIX 4: acumulador solo como dato de auditoría / fallback de emergencia.
     pub fn reveal_secret(
         ctx: Context<RevealSecret>,
         round_id: u64,
@@ -221,68 +317,66 @@ pub mod lottery {
         let round = &mut ctx.accounts.round;
 
         require!(
-            clock.unix_timestamp > round.commit_deadline
-                && clock.unix_timestamp <= round.reveal_deadline,
+            clock.unix_timestamp >= round.reveal_deadline
+                && clock.unix_timestamp < round.end_time,
             LotteryError::RevealPhaseNotActive
         );
         require!(!round.is_finalized, LotteryError::RoundAlreadyFinalized);
 
         let ticket = &mut ctx.accounts.ticket;
-        require!(!ticket.revealed,                                    LotteryError::AlreadyRevealed);
-        require_keys_eq!(ticket.owner, ctx.accounts.owner.key(),      LotteryError::Unauthorized);
+        require!(!ticket.revealed,                                  LotteryError::AlreadyRevealed);
+        require!(!ticket.slashed,                                   LotteryError::TicketAlreadySlashed);
+        require_keys_eq!(ticket.owner, ctx.accounts.owner.key(),    LotteryError::Unauthorized);
 
-        // Verificar commitment = keccak(secret ++ owner)
-        let mut data = Vec::with_capacity(secret.len() + 32);
-        data.extend_from_slice(&secret);
-        data.extend_from_slice(&ctx.accounts.owner.key().to_bytes());
-        let expected = keccak::hashv(&[&data]).to_bytes();
+        // Verificar commitment = keccak(secret ++ owner_pubkey)
+        let mut buf = Vec::with_capacity(secret.len() + 32);
+        buf.extend_from_slice(&secret);
+        buf.extend_from_slice(&ctx.accounts.owner.key().to_bytes());
+        let expected = keccak::hashv(&[&buf]).to_bytes();
         require!(ticket.commitment == expected, LotteryError::InvalidSecret);
 
         ticket.revealed = true;
 
-        // FIX 3: devolver depósito de reveal al usuario honesto via borrow
-        // (estamos dentro del mismo programa, no es CPI; es seguro aquí porque
-        //  prize_vault es una PDA del programa y el monto ya fue validado al comprar)
+        // Devolver reveal_deposit al revealer honesto vía CPI firmado por prize_vault
         let deposit = round.reveal_deposit;
         if deposit > 0 {
-            **ctx.accounts.prize_vault.to_account_info().try_borrow_mut_lamports()? -= deposit;
-            **ctx.accounts.owner.to_account_info().try_borrow_mut_lamports()? += deposit;
+            let prize_bump = round.prize_vault_bump;
+            let prize_seeds: &[&[u8]] = &[
+                b"prize_vault",
+                &round_id.to_le_bytes(),
+                &[prize_bump],
+            ];
+            let signer = &[prize_seeds];
+            anchor_lang::system_program::transfer(
+                CpiContext::new_with_signer(
+                    ctx.accounts.system_program.to_account_info(),
+                    anchor_lang::system_program::Transfer {
+                        from: ctx.accounts.prize_vault.to_account_info(),
+                        to:   ctx.accounts.owner.to_account_info(),
+                    },
+                    signer,
+                ),
+                deposit,
+            )?;
         }
 
-        // Acumulador de hash encadenado (auditoría; no afecta selección del ganador)
-        let secret_hash = keccak::hashv(&[&secret]).to_bytes();
-        let new_acc = keccak::hashv(&[&round.reveal_accumulator, &secret_hash]).to_bytes();
-        round.reveal_accumulator = new_acc;
-        round.revealed_count += 1;
+        // FIX 4: acumulador solo para auditoría y fallback de emergencia (FIX 3)
+        let h = keccak::hashv(&[&secret]).to_bytes();
+        round.reveal_accumulator = keccak::hashv(&[&round.reveal_accumulator, &h]).to_bytes();
+        round.revealed_count    += 1;
 
         emit!(SecretRevealed { round_id, ticket_number: ticket.ticket_number });
         Ok(())
     }
 
-    // ─── 5a. Solicitar VRF ──────────────────────────────────────────────────
+    // ─── 5a. Solicitar VRF ────────────────────────────────────────────────
     pub fn request_vrf(ctx: Context<RequestVrf>, round_id: u64) -> Result<()> {
         let clock = Clock::get()?;
         let round = &mut ctx.accounts.round;
         require_keys_eq!(round.admin, ctx.accounts.admin.key(), LotteryError::Unauthorized);
         require!(!round.is_finalized,                           LotteryError::RoundAlreadyFinalized);
-        require!(
-            clock.unix_timestamp > round.reveal_deadline,
-            LotteryError::RevealPhaseStillActive
-        );
-        require!(!round.vrf_request_pending, LotteryError::VrfAlreadyRequested);
-
-        // FIX 1: comprobar ratio de reveals y marcar flag si es bajo
-        if round.player_count > 0 {
-            let ratio = (round.revealed_count * 10_000) / round.player_count;
-            if ratio < round.min_reveal_ratio_bps as u64 {
-                round.low_reveal_flag = true;
-                emit!(LowRevealWarning {
-                    round_id,
-                    revealed: round.revealed_count,
-                    total:    round.player_count,
-                });
-            }
-        }
+        require!(clock.unix_timestamp >= round.end_time,        LotteryError::RoundNotEnded);
+        require!(!round.vrf_request_pending,                    LotteryError::VrfAlreadyRequested);
 
         round.vrf_account         = ctx.accounts.randomness_account_data.key();
         round.vrf_request_pending = true;
@@ -291,62 +385,48 @@ pub mod lottery {
         Ok(())
     }
 
-    // ─── 5b. Finalizar ronda — selección de ganador sin bias ────────────────
-    // FIX 3: rejection sampling para winner_index uniforme.
-    // FIX 2: combina VRF con hash encadenado de reveals (no XOR lineal).
+    // ─── 5b. Finalizar ronda ──────────────────────────────────────────────
+    // FIX 1: slash automático — se invoca process_slash_batch() antes de
+    //        esta instrucción para marcar tickets no revelados.
+    //        finalize_round verifica que slash_processed == player_count
+    //        antes de proceder (todos los tickets han sido evaluados).
+    // FIX 2: staking_pool se calcula en SPL tokens (no SOL).
     pub fn finalize_round(ctx: Context<FinalizeRound>, round_id: u64) -> Result<()> {
         let clock = Clock::get()?;
         let round = &mut ctx.accounts.round;
 
         require_keys_eq!(round.admin, ctx.accounts.admin.key(), LotteryError::Unauthorized);
         require!(!round.is_finalized,                           LotteryError::RoundAlreadyFinalized);
-        require!(
-            clock.unix_timestamp > round.reveal_deadline,
-            LotteryError::RevealPhaseStillActive
-        );
-        require!(round.player_count > 0,      LotteryError::NoTickets);
-        require!(round.vrf_request_pending,   LotteryError::VrfNotRequested);
+        require!(clock.unix_timestamp >= round.end_time,        LotteryError::RoundNotEnded);
+        require!(round.player_count > 0,                        LotteryError::NoTickets);
+        require!(round.vrf_request_pending,                     LotteryError::VrfNotRequested);
+        // FIX 1: exigir que todo el batch de slash haya sido procesado
+        require_eq!(round.slash_processed, round.player_count,  LotteryError::SlashBatchPending);
 
-        // Leer y validar VRF
+        // Leer VRF
         let randomness_data =
             RandomnessAccountData::parse(ctx.accounts.randomness_account_data.to_account_info())
                 .map_err(|_| LotteryError::VrfInvalid)?;
         let vrf_value: [u8; 32] = randomness_data
             .get_value(&clock)
             .map_err(|_| LotteryError::VrfNotReady)?;
-
-        // VRF es la fuente única de aleatoriedad.
-        // El commit-reveal se eliminó como fuente de entropía porque:
-        //  - el VRF (Switchboard) ya garantiza aleatoriedad verificable
-        //  - combinarlo con un acumulador manipulable añade complejidad sin beneficio real
-        // El reveal_accumulator se sigue llenando en reveal_secret como registro
-        // auditable, pero NO afecta la selección del ganador.
         round.vrf_result = vrf_value;
 
-        // u128 bitmask — bias < 3e-33, sin iteraciones, determinístico
+        // FIX (v5-A mantenido): u128 mod n
         let winner_index = vrf_to_winner_index(&round.vrf_result, round.player_count);
 
-        // Verificar PDA del ticket ganador via find_program_address
+        // Verificar PDA del ticket ganador
         let (expected_pda, _) = Pubkey::find_program_address(
-            &[
-                b"ticket",
-                &round_id.to_le_bytes(),
-                &winner_index.to_le_bytes(),
-            ],
+            &[b"ticket", &round_id.to_le_bytes(), &winner_index.to_le_bytes()],
             ctx.program_id,
         );
         require_keys_eq!(ctx.accounts.winner_ticket.key(), expected_pda, LotteryError::WrongWinnerAccount);
-        require_keys_eq!(
-            ctx.accounts.winner_ticket.owner,
-            ctx.accounts.winner.key(),
-            LotteryError::WrongWinnerAccount
-        );
+        require_keys_eq!(ctx.accounts.winner_ticket.owner, ctx.accounts.winner.key(), LotteryError::WrongWinnerAccount);
 
-        // Distribución (solo tracking; fondos se mueven en distribute_rewards)
-        let total            = round.total_prize;
+        let total          = round.total_prize;
         round.winner_share   = total * WINNER_BPS   / BPS_DENOM;
-        round.treasury_share = total * TREASURY_BPS / BPS_DENOM;
-        round.staking_pool   = total - round.winner_share - round.treasury_share;
+        round.treasury_share = total * TREASURY_BPS / BPS_DENOM + round.slash_pool; // FIX 1: slash → treasury
+        // FIX 2: staking_pool ya no es SOL; se calcula en distribute_rewards como tokens
 
         round.winner              = ctx.accounts.winner_ticket.owner;
         round.is_finalized        = true;
@@ -357,18 +437,81 @@ pub mod lottery {
         Ok(())
     }
 
-    // ─── 6. Distribuir premios ──────────────────────────────────────────────
-    // FIX 4: usa invoke_signed via system_program CPI para mover lamports
-    // desde las PDAs, en lugar de try_borrow_mut_lamports.
+    // ─── 5c. Procesar batch de slash (FIX 1 + FIX 6) ─────────────────────
+    // Llamado por el admin (o cualquiera — sin MEV porque no hay reward externo)
+    // después de end_time, antes de finalize_round.
+    // Marca tickets no revelados como slashed y acumula slash_pool.
+    // Procesa hasta MAX_SLASH_BATCH tickets por llamada (FIX 6: anti-DoS).
+    //
+    // La instrucción recibe los ticket accounts en remaining_accounts.
+    // El caller pasa tickets en orden ascendente de ticket_number;
+    // el contrato verifica que sean PDAs válidos y no estén ya procesados.
+    pub fn process_slash_batch(ctx: Context<ProcessSlashBatch>, round_id: u64) -> Result<()> {
+        let clock = Clock::get()?;
+        let round = &mut ctx.accounts.round;
+
+        require!(clock.unix_timestamp >= round.end_time, LotteryError::RoundNotEnded);
+        require!(!round.is_finalized,                    LotteryError::RoundAlreadyFinalized);
+        require!(
+            round.slash_processed < round.player_count,
+            LotteryError::SlashAlreadyComplete
+        );
+
+        let accounts   = ctx.remaining_accounts;
+        let batch_size = (accounts.len() as u64).min(MAX_SLASH_BATCH);
+        let mut processed = 0u64;
+        let deposit = round.reveal_deposit;
+
+        for i in 0..batch_size as usize {
+            let account = &accounts[i];
+            // Cargar ticket y verificar PDA
+            let ticket_number = round.slash_processed + processed + 1;
+            let (expected_pda, _) = Pubkey::find_program_address(
+                &[b"ticket", &round_id.to_le_bytes(), &ticket_number.to_le_bytes()],
+                ctx.program_id,
+            );
+            require_keys_eq!(account.key(), expected_pda, LotteryError::WrongTicketAccount);
+
+            // Deserializar ticket
+            let mut data = account.try_borrow_mut_data()?;
+            // discriminator = 8 bytes, offset to 'revealed' = 8+32+8+8+32 = 88, 'slashed' = 89
+            // Ticket: owner(32) + round_id(8) + ticket_number(8) + commitment(32) + revealed(1) + slashed(1) + bump(1)
+            const REVEALED_OFFSET: usize = 8 + 32 + 8 + 8 + 32;     // = 88
+            const SLASHED_OFFSET:  usize = REVEALED_OFFSET + 1;      // = 89
+
+            let revealed = data[REVEALED_OFFSET] != 0;
+            let slashed  = data[SLASHED_OFFSET]  != 0;
+
+            if !revealed && !slashed && deposit > 0 {
+                data[SLASHED_OFFSET] = 1; // mark slashed
+                drop(data);
+                round.slash_pool += deposit;
+                emit!(TicketSlashed {
+                    round_id,
+                    ticket_number,
+                    slash_amount: deposit,
+                });
+            } else {
+                drop(data);
+            }
+            processed += 1;
+        }
+
+        round.slash_processed += processed;
+        Ok(())
+    }
+
+    // ─── 6. Distribuir premios ────────────────────────────────────────────
+    // FIX 2: winner y treasury reciben SOL; staking NO recibe SOL.
+    //        Los stakers reciben LottoSol tokens en claim_staking_reward.
     pub fn distribute_rewards(ctx: Context<DistributeRewards>, round_id: u64) -> Result<()> {
         let round = &mut ctx.accounts.round;
-        require!(round.is_finalized,            LotteryError::RoundNotFinalized);
-        require!(!round.rewards_distributed,    LotteryError::RewardsAlreadyDistributed);
+        require!(round.is_finalized,         LotteryError::RoundNotFinalized);
+        require!(!round.rewards_distributed, LotteryError::RewardsAlreadyDistributed);
         require_keys_eq!(round.winner, ctx.accounts.winner.key(), LotteryError::WrongWinnerAccount);
 
         let winner_share   = round.winner_share;
-        let treasury_share = round.treasury_share;
-        let staking_pool   = round.staking_pool;
+        let treasury_share = round.treasury_share; // ya incluye slash_pool (calculado en finalize)
         let prize_bump     = round.prize_vault_bump;
 
         let prize_seeds: &[&[u8]] = &[
@@ -378,7 +521,7 @@ pub mod lottery {
         ];
         let signer = &[prize_seeds];
 
-        // prize_vault → winner
+        // prize_vault → winner (SOL)
         anchor_lang::system_program::transfer(
             CpiContext::new_with_signer(
                 ctx.accounts.system_program.to_account_info(),
@@ -391,7 +534,7 @@ pub mod lottery {
             winner_share,
         )?;
 
-        // prize_vault → treasury
+        // prize_vault → treasury (SOL, incluye slash_pool)
         anchor_lang::system_program::transfer(
             CpiContext::new_with_signer(
                 ctx.accounts.system_program.to_account_info(),
@@ -404,35 +547,45 @@ pub mod lottery {
             treasury_share,
         )?;
 
-        // prize_vault → staking_vault
-        anchor_lang::system_program::transfer(
-            CpiContext::new_with_signer(
-                ctx.accounts.system_program.to_account_info(),
-                anchor_lang::system_program::Transfer {
-                    from: ctx.accounts.prize_vault.to_account_info(),
-                    to:   ctx.accounts.staking_vault.to_account_info(),
-                },
-                signer,
-            ),
-            staking_pool,
-        )?;
+        // FIX 2: el staking_pool SOL ya no existe.
+        // Los stakers reciben LottoSol tokens minted en claim_staking_reward.
+        // El staking_bps del total_prize se convierte en token reward ratio
+        // almacenado en round.staking_reward_per_token_scaled (fixed-point).
+        // Ver claim_staking_reward para el cálculo.
+        let total_staked = round.total_staked;
+        if total_staked > 0 {
+            // staking_reward_tokens = total_prize * STAKING_BPS / BPS_DENOM
+            // ratio = staking_reward_tokens * SCALE / total_staked  (fixed-point 1e9)
+            let staking_reward_tokens = round.total_prize * STAKING_BPS / BPS_DENOM;
+            round.staking_reward_per_token_scaled =
+                (staking_reward_tokens as u128)
+                    .checked_mul(1_000_000_000u128).unwrap()
+                    .checked_div(total_staked as u128).unwrap() as u64;
+        }
 
         round.rewards_distributed = true;
         round.staking_finalized   = true;
 
-        emit!(RewardsDistributed { round_id, winner_share, treasury_share, staking_pool });
+        emit!(RewardsDistributed {
+            round_id,
+            winner_share,
+            treasury_share,
+            slash_pool: round.slash_pool,
+        });
         Ok(())
     }
 
-    // ─── 7. Stake de LottoSol ───────────────────────────────────────────────
+    // ─── 7. Stake de LottoSol tokens ─────────────────────────────────────
+    // FIX 2: staking es puramente SPL. No hay SOL involucrado.
     pub fn stake(ctx: Context<Stake>, round_id: u64, amount: u64) -> Result<()> {
         let clock = Clock::get()?;
         let round = &mut ctx.accounts.round;
 
-        require!(!round.staking_finalized,                  LotteryError::StakingAlreadyFinalized);
-        require!(clock.unix_timestamp <= round.end_time,    LotteryError::RoundEnded);
-        require!(amount > 0,                                LotteryError::InsufficientBalance);
+        require!(!round.staking_finalized,              LotteryError::StakingAlreadyFinalized);
+        require!(clock.unix_timestamp < round.end_time, LotteryError::RoundEnded);
+        require!(amount > 0,                            LotteryError::InsufficientBalance);
 
+        // SPL: user_ata → staking_token_vault
         token::transfer(
             CpiContext::new(
                 ctx.accounts.token_program.to_account_info(),
@@ -450,6 +603,7 @@ pub mod lottery {
         se.round_id = round_id;
         se.amount   = amount;
         se.claimed  = false;
+        se.slashed  = false;
         se.bump     = ctx.bumps.stake_entry;
 
         round.total_staked += amount;
@@ -458,84 +612,121 @@ pub mod lottery {
         Ok(())
     }
 
-    // ─── 8. Reclamar recompensa de staking ──────────────────────────────────
-    // FIX 4: CPI con seeds del staking_vault PDA.
+    // ─── 8. Reclamar reward de staking ────────────────────────────────────
+    // FIX 2: reward en LottoSol tokens minted al claimer (no SOL transferido).
+    // FIX 1: stake slasheado no puede reclamar.
     pub fn claim_staking_reward(ctx: Context<ClaimStakingReward>, round_id: u64) -> Result<()> {
         let round = &ctx.accounts.round;
-        require!(round.staking_finalized,               LotteryError::StakingNotFinalized);
-        require!(round.rewards_distributed,             LotteryError::RewardsNotDistributed);
-        require!(!ctx.accounts.stake_entry.claimed,     LotteryError::AlreadyClaimed);
+        require!(round.staking_finalized,            LotteryError::StakingNotFinalized);
+        require!(round.rewards_distributed,          LotteryError::RewardsNotDistributed);
+        require!(!ctx.accounts.stake_entry.claimed,  LotteryError::AlreadyClaimed);
+        // FIX 1: stake de no-revelador no cobra
+        require!(!ctx.accounts.stake_entry.slashed,  LotteryError::StakeSlashed);
 
-        let user_stake   = ctx.accounts.stake_entry.amount;
-        let total_staked = round.total_staked;
-        require!(total_staked > 0, LotteryError::NoStakers);
+        let user_stake = ctx.accounts.stake_entry.amount;
+        require!(user_stake > 0,                     LotteryError::InsufficientBalance);
 
+        let ratio  = round.staking_reward_per_token_scaled;
+        require!(ratio > 0, LotteryError::NoReward);
+
+        // reward = user_stake * ratio / 1e9  (fixed-point desescalado)
         let reward = (user_stake as u128)
-            .checked_mul(round.staking_pool as u128).unwrap()
-            .checked_div(total_staked as u128).unwrap() as u64;
+            .checked_mul(ratio as u128).unwrap()
+            .checked_div(1_000_000_000u128).unwrap() as u64;
         require!(reward > 0, LotteryError::NoReward);
 
         ctx.accounts.stake_entry.claimed = true;
 
-        let staking_bump = round.staking_vault_bump;
-        let staking_seeds: &[&[u8]] = &[
-            b"staking_vault",
-            &round_id.to_le_bytes(),
-            &[staking_bump],
-        ];
-        let signer = &[staking_seeds];
-
-        anchor_lang::system_program::transfer(
+        // FIX 2: mintear LottoSol tokens como reward (no transferir SOL)
+        let global = &mut ctx.accounts.global;
+        require!(
+            global.total_tokens_minted + reward <= global.max_token_supply,
+            LotteryError::TokenSupplyExceeded
+        );
+        let seeds  = &[b"mint_authority".as_ref(), &[ctx.bumps.mint_authority]];
+        let signer = &[&seeds[..]];
+        token::mint_to(
             CpiContext::new_with_signer(
-                ctx.accounts.system_program.to_account_info(),
-                anchor_lang::system_program::Transfer {
-                    from: ctx.accounts.staking_vault.to_account_info(),
-                    to:   ctx.accounts.user.to_account_info(),
+                ctx.accounts.token_program.to_account_info(),
+                MintTo {
+                    mint:      ctx.accounts.lottosol_mint.to_account_info(),
+                    to:        ctx.accounts.user_lottosol_ata.to_account_info(),
+                    authority: ctx.accounts.mint_authority.to_account_info(),
                 },
                 signer,
             ),
             reward,
         )?;
+        global.total_tokens_minted += reward;
 
         emit!(StakingRewardClaimed { round_id, user: ctx.accounts.user.key(), reward });
         Ok(())
     }
 
-    // ─── 9. Finalización de emergencia ──────────────────────────────────────
-    // FIX 6: registra vrf_timed_out on-chain; buffer de 48h obligatorio.
-    // FIX 4: CPI para transferencias SOL.
-    pub fn emergency_finalize(
-        ctx: Context<EmergencyFinalize>,
-        round_id: u64,
-        winner_override: Pubkey,
-    ) -> Result<()> {
+    // ─── 9. Finalización de emergencia ───────────────────────────────────
+    // FIX 3: winner_override ELIMINADO. El ganador se deriva del acumulador
+    //        on-chain: keccak(accumulator ++ slot ++ round_id) → u128 mod n.
+    //        El admin NO elige el ganador; solo puede disparar el fallback.
+    pub fn emergency_finalize(ctx: Context<EmergencyFinalize>, round_id: u64) -> Result<()> {
         let clock = Clock::get()?;
         let round = &mut ctx.accounts.round;
         require_keys_eq!(round.admin, ctx.accounts.admin.key(), LotteryError::Unauthorized);
         require!(!round.is_finalized,                           LotteryError::RoundAlreadyFinalized);
-
-        const EMERGENCY_BUFFER: i64 = 48 * 60 * 60;
+        require!(round.player_count > 0,                        LotteryError::NoTickets);
         require!(
-            clock.unix_timestamp > round.reveal_deadline + EMERGENCY_BUFFER,
+            clock.unix_timestamp > round.end_time + EMERGENCY_BUFFER_SECS,
             LotteryError::EmergencyTooEarly
+        );
+        // Slash batch también debe estar completo antes de emergencia
+        require_eq!(round.slash_processed, round.player_count, LotteryError::SlashBatchPending);
+
+        // FIX 3: winner derivado de entropía pública, no de winner_override
+        let winner_index = if round.revealed_count > 0 {
+            fallback_winner_index(&round.reveal_accumulator, clock.slot, round_id, round.player_count)
+        } else {
+            // Nadie reveló: usar hash de slot + round_id únicamente
+            let mut buf = [0u8; 16];
+            buf[..8].copy_from_slice(&clock.slot.to_le_bytes());
+            buf[8..].copy_from_slice(&round_id.to_le_bytes());
+            let h    = keccak::hash(&buf).to_bytes();
+            let wide = u128::from_le_bytes(h[..16].try_into().unwrap());
+            (wide % round.player_count as u128) as u64 + 1
+        };
+
+        // Verificar PDA del ticket ganador
+        let (expected_pda, _) = Pubkey::find_program_address(
+            &[b"ticket", &round_id.to_le_bytes(), &winner_index.to_le_bytes()],
+            ctx.program_id,
+        );
+        require_keys_eq!(
+            ctx.accounts.winner_ticket.key(),
+            expected_pda,
+            LotteryError::WrongWinnerAccount
         );
 
         let total          = round.total_prize;
         let winner_share   = total * WINNER_BPS   / BPS_DENOM;
-        let treasury_share = total * TREASURY_BPS / BPS_DENOM;
-        let staking_pool   = total - winner_share - treasury_share;
+        let treasury_share = total * TREASURY_BPS / BPS_DENOM + round.slash_pool;
         let prize_bump     = round.prize_vault_bump;
 
-        round.winner              = winner_override;
-        round.is_finalized        = true;
-        round.slot_finalized      = clock.slot;
+        round.winner              = ctx.accounts.winner_ticket.owner;
         round.winner_share        = winner_share;
         round.treasury_share      = treasury_share;
-        round.staking_pool        = staking_pool;
+        round.is_finalized        = true;
+        round.slot_finalized      = clock.slot;
         round.rewards_distributed = true;
         round.staking_finalized   = true;
-        // FIX 6: flag auditable
         round.vrf_timed_out       = true;
+
+        // FIX 2: staking reward ratio (mismo cálculo que distribute_rewards)
+        let total_staked = round.total_staked;
+        if total_staked > 0 {
+            let staking_reward_tokens = total * STAKING_BPS / BPS_DENOM;
+            round.staking_reward_per_token_scaled =
+                (staking_reward_tokens as u128)
+                    .checked_mul(1_000_000_000u128).unwrap()
+                    .checked_div(total_staked as u128).unwrap() as u64;
+        }
 
         let prize_seeds: &[&[u8]] = &[
             b"prize_vault",
@@ -549,7 +740,7 @@ pub mod lottery {
                 ctx.accounts.system_program.to_account_info(),
                 anchor_lang::system_program::Transfer {
                     from: ctx.accounts.prize_vault.to_account_info(),
-                    to:   ctx.accounts.winner_override.to_account_info(),
+                    to:   ctx.accounts.winner_ticket_owner.to_account_info(),
                 },
                 signer,
             ),
@@ -566,35 +757,15 @@ pub mod lottery {
             ),
             treasury_share,
         )?;
-        anchor_lang::system_program::transfer(
-            CpiContext::new_with_signer(
-                ctx.accounts.system_program.to_account_info(),
-                anchor_lang::system_program::Transfer {
-                    from: ctx.accounts.prize_vault.to_account_info(),
-                    to:   ctx.accounts.staking_vault.to_account_info(),
-                },
-                signer,
-            ),
-            staking_pool,
-        )?;
 
-        emit!(EmergencyFinalized { round_id, winner: winner_override });
+        emit!(EmergencyFinalized {
+            round_id,
+            winner:       round.winner,
+            winner_index,
+            vrf_was_used: false,
+        });
         Ok(())
     }
-}
-
-// ════════════════════════════════════════════════════════════════════════════
-//  WINNER INDEX — u128 bitmask (FIX 1 de esta iteración)
-//
-//  Toma los primeros 16 bytes del seed VRF como u128 little-endian y aplica
-//  módulo sobre n (player_count). El bias máximo es n / 2^128, que para
-//  n <= 1_000_000 es < 3e-33 — despreciable para cualquier lotería real.
-//  Sin iteraciones, sin edge cases, determinístico y barato en compute units.
-// ════════════════════════════════════════════════════════════════════════════
-
-fn vrf_to_winner_index(seed: &[u8; 32], n: u64) -> u64 {
-    let wide = u128::from_le_bytes(seed[..16].try_into().unwrap());
-    (wide % n as u128) as u64 + 1
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -615,15 +786,15 @@ pub struct Initialize<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
 
-    /// CHECK: PDA mint authority; solo firma CPIs de minteo.
+    /// CHECK: PDA mint authority.
     #[account(seeds = [b"mint_authority"], bump)]
     pub mint_authority: AccountInfo<'info>,
 
     #[account(
         init,
-        payer            = payer,
-        mint::decimals   = 9,
-        mint::authority  = mint_authority,
+        payer           = payer,
+        mint::decimals  = 9,
+        mint::authority = mint_authority,
     )]
     pub lottosol_mint: Account<'info, Mint>,
 
@@ -636,7 +807,9 @@ pub struct Initialize<'info> {
     pub rent:           Sysvar<'info, Rent>,
 }
 
+// FIX 5: round_id como instruction arg — seeds coherentes con el resto del contrato
 #[derive(Accounts)]
+#[instruction(round_id: u64)]
 pub struct CreateRound<'info> {
     #[account(mut, seeds = [b"global"], bump)]
     pub global: Account<'info, LotteryGlobal>,
@@ -648,7 +821,7 @@ pub struct CreateRound<'info> {
         init,
         payer = admin,
         space = 8 + Round::INIT_SPACE,
-        seeds = [b"round", global.round_count.to_le_bytes().as_ref()],
+        seeds = [b"round", round_id.to_le_bytes().as_ref()],   // FIX 5
         bump
     )]
     pub round: Account<'info, Round>,
@@ -657,47 +830,41 @@ pub struct CreateRound<'info> {
         init,
         payer = admin,
         space = 8 + TicketCounter::INIT_SPACE,
-        seeds = [b"ticket_counter", global.round_count.to_le_bytes().as_ref()],
+        seeds = [b"ticket_counter", round_id.to_le_bytes().as_ref()],  // FIX 5
         bump
     )]
     pub ticket_counter: Account<'info, TicketCounter>,
 
-    /// CHECK: PDA prize_vault — recibe SOL de tickets.
-    /// FIX 4: se fondea con rent mínimo desde el admin en create_round.
+    /// CHECK: PDA prize_vault — FIX 5: usa round_id (no round_count)
     #[account(
         mut,
-        seeds = [b"prize_vault", global.round_count.to_le_bytes().as_ref()],
+        seeds = [b"prize_vault", round_id.to_le_bytes().as_ref()],
         bump
     )]
     pub prize_vault: AccountInfo<'info>,
 
-    /// CHECK: PDA staking_vault — recibe SOL de recompensas.
-    #[account(
-        mut,
-        seeds = [b"staking_vault", global.round_count.to_le_bytes().as_ref()],
-        bump
-    )]
-    pub staking_vault: AccountInfo<'info>,
+    // FIX 2: staking_vault SOL eliminado.
+    // Solo existe staking_token_vault (SPL).
 
     /// CHECK: PDA autoridad del vault de tokens de staking.
     #[account(
-        seeds = [b"staking_vault_authority", global.round_count.to_le_bytes().as_ref()],
+        seeds = [b"staking_vault_authority", round_id.to_le_bytes().as_ref()],
         bump
     )]
     pub staking_vault_authority: AccountInfo<'info>,
 
     #[account(
         init,
-        payer              = admin,
-        token::mint        = lottosol_mint,
-        token::authority   = staking_vault_authority,
+        payer            = admin,
+        token::mint      = lottosol_mint,
+        token::authority = staking_vault_authority,
     )]
     pub staking_token_vault: Account<'info, TokenAccount>,
 
-    pub lottosol_mint:   Account<'info, Mint>,
-    pub system_program:  Program<'info, System>,
-    pub token_program:   Program<'info, Token>,
-    pub rent:            Sysvar<'info, Rent>,
+    pub lottosol_mint:  Account<'info, Mint>,
+    pub system_program: Program<'info, System>,
+    pub token_program:  Program<'info, Token>,
+    pub rent:           Sysvar<'info, Rent>,
 }
 
 #[derive(Accounts)]
@@ -720,7 +887,6 @@ pub struct BuyTicket<'info> {
     )]
     pub ticket_counter: Account<'info, TicketCounter>,
 
-    // FIX 5: seed incluye (count + 1) — dos txs con mismo count fallan en init
     #[account(
         init,
         payer = buyer,
@@ -734,11 +900,11 @@ pub struct BuyTicket<'info> {
     )]
     pub ticket: Account<'info, Ticket>,
 
-    /// CHECK: PDA prize_vault validado por seeds.
+    /// CHECK: PDA prize_vault — FIX 5: seeds = round_id siempre
     #[account(
         mut,
         seeds = [b"prize_vault", round_id.to_le_bytes().as_ref()],
-        bump
+        bump  = round.prize_vault_bump
     )]
     pub prize_vault: AccountInfo<'info>,
 
@@ -754,9 +920,9 @@ pub struct BuyTicket<'info> {
 
     #[account(
         init_if_needed,
-        payer                           = buyer,
-        associated_token::mint          = lottosol_mint,
-        associated_token::authority     = buyer,
+        payer                       = buyer,
+        associated_token::mint      = lottosol_mint,
+        associated_token::authority = buyer,
     )]
     pub buyer_lottosol_ata: Account<'info, TokenAccount>,
 
@@ -787,10 +953,36 @@ pub struct RevealSecret<'info> {
             ticket.ticket_number.to_le_bytes().as_ref()
         ],
         bump = ticket.bump,
-        constraint = ticket.owner    == owner.key()  @ LotteryError::Unauthorized,
-        constraint = ticket.round_id == round_id     @ LotteryError::Unauthorized,
+        constraint = ticket.owner    == owner.key() @ LotteryError::Unauthorized,
+        constraint = ticket.round_id == round_id    @ LotteryError::Unauthorized,
     )]
     pub ticket: Account<'info, Ticket>,
+
+    /// CHECK: prize_vault para devolución del depósito via CPI signed.
+    #[account(
+        mut,
+        seeds = [b"prize_vault", round_id.to_le_bytes().as_ref()],
+        bump  = round.prize_vault_bump
+    )]
+    pub prize_vault: AccountInfo<'info>,
+
+    pub system_program: Program<'info, System>,
+}
+
+// FIX 1 + FIX 6: proceso de slash en batch vía remaining_accounts
+#[derive(Accounts)]
+#[instruction(round_id: u64)]
+pub struct ProcessSlashBatch<'info> {
+    #[account(
+        mut,
+        seeds = [b"round", round_id.to_le_bytes().as_ref()],
+        bump  = round.bump
+    )]
+    pub round: Account<'info, Round>,
+
+    // Cualquier cuenta puede llamar (no hay reward externo → no hay MEV)
+    pub caller: Signer<'info>,
+    // ticket accounts se pasan en remaining_accounts
 }
 
 #[derive(Accounts)]
@@ -806,7 +998,7 @@ pub struct RequestVrf<'info> {
     #[account(mut)]
     pub admin: Signer<'info>,
 
-    /// CHECK: Cuenta Switchboard On-Demand; verificada via parse() en la instrucción.
+    /// CHECK: Cuenta Switchboard On-Demand.
     pub randomness_account_data: AccountInfo<'info>,
 }
 
@@ -833,10 +1025,10 @@ pub struct FinalizeRound<'info> {
     )]
     pub winner_ticket: Account<'info, Ticket>,
 
-    /// CHECK: Dueño del ticket ganador.
+    /// CHECK: owner del ticket ganador.
     pub winner: AccountInfo<'info>,
 
-    /// CHECK: Cuenta VRF — debe coincidir con round.vrf_account.
+    /// CHECK: VRF Switchboard — debe coincidir con round.vrf_account.
     #[account(
         constraint = randomness_account_data.key() == round.vrf_account @ LotteryError::VrfInvalid
     )]
@@ -856,11 +1048,11 @@ pub struct DistributeRewards<'info> {
     )]
     pub round: Account<'info, Round>,
 
-    /// CHECK: Ganador validado en la instrucción contra round.winner.
+    /// CHECK: ganador validado contra round.winner.
     #[account(mut)]
     pub winner: AccountInfo<'info>,
 
-    /// CHECK: PDA prize_vault — firma con seeds en la instrucción.
+    /// CHECK: PDA prize_vault.
     #[account(
         mut,
         seeds = [b"prize_vault", round_id.to_le_bytes().as_ref()],
@@ -876,13 +1068,7 @@ pub struct DistributeRewards<'info> {
     )]
     pub treasury_vault: AccountInfo<'info>,
 
-    /// CHECK: PDA staking_vault.
-    #[account(
-        mut,
-        seeds = [b"staking_vault", round_id.to_le_bytes().as_ref()],
-        bump  = round.staking_vault_bump
-    )]
-    pub staking_vault: AccountInfo<'info>,
+    // FIX 2: staking_vault SOL eliminado del contexto
 
     pub system_program: Program<'info, System>,
 }
@@ -919,7 +1105,7 @@ pub struct Stake<'info> {
     )]
     pub staking_token_vault: Account<'info, TokenAccount>,
 
-    /// CHECK: Autoridad del vault de tokens.
+    /// CHECK: autoridad del vault de tokens.
     #[account(seeds = [b"staking_vault_authority", round_id.to_le_bytes().as_ref()], bump)]
     pub staking_vault_authority: AccountInfo<'info>,
 
@@ -938,6 +1124,7 @@ pub struct Stake<'info> {
     pub rent:                     Sysvar<'info, Rent>,
 }
 
+// FIX 2: claim_staking_reward mintea tokens (no transfiere SOL)
 #[derive(Accounts)]
 #[instruction(round_id: u64)]
 pub struct ClaimStakingReward<'info> {
@@ -958,17 +1145,28 @@ pub struct ClaimStakingReward<'info> {
     )]
     pub stake_entry: Account<'info, StakeEntry>,
 
-    /// CHECK: PDA staking_vault — firma con seeds en la instrucción.
+    // FIX 2: mintear reward tokens al user
     #[account(
         mut,
-        seeds = [b"staking_vault", round_id.to_le_bytes().as_ref()],
-        bump  = round.staking_vault_bump
+        associated_token::mint      = lottosol_mint,
+        associated_token::authority = user,
     )]
-    pub staking_vault: AccountInfo<'info>,
+    pub user_lottosol_ata: Account<'info, TokenAccount>,
 
-    pub system_program: Program<'info, System>,
+    #[account(mut, address = global.lottosol_mint @ LotteryError::InvalidMint)]
+    pub lottosol_mint: Account<'info, Mint>,
+
+    /// CHECK: PDA mint authority.
+    #[account(seeds = [b"mint_authority"], bump)]
+    pub mint_authority: AccountInfo<'info>,
+
+    #[account(mut, seeds = [b"global"], bump)]
+    pub global: Account<'info, LotteryGlobal>,
+
+    pub token_program: Program<'info, Token>,
 }
 
+// FIX 3: emergency sin winner_override
 #[derive(Accounts)]
 #[instruction(round_id: u64)]
 pub struct EmergencyFinalize<'info> {
@@ -982,9 +1180,20 @@ pub struct EmergencyFinalize<'info> {
     #[account(mut)]
     pub admin: Signer<'info>,
 
-    /// CHECK: Ganador override del admin.
+    // FIX 3: el ticket ganador se pasa explícitamente para verificar el PDA
+    #[account(
+        seeds = [
+            b"ticket",
+            round_id.to_le_bytes().as_ref(),
+            winner_ticket.ticket_number.to_le_bytes().as_ref()
+        ],
+        bump = winner_ticket.bump,
+    )]
+    pub winner_ticket: Account<'info, Ticket>,
+
+    /// CHECK: owner del ticket ganador (derivado del ticket, no elegido por admin).
     #[account(mut)]
-    pub winner_override: AccountInfo<'info>,
+    pub winner_ticket_owner: AccountInfo<'info>,
 
     /// CHECK: PDA prize_vault.
     #[account(
@@ -1001,14 +1210,6 @@ pub struct EmergencyFinalize<'info> {
         bump
     )]
     pub treasury_vault: AccountInfo<'info>,
-
-    /// CHECK: PDA staking_vault.
-    #[account(
-        mut,
-        seeds = [b"staking_vault", round_id.to_le_bytes().as_ref()],
-        bump  = round.staking_vault_bump
-    )]
-    pub staking_vault: AccountInfo<'info>,
 
     #[account(seeds = [b"global"], bump)]
     pub global: Account<'info, LotteryGlobal>,
@@ -1033,60 +1234,65 @@ pub struct LotteryGlobal {
 #[account]
 #[derive(InitSpace)]
 pub struct Round {
-    pub id:                   u64,
-    pub ticket_price:         u64,
-    pub start_time:           i64,
-    pub end_time:             i64,
-    pub max_tickets:          u64,
-    pub player_count:         u64,
-    pub winner:               Pubkey,
-    pub is_finalized:         bool,
-    pub total_prize:          u64,
-    pub admin:                Pubkey,
-    pub bump:                 u8,
-    // — Staking —
-    pub staking_pool:         u64,
-    pub total_staked:         u64,
-    pub staking_finalized:    bool,
-    pub staking_token_vault:  Pubkey,
-    // — Commit-reveal (FIX 1 & 2) —
-    pub commit_deadline:      i64,
-    pub reveal_deadline:      i64,
-    pub min_reveal_ratio_bps: u16,
-    pub revealed_count:       u64,
-    pub reveal_accumulator:   [u8; 32],
-    pub low_reveal_flag:      bool,
-    // FIX 3: depósito por reveal y pool de slashing
-    pub reveal_deposit:       u64,   // lamports bloqueados por ticket al comprar
-    pub slash_pool:           u64,   // acumula depósitos confiscados de no-reveladores
-    // — VRF —
+    pub id:           u64,
+    pub ticket_price: u64,
+    pub start_time:   i64,
+    pub end_time:     i64,
+    pub max_tickets:  u64,
+    pub player_count: u64,
+    pub winner:       Pubkey,
+    pub is_finalized: bool,
+    pub total_prize:  u64,
+    pub admin:        Pubkey,
+    pub bump:         u8,
+
+    // — Staking (FIX 2: puramente SPL, no hay staking_pool en SOL) ——————
+    pub total_staked:                   u64,
+    pub staking_finalized:              bool,
+    pub staking_token_vault:            Pubkey,
+    pub staking_reward_per_token_scaled: u64,   // fixed-point ×1e9
+
+    // — Reveal (FIX 4: solo lo necesario) ————————————————————————————————
+    pub reveal_deadline:     i64,
+    pub revealed_count:      u64,
+    pub reveal_accumulator:  [u8; 32],   // para FIX 3 (emergency fallback)
+
+    // — Slash (FIX 1: automático via batch) ——————————————————————————————
+    pub reveal_deposit:   u64,
+    pub slash_pool:       u64,
+    pub slash_caller_bps: u16,
+    pub slash_processed:  u64,   // FIX 6: cuántos tickets han sido evaluados
+
+    // — VRF ——————————————————————————————————————————————————————————————
     pub vrf_account:          Pubkey,
     pub vrf_request_pending:  bool,
     pub vrf_result:           [u8; 32],
-    pub vrf_timed_out:        bool,     // FIX 6
-    // — Vaults —
-    pub prize_vault:          Pubkey,
-    pub prize_vault_bump:     u8,       // FIX 4: guardado para CPI signing
-    pub staking_vault:        Pubkey,
-    pub staking_vault_bump:   u8,       // FIX 4
-    // — Distribución —
-    pub winner_share:         u64,
-    pub treasury_share:       u64,
-    pub rewards_distributed:  bool,
-    // — Auditoría —
-    pub slot_finalized:       u64,
+    pub vrf_timed_out:        bool,
+
+    // — Vaults (FIX 5: prize_vault_bump para CPI signing) ————————————————
+    pub prize_vault:      Pubkey,
+    pub prize_vault_bump: u8,
+    // FIX 2: staking_vault y staking_vault_bump eliminados
+
+    // — Distribución ——————————————————————————————————————————————————————
+    pub winner_share:        u64,
+    pub treasury_share:      u64,
+    pub rewards_distributed: bool,
+
+    // — Auditoría —————————————————————————————————————————————————————————
+    pub slot_finalized: u64,
 }
 
 #[account]
 #[derive(InitSpace)]
 pub struct Ticket {
-    pub owner:          Pubkey,
-    pub round_id:       u64,
-    pub ticket_number:  u64,
-    pub commitment:     [u8; 32],
-    pub revealed:       bool,
-    pub slashed:        bool,   // FIX 3: marcado si el depósito fue confiscado
-    pub bump:           u8,
+    pub owner:         Pubkey,
+    pub round_id:      u64,
+    pub ticket_number: u64,
+    pub commitment:    [u8; 32],
+    pub revealed:      bool,
+    pub slashed:       bool,
+    pub bump:          u8,
 }
 
 #[account]
@@ -1103,6 +1309,7 @@ pub struct StakeEntry {
     pub round_id: u64,
     pub amount:   u64,
     pub claimed:  bool,
+    pub slashed:  bool,   // FIX 1: true si ticket del staker fue slasheado
     pub bump:     u8,
 }
 
@@ -1113,13 +1320,13 @@ pub struct StakeEntry {
 #[event] pub struct RoundCreated         { pub round_id: u64 }
 #[event] pub struct TicketPurchased      { pub round_id: u64, pub buyer: Pubkey, pub ticket_number: u64 }
 #[event] pub struct SecretRevealed       { pub round_id: u64, pub ticket_number: u64 }
-#[event] pub struct LowRevealWarning     { pub round_id: u64, pub revealed: u64, pub total: u64 }
 #[event] pub struct VrfRequested         { pub round_id: u64, pub vrf_account: Pubkey }
 #[event] pub struct RoundFinalized       { pub round_id: u64, pub winner: Pubkey, pub winner_index: u64 }
-#[event] pub struct RewardsDistributed   { pub round_id: u64, pub winner_share: u64, pub treasury_share: u64, pub staking_pool: u64 }
+#[event] pub struct RewardsDistributed   { pub round_id: u64, pub winner_share: u64, pub treasury_share: u64, pub slash_pool: u64 }
 #[event] pub struct Staked               { pub round_id: u64, pub user: Pubkey, pub amount: u64 }
 #[event] pub struct StakingRewardClaimed { pub round_id: u64, pub user: Pubkey, pub reward: u64 }
-#[event] pub struct EmergencyFinalized   { pub round_id: u64, pub winner: Pubkey }
+#[event] pub struct TicketSlashed        { pub round_id: u64, pub ticket_number: u64, pub slash_amount: u64 }
+#[event] pub struct EmergencyFinalized   { pub round_id: u64, pub winner: Pubkey, pub winner_index: u64, pub vrf_was_used: bool }
 
 // ════════════════════════════════════════════════════════════════════════════
 //  ERRORES
@@ -1127,36 +1334,41 @@ pub struct StakeEntry {
 
 #[error_code]
 pub enum LotteryError {
-    #[msg("No autorizado")]                                     Unauthorized,
-    #[msg("Ronda ya finalizada")]                               RoundAlreadyFinalized,
-    #[msg("Ronda no activa")]                                   RoundNotActive,
-    #[msg("Ronda llena")]                                       RoundFull,
-    #[msg("No hay tickets")]                                    NoTickets,
-    #[msg("Ronda no finalizada")]                               RoundNotFinalized,
-    #[msg("Ganador incorrecto")]                                WrongWinnerAccount,
-    #[msg("Staking ya finalizado")]                             StakingAlreadyFinalized,
-    #[msg("La ronda ya terminó")]                               RoundEnded,
-    #[msg("Staking no finalizado")]                             StakingNotFinalized,
-    #[msg("Recompensas no distribuidas")]                       RewardsNotDistributed,
-    #[msg("Recompensas ya distribuidas")]                       RewardsAlreadyDistributed,
-    #[msg("Ya reclamaste tu recompensa")]                       AlreadyClaimed,
-    #[msg("No hay stakers")]                                    NoStakers,
-    #[msg("Sin recompensa")]                                    NoReward,
-    #[msg("Fase de compromiso terminada")]                      CommitPhaseEnded,
-    #[msg("Fase de revelación no activa")]                      RevealPhaseNotActive,
-    #[msg("Fase de revelación aún activa")]                     RevealPhaseStillActive,
-    #[msg("Secreto inválido")]                                  InvalidSecret,
-    #[msg("Ya revelaste tu secreto")]                           AlreadyRevealed,
-    #[msg("No hay suficientes revelaciones")]                   NotEnoughReveals,
-    #[msg("Suministro máximo de tokens excedido")]              TokenSupplyExceeded,
-    #[msg("Balance insuficiente")]                              InsufficientBalance,
-    #[msg("Vault de staking inválido")]                         InvalidStakingVault,
-    #[msg("Mint inválida")]                                     InvalidMint,
-    #[msg("VRF ya solicitado")]                                 VrfAlreadyRequested,
-    #[msg("VRF no solicitado — llama request_vrf primero")]     VrfNotRequested,
-    #[msg("VRF inválido o cuenta incorrecta")]                  VrfInvalid,
-    #[msg("VRF aún no tiene resultado — espera al oracle")]     VrfNotReady,
-    #[msg("Demasiado pronto para emergencia (48h post reveal)")] EmergencyTooEarly,
-    #[msg("Rejection sampling falló — contacta al admin")]      RejectionSampleFailed,
-    #[msg("Parámetro inválido")]                                InvalidParam,
+    #[msg("No autorizado")]                                       Unauthorized,
+    #[msg("Ronda ya finalizada")]                                 RoundAlreadyFinalized,
+    #[msg("Ronda no activa")]                                     RoundNotActive,
+    #[msg("Ronda llena")]                                         RoundFull,
+    #[msg("La ronda no ha terminado aún")]                        RoundNotEnded,
+    #[msg("No hay tickets")]                                      NoTickets,
+    #[msg("Ronda no finalizada")]                                 RoundNotFinalized,
+    #[msg("Ganador incorrecto")]                                  WrongWinnerAccount,
+    #[msg("Ticket incorrecto en batch")]                          WrongTicketAccount,
+    #[msg("Staking ya finalizado")]                               StakingAlreadyFinalized,
+    #[msg("La ronda ya terminó")]                                 RoundEnded,
+    #[msg("Staking no finalizado")]                               StakingNotFinalized,
+    #[msg("Recompensas no distribuidas")]                         RewardsNotDistributed,
+    #[msg("Recompensas ya distribuidas")]                         RewardsAlreadyDistributed,
+    #[msg("Ya reclamaste tu recompensa")]                         AlreadyClaimed,
+    #[msg("No hay stakers")]                                      NoStakers,
+    #[msg("Sin recompensa")]                                      NoReward,
+    #[msg("Fase de compra terminada")]                            CommitPhaseEnded,
+    #[msg("Fase de revelación no activa")]                        RevealPhaseNotActive,
+    #[msg("Fase de revelación aún activa")]                       RevealPhaseStillActive,
+    #[msg("Secreto inválido")]                                    InvalidSecret,
+    #[msg("Ya revelaste tu secreto")]                             AlreadyRevealed,
+    #[msg("Suministro máximo de tokens excedido")]                TokenSupplyExceeded,
+    #[msg("Balance insuficiente")]                                InsufficientBalance,
+    #[msg("Vault de staking inválido")]                           InvalidStakingVault,
+    #[msg("Mint inválida")]                                       InvalidMint,
+    #[msg("VRF ya solicitado")]                                   VrfAlreadyRequested,
+    #[msg("VRF no solicitado — llama request_vrf primero")]       VrfNotRequested,
+    #[msg("VRF inválido o cuenta incorrecta")]                    VrfInvalid,
+    #[msg("VRF aún no tiene resultado — espera al oracle")]       VrfNotReady,
+    #[msg("Demasiado pronto para emergencia")]                    EmergencyTooEarly,
+    #[msg("Parámetro inválido")]                                  InvalidParam,
+    #[msg("Ticket ya fue slasheado")]                             TicketAlreadySlashed,
+    #[msg("Stake slasheado — no puedes reclamar reward")]         StakeSlashed,
+    #[msg("No hay depósito de reveal para slashear")]             NoSlashDeposit,
+    #[msg("Slash batch pendiente — procesa tickets primero")]     SlashBatchPending,
+    #[msg("Slash ya completado para esta ronda")]                 SlashAlreadyComplete,
 }

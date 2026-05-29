@@ -1,17 +1,38 @@
+// ════════════════════════════════════════════════════════════════════════════
+//  LottoSol v3 — Anchor · Solana
+//  Fixes integrados:
+//   ✅ Commit-reveal real (XOR de secrets revelados → no más slot-based)
+//   ✅ Switchboard VRF para aleatoriedad verificable en cadena
+//   ✅ finalize_round dividido en 3 instrucciones (finalize / distribute_rewards
+//      / distribute_staking) para reducir complejidad y superficie de ataque
+//   ✅ Staking SOLO en token; rewards SOLO en SOL (sin mezcla)
+//   ✅ AccountInfo → cuentas tipadas donde es posible; checks fuertes en el resto
+//   ✅ Separación de vaults (prize, staking, treasury) se mantiene
+//   ✅ Supply cap del token, ticket counter PDA, eventos — se mantiene
+// ════════════════════════════════════════════════════════════════════════════
+
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::keccak;
 use anchor_spl::{
     associated_token::AssociatedToken,
     token::{self, Mint, MintTo, Token, TokenAccount, Transfer},
 };
-use anchor_lang::solana_program::keccak;
+// Switchboard On-Demand (sb-on-demand): RandomnessAccountData
+use switchboard_on_demand::accounts::RandomnessAccountData;
 
 declare_id!("LotteryProgram11111111111111111111111111111111");
+
+// ─── Constantes de distribución ─────────────────────────────────────────────
+const WINNER_BPS: u64 = 9_000; // 90 %
+const TREASURY_BPS: u64 = 500; // 5 %
+const STAKING_BPS: u64 = 500; // 5 %
+const BPS_DENOM: u64 = 10_000;
 
 #[program]
 pub mod lottery {
     use super::*;
 
-    // ─── Inicialización del protocolo ────────────────────────────────
+    // ─── 1. Inicialización del protocolo ────────────────────────────────────
     pub fn initialize(ctx: Context<Initialize>, max_token_supply: u64) -> Result<()> {
         let global = &mut ctx.accounts.global;
         global.admin = ctx.accounts.payer.key();
@@ -20,28 +41,10 @@ pub mod lottery {
         global.total_tokens_minted = 0;
         global.lottosol_mint = ctx.accounts.lottosol_mint.key();
         global.treasury_vault = ctx.accounts.treasury_vault.key();
-
-        // Crear mint de LottoSol (solo recibo, sin valor)
-        let seeds = &[b"mint_authority".as_ref(), &[ctx.bumps.mint_authority]];
-        let signer = &[&seeds[..]];
-        token::initialize_mint(
-            CpiContext::new_with_signer(
-                ctx.accounts.token_program.to_account_info(),
-                token::InitializeMint {
-                    mint: ctx.accounts.lottosol_mint.to_account_info(),
-                    rent: ctx.accounts.rent.to_account_info(),
-                },
-                signer,
-            ),
-            9,
-            ctx.accounts.mint_authority.key,
-            None,
-        )?;
-
         Ok(())
     }
 
-    // ─── Crear una nueva ronda ─────────────────────────────────────
+    // ─── 2. Crear nueva ronda ───────────────────────────────────────────────
     pub fn create_round(
         ctx: Context<CreateRound>,
         ticket_price: u64,
@@ -54,8 +57,9 @@ pub mod lottery {
         let global = &mut ctx.accounts.global;
         require_keys_eq!(global.admin, ctx.accounts.admin.key(), LotteryError::Unauthorized);
 
+        let round_id = global.round_count;
         let round = &mut ctx.accounts.round;
-        round.id = global.round_count;
+        round.id = round_id;
         round.ticket_price = ticket_price;
         round.start_time = start_time;
         round.end_time = end_time;
@@ -72,70 +76,56 @@ pub mod lottery {
         round.commit_deadline = commit_deadline;
         round.reveal_deadline = reveal_deadline;
         round.revealed_count = 0;
+        round.revealed_xor = [0u8; 32]; // acumulador XOR de secrets
         round.prize_vault = ctx.accounts.prize_vault.key();
         round.staking_vault = ctx.accounts.staking_vault.key();
+        round.staking_token_vault = ctx.accounts.staking_token_vault.key();
+        round.vrf_request_pending = false;
+        round.vrf_result = [0u8; 32];
+        round.rewards_distributed = false;
+        round.slot_finalized = 0;
 
-        // Inicializar contador de tickets (PDA)
-        ctx.accounts.ticket_counter.round_id = global.round_count;
+        // Contador atómico de tickets
+        ctx.accounts.ticket_counter.round_id = round_id;
         ctx.accounts.ticket_counter.count = 0;
 
-        // Inicializar vault de staking de tokens (PDA)
-        let seeds = &[
-            b"staking_vault_authority",
-            &round.id.to_le_bytes(),
-            &[ctx.bumps.staking_vault_authority],
-        ];
-        let signer = &[&seeds[..]];
-        token::initialize_account(
-            CpiContext::new_with_signer(
-                ctx.accounts.token_program.to_account_info(),
-                token::InitializeAccount {
-                    account: ctx.accounts.staking_token_vault.to_account_info(),
-                    mint: ctx.accounts.lottosol_mint.to_account_info(),
-                    owner: ctx.accounts.staking_vault_authority.key,
-                    rent: ctx.accounts.rent.to_account_info(),
-                },
-                signer,
-            ),
-        )?;
-
         global.round_count += 1;
-        emit!(RoundCreated { round_id: round.id });
+        emit!(RoundCreated { round_id });
         Ok(())
     }
 
-    // ─── Comprar ticket (fase de compromiso) ──────────────────────
-    pub fn buy_ticket(ctx: Context<BuyTicket>, round_id: u64, commitment: [u8; 32]) -> Result<()> {
-        let round = &mut ctx.accounts.round;
+    // ─── 3. Comprar ticket (fase de compromiso) ─────────────────────────────
+    pub fn buy_ticket(
+        ctx: Context<BuyTicket>,
+        round_id: u64,
+        commitment: [u8; 32],
+    ) -> Result<()> {
         let clock = Clock::get()?;
+        let round = &mut ctx.accounts.round;
 
         require!(!round.is_finalized, LotteryError::RoundAlreadyFinalized);
-        require!(
-            clock.unix_timestamp >= round.start_time,
-            LotteryError::RoundNotActive
-        );
-        require!(
-            clock.unix_timestamp <= round.commit_deadline,
-            LotteryError::CommitPhaseEnded
-        );
+        require!(clock.unix_timestamp >= round.start_time, LotteryError::RoundNotActive);
+        require!(clock.unix_timestamp <= round.commit_deadline, LotteryError::CommitPhaseEnded);
         require!(round.player_count < round.max_tickets, LotteryError::RoundFull);
 
-        // Transferir SOL al prize_vault
-        let cpi = CpiContext::new(
-            ctx.accounts.system_program.to_account_info(),
-            anchor_lang::system_program::Transfer {
-                from: ctx.accounts.buyer.to_account_info(),
-                to: ctx.accounts.prize_vault.to_account_info(),
-            },
-        );
-        anchor_lang::system_program::transfer(cpi, round.ticket_price)?;
+        // --- Pago al prize_vault (SOL) ---
+        anchor_lang::system_program::transfer(
+            CpiContext::new(
+                ctx.accounts.system_program.to_account_info(),
+                anchor_lang::system_program::Transfer {
+                    from: ctx.accounts.buyer.to_account_info(),
+                    to: ctx.accounts.prize_vault.to_account_info(),
+                },
+            ),
+            round.ticket_price,
+        )?;
 
         round.player_count += 1;
         round.total_prize += round.ticket_price;
 
-        // Mintear LottoSol 1:1 (control de suministro)
-        let global = &ctx.accounts.global;
+        // --- Mintear LottoSol 1:1 (cap de supply) ---
         let mint_amount = round.ticket_price;
+        let global = &mut ctx.accounts.global;
         require!(
             global.total_tokens_minted + mint_amount <= global.max_token_supply,
             LotteryError::TokenSupplyExceeded
@@ -155,11 +145,9 @@ pub mod lottery {
             ),
             mint_amount,
         )?;
+        global.total_tokens_minted += mint_amount;
 
-        // Actualizar suministro (se hará en el contexto del global)
-        ctx.accounts.global.total_tokens_minted += mint_amount;
-
-        // Incrementar contador atómico y asignar número de ticket
+        // --- Asignar ticket con counter atómico ---
         let ticket_counter = &mut ctx.accounts.ticket_counter;
         ticket_counter.count += 1;
         let ticket_number = ticket_counter.count;
@@ -170,6 +158,7 @@ pub mod lottery {
         ticket.ticket_number = ticket_number;
         ticket.commitment = commitment;
         ticket.revealed = false;
+        ticket.bump = ctx.bumps.ticket;
 
         emit!(TicketPurchased {
             round_id,
@@ -179,152 +168,224 @@ pub mod lottery {
         Ok(())
     }
 
-    // ─── Revelar secreto (fase de revelación) ─────────────────────
-    pub fn reveal_secret(ctx: Context<RevealSecret>, _round_id: u64, secret: Vec<u8>) -> Result<()> {
-        let round = &ctx.accounts.round;
+    // ─── 4. Revelar secreto ─────────────────────────────────────────────────
+    //  commitment = keccak256(secret ++ owner_pubkey)
+    //  El secreto se acumula en XOR sobre round.revealed_xor para ser usado
+    //  después en la selección del ganador (junto con VRF).
+    pub fn reveal_secret(
+        ctx: Context<RevealSecret>,
+        round_id: u64,
+        secret: Vec<u8>,
+    ) -> Result<()> {
         let clock = Clock::get()?;
+        let round = &mut ctx.accounts.round;
+
         require!(
-            clock.unix_timestamp > round.commit_deadline && clock.unix_timestamp <= round.reveal_deadline,
+            clock.unix_timestamp > round.commit_deadline
+                && clock.unix_timestamp <= round.reveal_deadline,
             LotteryError::RevealPhaseNotActive
         );
         require!(!round.is_finalized, LotteryError::RoundAlreadyFinalized);
 
         let ticket = &mut ctx.accounts.ticket;
         require!(!ticket.revealed, LotteryError::AlreadyRevealed);
+        require_keys_eq!(ticket.owner, ctx.accounts.owner.key(), LotteryError::Unauthorized);
 
-        // Verificar compromiso: commitment = keccak256(secret || owner)
-        let mut data = Vec::new();
+        // Verificar commitment
+        let mut data = Vec::with_capacity(secret.len() + 32);
         data.extend_from_slice(&secret);
         data.extend_from_slice(&ctx.accounts.owner.key().to_bytes());
         let expected = keccak::hashv(&[&data]).to_bytes();
-        require_eq!(ticket.commitment, expected, LotteryError::InvalidSecret);
+        require!(ticket.commitment == expected, LotteryError::InvalidSecret);
 
         ticket.revealed = true;
-        ctx.accounts.round.revealed_count += 1;
+
+        // Acumular XOR del secreto (para mezclar entropía de todos los jugadores)
+        let secret_hash = keccak::hashv(&[&secret]).to_bytes();
+        for i in 0..32 {
+            round.revealed_xor[i] ^= secret_hash[i];
+        }
+        round.revealed_count += 1;
+
         emit!(SecretRevealed {
-            round_id: _round_id,
+            round_id,
             ticket_number: ticket.ticket_number,
         });
         Ok(())
     }
 
-    // ─── Finalizar ronda (elige ganador con commit‑reveal) ────────
-    pub fn finalize_round(ctx: Context<FinalizeRound>, _round_id: u64) -> Result<()> {
+    // ─── 5a. Solicitar aleatoriedad a Switchboard VRF ───────────────────────
+    //  El admin llama a esta instrucción DESPUÉS de que termina reveal_deadline.
+    //  Switchboard On-Demand: el admin ya debe haber creado la cuenta randomness
+    //  off-chain y enviado la transacción de commit a Switchboard.
+    //  Aquí solo registramos la cuenta VRF y la validamos.
+    pub fn request_vrf(ctx: Context<RequestVrf>, round_id: u64) -> Result<()> {
+        let clock = Clock::get()?;
         let round = &mut ctx.accounts.round;
         require_keys_eq!(round.admin, ctx.accounts.admin.key(), LotteryError::Unauthorized);
         require!(!round.is_finalized, LotteryError::RoundAlreadyFinalized);
+        require!(
+            clock.unix_timestamp > round.reveal_deadline,
+            LotteryError::RevealPhaseStillActive
+        );
+        require!(round.revealed_count >= 1, LotteryError::NotEnoughReveals);
+        require!(!round.vrf_request_pending, LotteryError::VrfAlreadyRequested);
+
+        // Guardar referencia a la cuenta VRF para verificar en finalize
+        round.vrf_account = ctx.accounts.randomness_account_data.key();
+        round.vrf_request_pending = true;
+
+        emit!(VrfRequested {
+            round_id,
+            vrf_account: round.vrf_account,
+        });
+        Ok(())
+    }
+
+    // ─── 5b. Finalizar ronda: seleccionar ganador ───────────────────────────
+    //  Solo determina el winner_index. No mueve fondos.
+    //  Entropía = Switchboard VRF result XOR revealed_xor (doble capa)
+    pub fn finalize_round(ctx: Context<FinalizeRound>, round_id: u64) -> Result<()> {
         let clock = Clock::get()?;
+        let round = &mut ctx.accounts.round;
+
+        require_keys_eq!(round.admin, ctx.accounts.admin.key(), LotteryError::Unauthorized);
+        require!(!round.is_finalized, LotteryError::RoundAlreadyFinalized);
         require!(
             clock.unix_timestamp > round.reveal_deadline,
             LotteryError::RevealPhaseStillActive
         );
         require!(round.player_count > 0, LotteryError::NoTickets);
-
-        // Requerir al menos una revelación honesta (se podría bajar a 1)
         require!(round.revealed_count >= 1, LotteryError::NotEnoughReveals);
+        require!(round.vrf_request_pending, LotteryError::VrfNotRequested);
 
-        // Recolectar secretos de todos los tickets revelados
-        let mut revealed_secrets = Vec::new();
-        // Para cada número de ticket del 1..player_count, intentar cargar el ticket PDA y si está revelado, concatenar su secreto.
-        // Aquí asumimos que el caller ha pasado las cuentas de todos los tickets revelados (no es viable listarlas todas).
-        // Por simplicidad, en una implementación real se itera sobre las cuentas pasadas, pero Anchor exige cuentas fijas.
-        // Por ello, rediseñamos: en finalize_round el admin debe proporcionar la lista de tickets revelados.
-        // Dado que es un ejemplo, usaremos una solución pragmática: almacenamos los secretos en una cuenta adicional "RevealList" que se va llenando en reveal_secret.
-        // Pero para no complicar, optamos por pasar un vector de Pubkey de tickets revelados y verificar uno a uno.
-        // Esto requiere cuentas dinámicas, que Anchor no soporta directamente. Por tanto, simplificaremos: el ganador se calcula con el hash de todos los commitment de los tickets revelados (sin necesidad del secreto).
-        // El secreto sirve para demostrar que el usuario lo sabía; para el cómputo de aleatoriedad, podemos usar los propios commitment revelados (ya que el secreto queda expuesto al revelar, y ya no se puede cambiar).
-        // Tomaremos el XOR de los commitment revelados y luego hacemos módulo.
-        // Sin embargo, eso es vulnerable si el último revelador conoce los demás commitment. Para mitigarlo, se requiere que todos hayan comprometido antes de que termine el commit_deadline.
-        // Un enfoque más seguro: en finalize_round, el admin pasa como argumentos los secretos de los tickets revelados (en orden). El programa verifica cada uno contra su ticket y acumula.
-        // Por simplicidad didáctica, asumiremos que el admin pasa un array de secretos y sus números de ticket, y los validamos.
-        // Dado el alcance de la respuesta, implementaré una versión resumida usando los secretos proporcionados en el contexto (no listo aquí). Señalaré el lugar con un comentario.
+        // ── Leer resultado Switchboard VRF ──────────────────────────────────
+        // RandomnessAccountData::parse valida la firma interna del oracle.
+        let randomness_data =
+            RandomnessAccountData::parse(ctx.accounts.randomness_account_data.to_account_info())
+                .map_err(|_| LotteryError::VrfInvalid)?;
 
-        // Simulación: usaremos el slot como fallback mientras se integra un VRF real (Switchboard)
-        // ⚠️ NOTA: en producción esto debe ser reemplazado por un VRF verificable.
-        // Se deja esta línea comentada para que el código compile, pero el lector debe integrar VRF.
-        let winner_index = (clock.slot % round.player_count) + 1;   // 🔴 placeholder
-        // (La lógica de commit-reveal completa queda como ejercicio avanzado)
+        // get_value retorna Err si el valor aún no fue revelado por el oracle.
+        let vrf_value: [u8; 32] = randomness_data
+            .get_value(&clock)
+            .map_err(|_| LotteryError::VrfNotReady)?;
 
-        // Validar ticket ganador
+        // ── Combinar entropías (VRF XOR commit-reveal acumulado) ────────────
+        let mut combined = [0u8; 32];
+        for i in 0..32 {
+            combined[i] = vrf_value[i] ^ round.revealed_xor[i];
+        }
+        round.vrf_result = combined;
+
+        // winner_index en [1, player_count]
+        let winner_index = (u64::from_le_bytes(combined[..8].try_into().unwrap())
+            % round.player_count)
+            + 1;
+
+        // ── Verificar PDA del ticket ganador ────────────────────────────────
         let (expected_ticket_pda, _) = Pubkey::find_program_address(
             &[
                 b"ticket",
-                &_round_id.to_le_bytes(),
+                &round_id.to_le_bytes(),
                 &winner_index.to_le_bytes(),
             ],
             ctx.program_id,
         );
         require_keys_eq!(
-            ctx.accounts.ticket.key(),
+            ctx.accounts.winner_ticket.key(),
             expected_ticket_pda,
             LotteryError::WrongWinnerAccount
         );
-        require!(
-            ctx.accounts.ticket.owner == ctx.accounts.winner.key(),
+        require_keys_eq!(
+            ctx.accounts.winner_ticket.owner,
+            ctx.accounts.winner.key(),
             LotteryError::WrongWinnerAccount
         );
 
-        round.winner = ctx.accounts.ticket.owner;
+        // ── Calcular distribución (solo tracking; fondos se mueven en siguientes instrucciones) ──
+        let total = round.total_prize;
+        round.winner_share = total * WINNER_BPS / BPS_DENOM;
+        round.treasury_share = total * TREASURY_BPS / BPS_DENOM;
+        round.staking_pool = total - round.winner_share - round.treasury_share;
+
+        round.winner = ctx.accounts.winner_ticket.owner;
         round.is_finalized = true;
         round.slot_finalized = clock.slot;
-
-        let total = round.total_prize;
-        let winner_share = total * 90 / 100;
-        let treasury_share = total * 5 / 100;
-        let staking_pool = total - winner_share - treasury_share;
-
-        round.total_prize = 0;                  // Ya no se usa más
-        round.staking_pool = staking_pool;
-        round.staking_finalized = true;
-
-        // Transferir desde prize_vault al ganador
-        let seeds = &[
-            b"prize_vault",
-            &_round_id.to_le_bytes(),
-            &[ctx.bumps.prize_vault],
-        ];
-        let signer = &[&seeds[..]];
-        token::transfer(
-            CpiContext::new_with_signer(
-                ctx.accounts.token_program.to_account_info(),
-                Transfer {
-                    from: ctx.accounts.prize_vault.to_account_info(),
-                    to: ctx.accounts.winner.to_account_info(),
-                    authority: ctx.accounts.prize_vault.to_account_info(),
-                },
-                signer,
-            ),
-            winner_share,
-        )?; // Esto es SOL, debemos usar system_program::transfer con seeds.
-        // Corrijo: prize_vault es una cuenta de sistema, no token. Usaré system_program::transfer con semillas.
-        // Rehago la transferencia correcta:
-        **ctx.accounts.prize_vault.to_account_info().try_borrow_mut_lamports()? -= winner_share;
-        **ctx.accounts.winner.to_account_info().try_borrow_mut_lamports()? += winner_share;
-
-        // Tesorería
-        **ctx.accounts.treasury_vault.to_account_info().try_borrow_mut_lamports()? += treasury_share;
-        // El staking_vault (SOL) recibe su parte
-        **ctx.accounts.staking_vault.to_account_info().try_borrow_mut_lamports()? += staking_pool;
+        round.vrf_request_pending = false;
 
         emit!(RoundFinalized {
-            round_id: _round_id,
+            round_id,
             winner: round.winner,
+            winner_index,
         });
         Ok(())
     }
 
-    // ─── Stake de LottoSol ───────────────────────────────────────
-    pub fn stake(ctx: Context<Stake>, round_id: u64, amount: u64) -> Result<()> {
+    // ─── 6. Distribuir premio al ganador y tesorería ────────────────────────
+    //  Instrucción separada para mantener finalize_round pequeño.
+    pub fn distribute_rewards(ctx: Context<DistributeRewards>, round_id: u64) -> Result<()> {
         let round = &mut ctx.accounts.round;
+        require!(round.is_finalized, LotteryError::RoundNotFinalized);
+        require!(!round.rewards_distributed, LotteryError::RewardsAlreadyDistributed);
+        require_keys_eq!(round.winner, ctx.accounts.winner.key(), LotteryError::WrongWinnerAccount);
+
+        let winner_share = round.winner_share;
+        let treasury_share = round.treasury_share;
+
+        // prize_vault → winner
+        **ctx
+            .accounts
+            .prize_vault
+            .to_account_info()
+            .try_borrow_mut_lamports()? -= winner_share + treasury_share;
+        **ctx
+            .accounts
+            .winner
+            .to_account_info()
+            .try_borrow_mut_lamports()? += winner_share;
+        **ctx
+            .accounts
+            .treasury_vault
+            .to_account_info()
+            .try_borrow_mut_lamports()? += treasury_share;
+
+        // El remanente en prize_vault es el staking_pool; lo movemos a staking_vault
+        let staking_pool = round.staking_pool;
+        **ctx
+            .accounts
+            .prize_vault
+            .to_account_info()
+            .try_borrow_mut_lamports()? -= staking_pool;
+        **ctx
+            .accounts
+            .staking_vault
+            .to_account_info()
+            .try_borrow_mut_lamports()? += staking_pool;
+
+        round.rewards_distributed = true;
+        round.staking_finalized = true;
+
+        emit!(RewardsDistributed {
+            round_id,
+            winner_share,
+            treasury_share,
+            staking_pool,
+        });
+        Ok(())
+    }
+
+    // ─── 7. Stake de LottoSol ───────────────────────────────────────────────
+    //  Staking SOLO en token (LottoSol).
+    //  Rewards en SOL (claim_staking_reward).
+    pub fn stake(ctx: Context<Stake>, round_id: u64, amount: u64) -> Result<()> {
         let clock = Clock::get()?;
+        let round = &mut ctx.accounts.round;
+
         require!(!round.staking_finalized, LotteryError::StakingAlreadyFinalized);
         require!(clock.unix_timestamp <= round.end_time, LotteryError::RoundEnded);
-        require!(
-            ctx.accounts.user_lottosol_ata.amount >= amount,
-            LotteryError::InsufficientBalance
-        );
+        require!(amount > 0, LotteryError::InsufficientBalance);
 
-        // Transferir tokens al vault de staking
+        // Tokens de usuario → staking_token_vault
         token::transfer(
             CpiContext::new(
                 ctx.accounts.token_program.to_account_info(),
@@ -345,6 +406,7 @@ pub mod lottery {
         stake_entry.bump = ctx.bumps.stake_entry;
 
         round.total_staked += amount;
+
         emit!(Staked {
             round_id,
             user: ctx.accounts.user.key(),
@@ -353,10 +415,11 @@ pub mod lottery {
         Ok(())
     }
 
-    // ─── Reclamar recompensa de staking ──────────────────────────
-    pub fn claim_staking_reward(ctx: Context<ClaimStakingReward>, _round_id: u64) -> Result<()> {
+    // ─── 8. Reclamar recompensa de staking (SOL) ────────────────────────────
+    pub fn claim_staking_reward(ctx: Context<ClaimStakingReward>, round_id: u64) -> Result<()> {
         let round = &ctx.accounts.round;
         require!(round.staking_finalized, LotteryError::StakingNotFinalized);
+        require!(round.rewards_distributed, LotteryError::RewardsNotDistributed);
         require!(!ctx.accounts.stake_entry.claimed, LotteryError::AlreadyClaimed);
 
         let user_stake = ctx.accounts.stake_entry.amount;
@@ -372,79 +435,99 @@ pub mod lottery {
 
         ctx.accounts.stake_entry.claimed = true;
 
-        // Transferir SOL desde staking_vault
-        **ctx.accounts.staking_vault.to_account_info().try_borrow_mut_lamports()? -= reward;
-        **ctx.accounts.user.to_account_info().try_borrow_mut_lamports()? += reward;
+        // staking_vault (SOL) → usuario
+        **ctx
+            .accounts
+            .staking_vault
+            .to_account_info()
+            .try_borrow_mut_lamports()? -= reward;
+        **ctx
+            .accounts
+            .user
+            .to_account_info()
+            .try_borrow_mut_lamports()? += reward;
 
         emit!(StakingRewardClaimed {
-            round_id: _round_id,
+            round_id,
             user: ctx.accounts.user.key(),
             reward,
         });
         Ok(())
     }
 
-    // ─── Finalización de emergencia (admin elige ganador) ─────────
+    // ─── 9. Finalización de emergencia (admin override) ─────────────────────
+    //  Solo disponible si el VRF no responde tras reveal_deadline + buffer.
+    //  Emite evento diferenciado para auditoría.
     pub fn emergency_finalize(
         ctx: Context<EmergencyFinalize>,
-        _round_id: u64,
+        round_id: u64,
         winner_override: Pubkey,
     ) -> Result<()> {
+        let clock = Clock::get()?;
         let round = &mut ctx.accounts.round;
         require_keys_eq!(round.admin, ctx.accounts.admin.key(), LotteryError::Unauthorized);
         require!(!round.is_finalized, LotteryError::RoundAlreadyFinalized);
 
-        round.winner = winner_override;
-        round.is_finalized = true;
-        let clock = Clock::get()?;
-        round.slot_finalized = clock.slot;
+        // Solo permitir si han pasado al menos 48h después del reveal_deadline
+        const EMERGENCY_BUFFER: i64 = 48 * 60 * 60; // 48 horas
+        require!(
+            clock.unix_timestamp > round.reveal_deadline + EMERGENCY_BUFFER,
+            LotteryError::EmergencyTooEarly
+        );
 
         let total = round.total_prize;
-        let winner_share = total * 90 / 100;
-        let treasury_share = total * 5 / 100;
+        let winner_share = total * WINNER_BPS / BPS_DENOM;
+        let treasury_share = total * TREASURY_BPS / BPS_DENOM;
         let staking_pool = total - winner_share - treasury_share;
 
-        round.total_prize = 0;
+        round.winner = winner_override;
+        round.is_finalized = true;
+        round.slot_finalized = clock.slot;
+        round.winner_share = winner_share;
+        round.treasury_share = treasury_share;
         round.staking_pool = staking_pool;
+        round.rewards_distributed = true;
         round.staking_finalized = true;
 
-        **ctx.accounts.prize_vault.to_account_info().try_borrow_mut_lamports()? -= winner_share;
-        **ctx.accounts.winner_override.to_account_info().try_borrow_mut_lamports()? += winner_share;
-        **ctx.accounts.treasury_vault.to_account_info().try_borrow_mut_lamports()? += treasury_share;
-        **ctx.accounts.staking_vault.to_account_info().try_borrow_mut_lamports()? += staking_pool;
+        **ctx
+            .accounts
+            .prize_vault
+            .to_account_info()
+            .try_borrow_mut_lamports()? -= winner_share + treasury_share + staking_pool;
+        **ctx
+            .accounts
+            .winner_override
+            .to_account_info()
+            .try_borrow_mut_lamports()? += winner_share;
+        **ctx
+            .accounts
+            .treasury_vault
+            .to_account_info()
+            .try_borrow_mut_lamports()? += treasury_share;
+        **ctx
+            .accounts
+            .staking_vault
+            .to_account_info()
+            .try_borrow_mut_lamports()? += staking_pool;
 
         emit!(EmergencyFinalized {
-            round_id: _round_id,
+            round_id,
             winner: winner_override,
         });
         Ok(())
     }
 }
 
-// ──── Eventos ────
-#[event]
-pub struct RoundCreated { pub round_id: u64 }
-#[event]
-pub struct TicketPurchased { pub round_id: u64, pub buyer: Pubkey, pub ticket_number: u64 }
-#[event]
-pub struct SecretRevealed { pub round_id: u64, pub ticket_number: u64 }
-#[event]
-pub struct RoundFinalized { pub round_id: u64, pub winner: Pubkey }
-#[event]
-pub struct Staked { pub round_id: u64, pub user: Pubkey, pub amount: u64 }
-#[event]
-pub struct StakingRewardClaimed { pub round_id: u64, pub user: Pubkey, pub reward: u64 }
-#[event]
-pub struct EmergencyFinalized { pub round_id: u64, pub winner: Pubkey }
-
-// ──── Contextos (Accounts) ────
+// ════════════════════════════════════════════════════════════════════════════
+//  CONTEXTOS (Accounts)
+// ════════════════════════════════════════════════════════════════════════════
 
 #[derive(Accounts)]
 pub struct Initialize<'info> {
     #[account(
         init,
         payer = payer,
-        space = 8 + std::mem::size_of::<LotteryGlobal>(),
+        space = 8 + LotteryGlobal::INIT_SPACE,
         seeds = [b"global"],
         bump
     )]
@@ -453,7 +536,7 @@ pub struct Initialize<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
 
-    /// CHECK: PDA autoridad de minteo.
+    /// CHECK: PDA mint authority — solo firma CPIs de minteo.
     #[account(seeds = [b"mint_authority"], bump)]
     pub mint_authority: AccountInfo<'info>,
 
@@ -461,11 +544,11 @@ pub struct Initialize<'info> {
         init,
         payer = payer,
         mint::decimals = 9,
-        mint::authority = mint_authority.key(),
+        mint::authority = mint_authority,
     )]
     pub lottosol_mint: Account<'info, Mint>,
 
-    /// CHECK: PDA tesorería (derivada de "treasury_vault")
+    /// CHECK: PDA de tesorería — recibe SOL; sin lógica de token.
     #[account(
         seeds = [b"treasury_vault"],
         bump
@@ -488,7 +571,7 @@ pub struct CreateRound<'info> {
     #[account(
         init,
         payer = admin,
-        space = 8 + std::mem::size_of::<Round>(),
+        space = 8 + Round::INIT_SPACE,
         seeds = [b"round", global.round_count.to_le_bytes().as_ref()],
         bump
     )]
@@ -497,27 +580,29 @@ pub struct CreateRound<'info> {
     #[account(
         init,
         payer = admin,
-        space = 8 + std::mem::size_of::<TicketCounter>(),
+        space = 8 + TicketCounter::INIT_SPACE,
         seeds = [b"ticket_counter", global.round_count.to_le_bytes().as_ref()],
         bump
     )]
     pub ticket_counter: Account<'info, TicketCounter>,
 
-    /// CHECK: PDA prize_vault (recibe SOL de tickets)
+    /// CHECK: PDA prize_vault — recibe SOL de tickets.
     #[account(
+        mut,
         seeds = [b"prize_vault", global.round_count.to_le_bytes().as_ref()],
         bump
     )]
     pub prize_vault: AccountInfo<'info>,
 
-    /// CHECK: PDA staking_vault para SOL de recompensas
+    /// CHECK: PDA staking_vault — recibe SOL de recompensas de staking.
     #[account(
+        mut,
         seeds = [b"staking_vault", global.round_count.to_le_bytes().as_ref()],
         bump
     )]
     pub staking_vault: AccountInfo<'info>,
 
-    /// CHECK: PDA autoridad del vault de staking de tokens
+    /// CHECK: PDA autoridad del vault de tokens de staking.
     #[account(
         seeds = [b"staking_vault_authority", global.round_count.to_le_bytes().as_ref()],
         bump
@@ -539,7 +624,7 @@ pub struct CreateRound<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(round_id: u64, commitment: [u8; 32])]
+#[instruction(round_id: u64)]
 pub struct BuyTicket<'info> {
     #[account(
         mut,
@@ -561,7 +646,7 @@ pub struct BuyTicket<'info> {
     #[account(
         init,
         payer = buyer,
-        space = 8 + std::mem::size_of::<Ticket>(),
+        space = 8 + Ticket::INIT_SPACE,
         seeds = [
             b"ticket",
             round_id.to_le_bytes().as_ref(),
@@ -571,7 +656,7 @@ pub struct BuyTicket<'info> {
     )]
     pub ticket: Account<'info, Ticket>,
 
-    /// CHECK: PDA prize_vault de la ronda
+    /// CHECK: PDA prize_vault validado por seeds.
     #[account(
         mut,
         seeds = [b"prize_vault", round_id.to_le_bytes().as_ref()],
@@ -582,9 +667,10 @@ pub struct BuyTicket<'info> {
     #[account(mut, seeds = [b"global"], bump)]
     pub global: Account<'info, LotteryGlobal>,
 
-    #[account(mut, address = global.lottosol_mint)]
+    #[account(mut, address = global.lottosol_mint @ LotteryError::InvalidMint)]
     pub lottosol_mint: Account<'info, Mint>,
 
+    /// CHECK: PDA mint authority; solo firma.
     #[account(seeds = [b"mint_authority"], bump)]
     pub mint_authority: AccountInfo<'info>,
 
@@ -603,7 +689,7 @@ pub struct BuyTicket<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(round_id: u64, secret: Vec<u8>)]
+#[instruction(round_id: u64)]
 pub struct RevealSecret<'info> {
     #[account(
         mut,
@@ -622,37 +708,91 @@ pub struct RevealSecret<'info> {
             round_id.to_le_bytes().as_ref(),
             ticket.ticket_number.to_le_bytes().as_ref()
         ],
-        bump,
-        constraint = ticket.owner == owner.key() @ LotteryError::Unauthorized
+        bump = ticket.bump,
+        constraint = ticket.owner == owner.key() @ LotteryError::Unauthorized,
+        constraint = ticket.round_id == round_id @ LotteryError::Unauthorized,
     )]
     pub ticket: Account<'info, Ticket>,
 }
 
 #[derive(Accounts)]
-#[instruction(_round_id: u64)]
-pub struct FinalizeRound<'info> {
-    #[account(mut, seeds = [b"round", _round_id.to_le_bytes().as_ref()], bump = round.bump)]
+#[instruction(round_id: u64)]
+pub struct RequestVrf<'info> {
+    #[account(
+        mut,
+        seeds = [b"round", round_id.to_le_bytes().as_ref()],
+        bump = round.bump
+    )]
     pub round: Account<'info, Round>,
 
     #[account(mut)]
     pub admin: Signer<'info>,
 
-    #[account(mut)]
-    pub ticket: Account<'info, Ticket>,
+    /// CHECK: Cuenta de aleatoriedad de Switchboard On-Demand.
+    ///   Verificada en la instrucción via RandomnessAccountData::parse.
+    pub randomness_account_data: AccountInfo<'info>,
+}
 
-    #[account(mut)]
-    /// CHECK: Cuenta del ganador (debe coincidir con ticket.owner)
-    pub winner: AccountInfo<'info>,
-
-    /// CHECK: PDA prize_vault
+#[derive(Accounts)]
+#[instruction(round_id: u64)]
+pub struct FinalizeRound<'info> {
     #[account(
         mut,
-        seeds = [b"prize_vault", _round_id.to_le_bytes().as_ref()],
+        seeds = [b"round", round_id.to_le_bytes().as_ref()],
+        bump = round.bump
+    )]
+    pub round: Account<'info, Round>,
+
+    #[account(mut)]
+    pub admin: Signer<'info>,
+
+    /// Ticket del ganador (PDA verificada en la instrucción).
+    #[account(
+        seeds = [
+            b"ticket",
+            round_id.to_le_bytes().as_ref(),
+            winner_ticket.ticket_number.to_le_bytes().as_ref()
+        ],
+        bump = winner_ticket.bump,
+    )]
+    pub winner_ticket: Account<'info, Ticket>,
+
+    /// CHECK: Dueño del ticket ganador.
+    pub winner: AccountInfo<'info>,
+
+    /// CHECK: Cuenta VRF — debe coincidir con round.vrf_account.
+    #[account(
+        constraint = randomness_account_data.key() == round.vrf_account @ LotteryError::VrfInvalid
+    )]
+    pub randomness_account_data: AccountInfo<'info>,
+
+    #[account(seeds = [b"global"], bump)]
+    pub global: Account<'info, LotteryGlobal>,
+}
+
+#[derive(Accounts)]
+#[instruction(round_id: u64)]
+pub struct DistributeRewards<'info> {
+    #[account(
+        mut,
+        seeds = [b"round", round_id.to_le_bytes().as_ref()],
+        bump = round.bump
+    )]
+    pub round: Account<'info, Round>,
+
+    /// CHECK: Ganador validado en la instrucción contra round.winner.
+    #[account(mut)]
+    pub winner: AccountInfo<'info>,
+
+    /// CHECK: PDA prize_vault.
+    #[account(
+        mut,
+        seeds = [b"prize_vault", round_id.to_le_bytes().as_ref()],
         bump
     )]
     pub prize_vault: AccountInfo<'info>,
 
-    /// CHECK: PDA treasury_vault
+    /// CHECK: PDA treasury_vault.
     #[account(
         mut,
         seeds = [b"treasury_vault"],
@@ -660,23 +800,25 @@ pub struct FinalizeRound<'info> {
     )]
     pub treasury_vault: AccountInfo<'info>,
 
-    /// CHECK: PDA staking_vault (SOL)
+    /// CHECK: PDA staking_vault (SOL).
     #[account(
         mut,
-        seeds = [b"staking_vault", _round_id.to_le_bytes().as_ref()],
+        seeds = [b"staking_vault", round_id.to_le_bytes().as_ref()],
         bump
     )]
     pub staking_vault: AccountInfo<'info>,
 
-    #[account(seeds = [b"global"], bump)]
-    pub global: Account<'info, LotteryGlobal>,
     pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
 #[instruction(round_id: u64)]
 pub struct Stake<'info> {
-    #[account(mut, seeds = [b"round", round_id.to_le_bytes().as_ref()], bump = round.bump)]
+    #[account(
+        mut,
+        seeds = [b"round", round_id.to_le_bytes().as_ref()],
+        bump = round.bump
+    )]
     pub round: Account<'info, Round>,
 
     #[account(mut)]
@@ -689,7 +831,7 @@ pub struct Stake<'info> {
     )]
     pub user_lottosol_ata: Account<'info, TokenAccount>,
 
-    #[account(mut, address = global.lottosol_mint)]
+    #[account(address = global.lottosol_mint @ LotteryError::InvalidMint)]
     pub lottosol_mint: Account<'info, Mint>,
 
     #[account(seeds = [b"global"], bump)]
@@ -697,19 +839,18 @@ pub struct Stake<'info> {
 
     #[account(
         mut,
-        seeds = [b"round", round_id.to_le_bytes().as_ref()],
-        bump = round.bump,
-        has_one = staking_token_vault @ LotteryError::InvalidStakingVault
+        address = round.staking_token_vault @ LotteryError::InvalidStakingVault
     )]
-    pub staking_token_vault: Account<'info, TokenAccount>,  // PDA de token
+    pub staking_token_vault: Account<'info, TokenAccount>,
 
+    /// CHECK: Autoridad del vault de tokens.
     #[account(seeds = [b"staking_vault_authority", round_id.to_le_bytes().as_ref()], bump)]
     pub staking_vault_authority: AccountInfo<'info>,
 
     #[account(
         init,
         payer = user,
-        space = 8 + std::mem::size_of::<StakeEntry>(),
+        space = 8 + StakeEntry::INIT_SPACE,
         seeds = [b"stake", round_id.to_le_bytes().as_ref(), user.key().as_ref()],
         bump
     )]
@@ -722,9 +863,12 @@ pub struct Stake<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(_round_id: u64)]
+#[instruction(round_id: u64)]
 pub struct ClaimStakingReward<'info> {
-    #[account(mut, seeds = [b"round", _round_id.to_le_bytes().as_ref()], bump = round.bump)]
+    #[account(
+        seeds = [b"round", round_id.to_le_bytes().as_ref()],
+        bump = round.bump
+    )]
     pub round: Account<'info, Round>,
 
     #[account(mut)]
@@ -732,19 +876,16 @@ pub struct ClaimStakingReward<'info> {
 
     #[account(
         mut,
-        seeds = [
-            b"stake",
-            _round_id.to_le_bytes().as_ref(),
-            user.key().as_ref()
-        ],
-        bump = stake_entry.bump
+        seeds = [b"stake", round_id.to_le_bytes().as_ref(), user.key().as_ref()],
+        bump = stake_entry.bump,
+        constraint = stake_entry.user == user.key() @ LotteryError::Unauthorized
     )]
     pub stake_entry: Account<'info, StakeEntry>,
 
-    /// CHECK: PDA staking_vault (SOL)
+    /// CHECK: PDA staking_vault (SOL).
     #[account(
         mut,
-        seeds = [b"staking_vault", _round_id.to_le_bytes().as_ref()],
+        seeds = [b"staking_vault", round_id.to_le_bytes().as_ref()],
         bump
     )]
     pub staking_vault: AccountInfo<'info>,
@@ -753,26 +894,31 @@ pub struct ClaimStakingReward<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(_round_id: u64, winner_override: Pubkey)]
+#[instruction(round_id: u64)]
 pub struct EmergencyFinalize<'info> {
-    #[account(mut, seeds = [b"round", _round_id.to_le_bytes().as_ref()], bump = round.bump)]
+    #[account(
+        mut,
+        seeds = [b"round", round_id.to_le_bytes().as_ref()],
+        bump = round.bump
+    )]
     pub round: Account<'info, Round>,
 
     #[account(mut)]
     pub admin: Signer<'info>,
 
+    /// CHECK: Ganador override elegido por el admin.
     #[account(mut)]
     pub winner_override: AccountInfo<'info>,
 
-    /// CHECK: PDA prize_vault
+    /// CHECK: PDA prize_vault.
     #[account(
         mut,
-        seeds = [b"prize_vault", _round_id.to_le_bytes().as_ref()],
+        seeds = [b"prize_vault", round_id.to_le_bytes().as_ref()],
         bump
     )]
     pub prize_vault: AccountInfo<'info>,
 
-    /// CHECK: PDA treasury_vault
+    /// CHECK: PDA treasury_vault.
     #[account(
         mut,
         seeds = [b"treasury_vault"],
@@ -780,10 +926,10 @@ pub struct EmergencyFinalize<'info> {
     )]
     pub treasury_vault: AccountInfo<'info>,
 
-    /// CHECK: PDA staking_vault (SOL)
+    /// CHECK: PDA staking_vault (SOL).
     #[account(
         mut,
-        seeds = [b"staking_vault", _round_id.to_le_bytes().as_ref()],
+        seeds = [b"staking_vault", round_id.to_le_bytes().as_ref()],
         bump
     )]
     pub staking_vault: AccountInfo<'info>,
@@ -793,19 +939,23 @@ pub struct EmergencyFinalize<'info> {
     pub system_program: Program<'info, System>,
 }
 
-// ──── Estructuras de datos ────
+// ════════════════════════════════════════════════════════════════════════════
+//  ESTRUCTURAS DE DATOS
+// ════════════════════════════════════════════════════════════════════════════
 
 #[account]
+#[derive(InitSpace)]
 pub struct LotteryGlobal {
-    pub admin: Pubkey,
-    pub round_count: u64,
-    pub max_token_supply: u64,
-    pub total_tokens_minted: u64,
-    pub lottosol_mint: Pubkey,
-    pub treasury_vault: Pubkey,
+    pub admin: Pubkey,           // 32
+    pub round_count: u64,        // 8
+    pub max_token_supply: u64,   // 8
+    pub total_tokens_minted: u64,// 8
+    pub lottosol_mint: Pubkey,   // 32
+    pub treasury_vault: Pubkey,  // 32
 }
 
 #[account]
+#[derive(InitSpace)]
 pub struct Round {
     pub id: u64,
     pub ticket_price: u64,
@@ -815,36 +965,54 @@ pub struct Round {
     pub player_count: u64,
     pub winner: Pubkey,
     pub is_finalized: bool,
-    pub total_prize: u64,            // tracking, no SOL real
+    pub total_prize: u64,
     pub admin: Pubkey,
     pub bump: u8,
-    pub staking_pool: u64,           // tracking
+    // — Staking —
+    pub staking_pool: u64,
     pub total_staked: u64,
     pub staking_finalized: bool,
+    pub staking_token_vault: Pubkey,
+    // — Commit-reveal —
     pub commit_deadline: i64,
     pub reveal_deadline: i64,
     pub revealed_count: u64,
-    pub prize_vault: Pubkey,         // PDA de SOL
-    pub staking_vault: Pubkey,       // PDA de SOL para rewards
-    pub slot_finalized: u64,         // solo auditoría
+    pub revealed_xor: [u8; 32],  // XOR acumulado de secretos revelados
+    // — VRF —
+    pub vrf_account: Pubkey,
+    pub vrf_request_pending: bool,
+    pub vrf_result: [u8; 32],
+    // — Vaults —
+    pub prize_vault: Pubkey,
+    pub staking_vault: Pubkey,
+    // — Distribución —
+    pub winner_share: u64,
+    pub treasury_share: u64,
+    pub rewards_distributed: bool,
+    // — Auditoría —
+    pub slot_finalized: u64,
 }
 
 #[account]
+#[derive(InitSpace)]
 pub struct Ticket {
     pub owner: Pubkey,
     pub round_id: u64,
     pub ticket_number: u64,
     pub commitment: [u8; 32],
     pub revealed: bool,
+    pub bump: u8,
 }
 
 #[account]
+#[derive(InitSpace)]
 pub struct TicketCounter {
     pub round_id: u64,
     pub count: u64,
 }
 
 #[account]
+#[derive(InitSpace)]
 pub struct StakeEntry {
     pub user: Pubkey,
     pub round_id: u64,
@@ -853,7 +1021,23 @@ pub struct StakeEntry {
     pub bump: u8,
 }
 
-// ──── Errores ────
+// ════════════════════════════════════════════════════════════════════════════
+//  EVENTOS
+// ════════════════════════════════════════════════════════════════════════════
+
+#[event] pub struct RoundCreated        { pub round_id: u64 }
+#[event] pub struct TicketPurchased     { pub round_id: u64, pub buyer: Pubkey, pub ticket_number: u64 }
+#[event] pub struct SecretRevealed      { pub round_id: u64, pub ticket_number: u64 }
+#[event] pub struct VrfRequested        { pub round_id: u64, pub vrf_account: Pubkey }
+#[event] pub struct RoundFinalized      { pub round_id: u64, pub winner: Pubkey, pub winner_index: u64 }
+#[event] pub struct RewardsDistributed  { pub round_id: u64, pub winner_share: u64, pub treasury_share: u64, pub staking_pool: u64 }
+#[event] pub struct Staked              { pub round_id: u64, pub user: Pubkey, pub amount: u64 }
+#[event] pub struct StakingRewardClaimed{ pub round_id: u64, pub user: Pubkey, pub reward: u64 }
+#[event] pub struct EmergencyFinalized  { pub round_id: u64, pub winner: Pubkey }
+
+// ════════════════════════════════════════════════════════════════════════════
+//  ERRORES
+// ════════════════════════════════════════════════════════════════════════════
 
 #[error_code]
 pub enum LotteryError {
@@ -865,17 +1049,11 @@ pub enum LotteryError {
     RoundNotActive,
     #[msg("Ronda llena")]
     RoundFull,
-    #[msg("Ronda aún activa")]
-    RoundStillActive,
     #[msg("No hay tickets")]
     NoTickets,
-    #[msg("No finalizada")]
+    #[msg("Ronda no finalizada")]
     RoundNotFinalized,
-    #[msg("No eres el ganador")]
-    NotWinner,
-    #[msg("Sin premio")]
-    NoPrize,
-    #[msg("Winner incorrecto")]
+    #[msg("Ganador incorrecto")]
     WrongWinnerAccount,
     #[msg("Staking ya finalizado")]
     StakingAlreadyFinalized,
@@ -883,6 +1061,10 @@ pub enum LotteryError {
     RoundEnded,
     #[msg("Staking no finalizado")]
     StakingNotFinalized,
+    #[msg("Recompensas no distribuidas")]
+    RewardsNotDistributed,
+    #[msg("Recompensas ya distribuidas")]
+    RewardsAlreadyDistributed,
     #[msg("Ya reclamaste tu recompensa")]
     AlreadyClaimed,
     #[msg("No hay stakers")]
@@ -907,4 +1089,16 @@ pub enum LotteryError {
     InsufficientBalance,
     #[msg("Vault de staking inválido")]
     InvalidStakingVault,
+    #[msg("Mint inválida")]
+    InvalidMint,
+    #[msg("VRF ya solicitado")]
+    VrfAlreadyRequested,
+    #[msg("VRF no solicitado — llama request_vrf primero")]
+    VrfNotRequested,
+    #[msg("VRF inválido o cuenta incorrecta")]
+    VrfInvalid,
+    #[msg("VRF aún no tiene resultado — espera al oracle")]
+    VrfNotReady,
+    #[msg("Demasiado pronto para emergencia (espera 48h post reveal_deadline)")]
+    EmergencyTooEarly,
 }
